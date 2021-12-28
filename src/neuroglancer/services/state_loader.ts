@@ -257,7 +257,7 @@ export class StateLoader extends RefCounted {
         this.element.classList.add('state-loader');
 
         this.stateAPI = stateAPI;
-
+        console.log(this.stateAPI);
         this.stateAPI.getUser().then(user => {
             this.user = user;
 

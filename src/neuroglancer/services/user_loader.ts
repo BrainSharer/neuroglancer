@@ -7,8 +7,10 @@ import { child, get, off, ref, update, } from "firebase/database";
 import { urlParams, stateAPI, StateAPI } from 'neuroglancer/services/state_loader';
 import { StatusMessage } from 'neuroglancer/status';
 
-const DATABASE_PORTAL = 'https://activebrainatlas.ucsd.edu/activebrainatlas/admin/neuroglancer/urlmodel/';
-const LOGIN_URL = 'https://activebrainatlas.ucsd.edu/activebrainatlas/admin/login/?next='
+// const DATABASE_PORTAL = 'https://activebrainatlas.ucsd.edu/activebrainatlas/admin/neuroglancer/urlmodel/';
+// const LOGIN_URL = 'https://activebrainatlas.ucsd.edu/activebrainatlas/admin/login/?next='
+const DATABASE_PORTAL = 'http://localhost:8000/admin/neuroglancer/urlmodel/';
+const LOGIN_URL = 'http://localhost:8000/admin/login/?next='
 
 
 export interface User {
