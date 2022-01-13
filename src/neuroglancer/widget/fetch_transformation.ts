@@ -19,7 +19,7 @@ interface TransformJSON {
 interface TransformInfo {
     prep_id: string;
     input_type: string;
-    person_id: number;
+    owner_id: number;
     username: string;
     count?: number;
 }
@@ -106,9 +106,9 @@ export class FetchTransformationWidget extends RefCounted {
             transformSelectionFetched.add(defaultOption);
 
             response.forEach(info => {
-                const { prep_id, input_type, person_id, username, count } = info;
+                const { prep_id, input_type, owner_id, username, count } = info;
                 const option = document.createElement('option');
-                option.value = `${prep_id}/${input_type}/${person_id}`;
+                option.value = `${prep_id}/${input_type}/${owner_id}`;
                 option.text = `${prep_id} ${input_type} ${username}`;
                 option.text += count ? (count > 1) ? ` - ${count} structures` : ` - ${count} structure` : ``;
                 transformSelectionFetched.add(option);

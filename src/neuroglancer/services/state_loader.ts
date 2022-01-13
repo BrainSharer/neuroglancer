@@ -121,7 +121,7 @@ export class StateAutocomplete extends AutocompleteTextInput {
 
 export interface State {
     state_id: number;
-    person_id: number;
+    owner_id: number;
     comments: string;
     user_date: string;
     neuroglancer_state: Record<string, unknown>;
@@ -152,7 +152,7 @@ export class StateAPI {
         }).then(json => {
             return {
                 state_id: json['id'],
-                person_id: json['person_id'],
+                owner_id: json['owner_id'],
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
@@ -161,7 +161,7 @@ export class StateAPI {
             StatusMessage.showTemporaryMessage('The URL is deleted from database. Please check again.');
             return {
                 state_id: 0,
-                person_id: 0,
+                owner_id: 0,
                 comments: err,
                 user_date: "0",
                 neuroglancer_state: {},
@@ -173,7 +173,7 @@ export class StateAPI {
         const url = this.stateUrl;
         const body = {
             id: state['state_id'],
-            person_id: state['person_id'],
+            owner_id: state['owner_id'],
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
@@ -195,7 +195,7 @@ export class StateAPI {
             urlParams.stateID = json['id'];
             return {
                 state_id: json['id'],
-                person_id: json['person_id'],
+                owner_id: json['owner_id'],
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
@@ -207,7 +207,7 @@ export class StateAPI {
         const url = `${this.stateUrl}/${stateID}`;
         const body = {
             id: state['state_id'],
-            person_id: state['person_id'],
+            owner_id: state['owner_id'],
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
@@ -225,7 +225,7 @@ export class StateAPI {
         }).then(json => {
             return {
                 state_id: json['id'],
-                person_id: json['person_id'],
+                owner_id: json['owner_id'],
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
@@ -326,7 +326,7 @@ export class StateLoader extends RefCounted {
 
         const state = {
             state_id: this.stateID,
-            person_id: this.user.user_id,
+            owner_id: this.user.user_id,
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
@@ -349,7 +349,7 @@ export class StateLoader extends RefCounted {
 
         const state = {
             state_id: this.stateID,
-            person_id: this.user.user_id,
+            owner_id: this.user.user_id,
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
