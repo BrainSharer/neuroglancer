@@ -7,8 +7,10 @@ import { child, get, off, ref, update, } from "firebase/database";
 import { urlParams, stateAPI, StateAPI } from 'neuroglancer/services/state_loader';
 import { StatusMessage } from 'neuroglancer/status';
 
-const DATABASE_PORTAL = 'https://activebrainatlas.ucsd.edu/activebrainatlas/admin/neuroglancer/urlmodel/';
-const LOGIN_URL = 'https://activebrainatlas.ucsd.edu/activebrainatlas/admin/login/?next='
+const DATABASE_PORTAL = 'https://www.brainsharer.org/brainsharer';
+// const DEV_LOGIN_URL = 'http://localhost:8000/admin/login/?next=/ng';
+const LOCAL_LOGIN = 'https://www.brainsharer.org/brainsharer/admin/login/?next=/ng'
+const GOOGLE_LOGIN = 'https://www.brainsharer.org/brainsharer/accounts/google/login/?next=/ng'
 
 
 export interface User {
@@ -24,7 +26,8 @@ export interface ActiveUser {
 export class UserLoader {
     element = document.createElement('div');
     private userList = document.createElement('div');
-    private loginButton: HTMLElement;
+    private googleLoginButton: HTMLElement;
+    private localLoginButton: HTMLElement;
     private logoutButton: HTMLElement;
     private users: string[];
     private stateAPI: StateAPI;
@@ -38,17 +41,20 @@ export class UserLoader {
         if (urlParams.stateID) {
             const stateID = urlParams.stateID;
 
-            this.loginButton = makeIcon({ text: 'Log in', title: 'You will be directed to the log-in page.' });
+            this.googleLoginButton = makeIcon({ text: 'Google', title: 'Login with your Google account.' });
+            this.localLoginButton = makeIcon({ text: 'Local', title: 'Login as a local user.' });
             this.logoutButton = makeIcon({ text: 'Leave', title: 'Leave multi-user mode. You will be directed to database portal.' });
-            registerEventListener(this.loginButton, 'click', () => {
-                this.login();
+            
+            registerEventListener(this.googleLoginButton, 'click', () => {
+                this.googleLogin();
             });
-
+            registerEventListener(this.localLoginButton, 'click', () => {
+                this.localLogin();
+            });
 
             registerEventListener(this.logoutButton, 'click', () => {
                 this.logout(stateID);
             });
-
 
             this.stateAPI.getUser().then(jsonUser => {
                 this.user = jsonUser;
@@ -59,7 +65,8 @@ export class UserLoader {
                     this.loggedIn(stateID);
                 }
                 this.userList.classList.add('user-list');
-                this.element.appendChild(this.loginButton);
+                this.element.appendChild(this.googleLoginButton);
+                this.element.appendChild(this.localLoginButton);
                 this.element.appendChild(this.userList);
                 this.element.appendChild(this.logoutButton);
             });
@@ -92,7 +99,8 @@ export class UserLoader {
     }
 
     private notLoggedIn() {
-        this.loginButton.style.removeProperty('display');
+        this.googleLoginButton.style.removeProperty('display');
+        this.localLoginButton.style.removeProperty('display');
         this.userList.style.display = 'none';
         this.logoutButton.style.display = 'none';
         //TODO fixme migrate web 8 -> 9 userDataRef.off("child_changed");
@@ -100,7 +108,8 @@ export class UserLoader {
     }
 
     private loggedIn(stateID: string) {
-        this.loginButton.style.display = 'none';
+        this.googleLoginButton.style.display = 'none';
+        this.localLoginButton.style.display = 'none';
         this.userList.style.removeProperty('display');
 
         if (urlParams.multiUserMode) {
@@ -124,21 +133,22 @@ export class UserLoader {
     }
 
 
-    private login() {
+    private googleLogin() {
         const url = new URL(window.location.href);
         const { pathname, search, hash } = url;
-        window.location.href = `${LOGIN_URL}${pathname}${search}${hash}`;
+        window.location.href = `${GOOGLE_LOGIN}${pathname}${search}${hash}`;
+    }
+    
+    private localLogin() {
+        const url = new URL(window.location.href);
+        const { pathname, search, hash } = url;
+        window.location.href = `${LOCAL_LOGIN}${pathname}${search}${hash}`;
     }
 
     private logout(stateID: string) {
-        //TODO fixme migrate web 8 -> 9 userDataRef.child(state_id).child("" + this.user.user_id + "").remove();
-        // get(child(userDataRef, `${stateID}`)).remove()
         const userID = this.user.user_id;
-        // set(ref(database, `/users/${stateID}/${userID}`).remove(), {state: null});
-        // const updates:string = {};
         const updates: { [dbRef: string]: null } = {};
         updates[`/users/${stateID}/${userID}`] = null;
-        console.log('updates', updates);
         update(ref(database), updates);
         window.location.href = DATABASE_PORTAL;
     }
