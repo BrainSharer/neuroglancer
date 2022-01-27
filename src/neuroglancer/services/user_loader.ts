@@ -9,8 +9,8 @@ import { StatusMessage } from 'neuroglancer/status';
 
 const DATABASE_PORTAL = 'https://www.brainsharer.org/brainsharer';
 // const DEV_LOGIN_URL = 'http://localhost:8000/admin/login/?next=/ng';
-const LOCAL_LOGIN = 'https://www.brainsharer.org/brainsharer/admin/login/?next=/ng'
-const GOOGLE_LOGIN = 'https://www.brainsharer.org/brainsharer/accounts/google/login/?next=/ng'
+const LOCAL_LOGIN = 'https://www.brainsharer.org/brainsharer/admin/login/?next='
+const GOOGLE_LOGIN = 'https://www.brainsharer.org/brainsharer/accounts/google/login/?next='
 
 
 export interface User {
