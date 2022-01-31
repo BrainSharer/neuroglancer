@@ -7,10 +7,7 @@ import { child, get, off, ref, update, } from "firebase/database";
 import { urlParams, stateAPI, StateAPI } from 'neuroglancer/services/state_loader';
 import { StatusMessage } from 'neuroglancer/status';
 
-const DATABASE_PORTAL = 'https://www.brainsharer.org/brainsharer';
-// const DEV_LOGIN_URL = 'http://localhost:8000/admin/login/?next=/ng';
-const LOCAL_LOGIN = 'https://www.brainsharer.org/brainsharer/admin/login/?next='
-const GOOGLE_LOGIN = 'https://www.brainsharer.org/brainsharer/accounts/google/login/?next='
+import { AppSettings } from 'neuroglancer/services/service';
 
 
 export interface User {
@@ -35,7 +32,6 @@ export class UserLoader {
 
     constructor() {
         this.stateAPI = stateAPI;
-
         this.element.classList.add('user-loader');
 
         if (urlParams.stateID) {
@@ -44,7 +40,7 @@ export class UserLoader {
             this.googleLoginButton = makeIcon({ text: 'Google', title: 'Login with your Google account.' });
             this.localLoginButton = makeIcon({ text: 'Local', title: 'Login as a local user.' });
             this.logoutButton = makeIcon({ text: 'Leave', title: 'Leave multi-user mode. You will be directed to database portal.' });
-            
+
             registerEventListener(this.googleLoginButton, 'click', () => {
                 this.googleLogin();
             });
@@ -65,7 +61,9 @@ export class UserLoader {
                     this.loggedIn(stateID);
                 }
                 this.userList.classList.add('user-list');
-                this.element.appendChild(this.googleLoginButton);
+                if (AppSettings.DISPLAY_GOOGLE) {
+                    this.element.appendChild(this.googleLoginButton);
+                }
                 this.element.appendChild(this.localLoginButton);
                 this.element.appendChild(this.userList);
                 this.element.appendChild(this.logoutButton);
@@ -132,17 +130,16 @@ export class UserLoader {
         }
     }
 
-
     private googleLogin() {
         const url = new URL(window.location.href);
         const { pathname, search, hash } = url;
-        window.location.href = `${GOOGLE_LOGIN}${pathname}${search}${hash}`;
+        window.location.href = `${AppSettings.GOOGLE_LOGIN}${pathname}${search}${hash}`;
     }
-    
+
     private localLogin() {
         const url = new URL(window.location.href);
         const { pathname, search, hash } = url;
-        window.location.href = `${LOCAL_LOGIN}${pathname}${search}${hash}`;
+        window.location.href = `${AppSettings.LOCAL_LOGIN}${pathname}${search}${hash}`;
     }
 
     private logout(stateID: string) {
@@ -150,7 +147,7 @@ export class UserLoader {
         const updates: { [dbRef: string]: null } = {};
         updates[`/users/${stateID}/${userID}`] = null;
         update(ref(database), updates);
-        window.location.href = DATABASE_PORTAL;
+        window.location.href = AppSettings.API_ENDPOINT;
     }
 }
 
