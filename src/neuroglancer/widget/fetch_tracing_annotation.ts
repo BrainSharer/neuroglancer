@@ -49,6 +49,13 @@ export class FetchTracingAnnotationWidget extends RefCounted {
     this.virusTimepoint = document.createElement('select');
     this.virusTimepoint.id = "mouselight-filter-type-1";
     this.virusTimepoint.classList.add('neuroglancer-fetch-mouselight-selection');
+   
+    const defaultOptionVirusTimepoint = document.createElement('option');
+    defaultOptionVirusTimepoint.text = 'Select Virus and Timepoint';
+    defaultOptionVirusTimepoint.value = '';
+    defaultOptionVirusTimepoint.disabled = true;
+    defaultOptionVirusTimepoint.selected = true;
+    this.virusTimepoint.add(defaultOptionVirusTimepoint);
 
     virusTimepointOptions.forEach((option:string) => {
         const filter_option = document.createElement('option');
@@ -60,6 +67,13 @@ export class FetchTracingAnnotationWidget extends RefCounted {
     // Primary injection site
     this.primaryInjectionSite = document.createElement('select');
     this.primaryInjectionSite.classList.add('neuroglancer-fetch-mouselight-selection');
+
+    const defaultOptionPrimaryInjectionSite = document.createElement('option');
+    defaultOptionPrimaryInjectionSite.text = 'Select Primary Injection Site';
+    defaultOptionPrimaryInjectionSite.value = '';
+    defaultOptionPrimaryInjectionSite.disabled = true;
+    defaultOptionPrimaryInjectionSite.selected = true;
+    this.primaryInjectionSite.add(defaultOptionPrimaryInjectionSite);
 
     primaryInjectionSiteOptions.forEach((option:string) => {
         const filter_option = document.createElement('option');
@@ -98,6 +112,17 @@ export class FetchTracingAnnotationWidget extends RefCounted {
       // Filter #1
       const virusTimepoint = this.virusTimepoint.value;
       const primaryInjectionSite = this.primaryInjectionSite.value;
+
+      if (!virusTimepoint) {
+        StatusMessage.showTemporaryMessage('Please select a Virus and Timepoint from the dropdown');
+        return;
+      }
+
+      if (!primaryInjectionSite) {
+        StatusMessage.showTemporaryMessage('Please select a primaryInjectionSite from the dropdown');
+        return;
+      }
+
       console.log("Virus timepoint: " + virusTimepoint);
       console.log("Primary injection site: " + primaryInjectionSite);
       // Set up base url and append to it conditionally below
@@ -116,7 +141,7 @@ export class FetchTracingAnnotationWidget extends RefCounted {
         const n_brains_fetched = tracingJSON.brain_urls.length;
         if (n_brains_fetched > 10) {
           StatusMessage.showTemporaryMessage('More than 10 brains would be fetched. Please adjust your search to fetch 10 or fewer');
-          throw("Error");
+          throw("Error. Too many brains would be fetched. Please adjust your search to fetch 10 or fewer");
         }
 
         let brain_counter = 0;        
