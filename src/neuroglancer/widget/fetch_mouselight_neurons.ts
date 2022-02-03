@@ -208,7 +208,6 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
 
     // What part of neuron to fetch - three checkboxes centered
 
-
     // SUBMIT QUERY BUTTON
     this.fetchButton = makeIcon({
       text: buttonText,
@@ -236,7 +235,7 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
     const parent: any = elem.parentNode;
     if (elem.value == 'soma') {
       for (let i = 0; i < parent.children.length; i++) {
-        let child = parent.children[i];
+        const child = parent.children[i];
         if (child.id.includes('operator-type') || child.id.includes('threshold')) {
           child.style.display = "none";
         }
@@ -244,7 +243,7 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
     }
     else {
       for (let i = 0; i < parent.children.length; i++) {
-        let child = parent.children[i];
+        const child = parent.children[i];
         if (child.id.includes('operator-type') || child.id.includes('threshold')) {
           child.style.display = "block";
         }
