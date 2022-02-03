@@ -381,6 +381,9 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
         if (n_neurons_fetched == 0) {
           this.numberNeuronsShownField.style.color = 'red';
         }
+        else {
+          this.numberNeuronsShownField.style.color = 'white';
+        }
         neuronJSON.segmentId.forEach((segid:number) => {
           const id = new Uint64(segid);
 
