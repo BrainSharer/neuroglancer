@@ -12,6 +12,7 @@ import {SegmentationUserLayer} from 'neuroglancer/segmentation_user_layer';
 
 interface TracingJSON {
   brain_names: Array<string>
+  frac_injections: Array<number>
   brain_urls: Array<string>
 }
 
@@ -140,10 +141,12 @@ export class FetchTracingAnnotationWidget extends RefCounted {
 
         // const brain_names = tracingJSON.brain_names;
         const n_brains_fetched = tracingJSON.brain_urls.length;
-        this.lastFetchField.innerHTML = `Last fetch: <br />
+        const frac_injections = tracingJSON.frac_injections;
+        let lastFetchText = `Last fetch: <br />
         Virus/Timepoint: ${virusTimepoint}<br />
         Primary Injection Site: ${primaryInjectionSite}<br />
-        Number of brains fetched: ${n_brains_fetched}`;
+        Number of brains fetched: ${n_brains_fetched}<br />`;
+
         if (n_brains_fetched == 0) {
           this.lastFetchField.style.color = 'red';
         }
@@ -158,14 +161,15 @@ export class FetchTracingAnnotationWidget extends RefCounted {
         let brain_counter = 0;        
         tracingJSON.brain_urls.forEach((precomputed_url:string) => {
           // const brain_name = brain_names[brain_counter]
-          const layer_name = virusTimepoint + ' PRI_INJ: ' + primaryInjectionSite + ' ' + '(' + String(brain_counter) + ')'; 
+          const layer_name = `${virusTimepoint} PRI_INJ: ${primaryInjectionSite} (${String(brain_counter)})`; 
           // Get list of layer names 
           const layerSet = this.layer.manager.layerManager.layerSet;
           let layerNameArray = new Array<string>();
           layerSet.forEach((entry:any) => {
               layerNameArray.push(entry.name_)
             });
-
+          const frac_injection_this_brain = frac_injections[brain_counter]
+          lastFetchText += `<br />Frac in primary injection site (${brain_counter}): ${frac_injection_this_brain}`
           // Only add new layer if layer not in layer list
 
           if (!layerNameArray.includes(layer_name)) {
@@ -195,7 +199,7 @@ export class FetchTracingAnnotationWidget extends RefCounted {
             }
           brain_counter+=1;
         });
-        
+        this.lastFetchField.innerHTML = lastFetchText;
         StatusMessage.showTemporaryMessage(`Successfully fetched ${n_brains_fetched} tracing brains`);
         
         } catch (e) {
