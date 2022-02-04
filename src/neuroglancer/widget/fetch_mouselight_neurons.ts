@@ -32,6 +32,9 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
   private operatorTypeSecond: HTMLSelectElement;
   private filterThresholdSecond: HTMLInputElement;
 
+  private fetchSomataCheckbox: HTMLInputElement
+  private fetchAxonsCheckbox: HTMLInputElement
+  private fetchDendritesCheckbox: HTMLInputElement
   private fetchButton: HTMLElement;
   private numberNeuronsShownField: HTMLElement
 
@@ -42,7 +45,6 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
     const operatorTypeOptions = [">",">=","<","<=","="];
     const operatorTypeOptionValues = ["gt","gte","lt","lte","exact"];
     const filterTypeOptions = ["axon_endpoints","axon_branches","dendrite_endpoints","dendrite_branches","soma"];
-
     const atlasName = layerName.split("_mouselight")[0];
 
     // Make the overall div for this tool
@@ -207,6 +209,36 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
     this.filterFieldSecond.appendChild(this.filterThresholdSecond);
 
     // What part of neuron to fetch - three checkboxes centered
+    const neuronPartElementTitle = document.createElement('span'); // div to hold all three checkboxes
+    neuronPartElementTitle.classList.add('neuroglancer-mouselight-neuronpart-title');
+    neuronPartElementTitle.innerHTML = "Choose neuron parts to fetch";
+    const neuronPartElement = document.createElement('div'); // div to hold all three checkboxes
+    neuronPartElement.classList.add('neuroglancer-mouselight-neuronpart')
+    
+    this.fetchSomataCheckbox = document.createElement('input');
+    this.fetchSomataCheckbox.type = 'checkbox';
+    this.fetchSomataCheckbox.checked = true;
+    const fetchSomataCheckboxText = document.createElement('p');
+    fetchSomataCheckboxText.innerHTML = 'Somata';
+
+    this.fetchAxonsCheckbox = document.createElement('input');
+    this.fetchAxonsCheckbox.type = 'checkbox';
+    this.fetchAxonsCheckbox.checked = true;
+    const fetchAxonsCheckboxText = document.createElement('p');
+    fetchAxonsCheckboxText.innerHTML = 'Axons';
+
+    this.fetchDendritesCheckbox = document.createElement('input');
+    this.fetchDendritesCheckbox.type = 'checkbox';
+    this.fetchDendritesCheckbox.checked = true;
+    const fetchDendritesCheckboxText = document.createElement('p');
+    fetchDendritesCheckboxText.innerHTML = 'Dendrites';
+    
+    neuronPartElement.appendChild(this.fetchSomataCheckbox);
+    neuronPartElement.appendChild(fetchSomataCheckboxText);
+    neuronPartElement.appendChild(this.fetchAxonsCheckbox);
+    neuronPartElement.appendChild(fetchAxonsCheckboxText);
+    neuronPartElement.appendChild(this.fetchDendritesCheckbox);
+    neuronPartElement.appendChild(fetchDendritesCheckboxText);
 
     // SUBMIT QUERY BUTTON
     this.fetchButton = makeIcon({
@@ -225,6 +257,8 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
     // Now add all child elements to parent filter 
     this.element.appendChild(filterField);
     this.element.appendChild(this.filterFieldSecond);
+    this.element.appendChild(neuronPartElementTitle);
+    this.element.appendChild(neuronPartElement);
     this.element.appendChild(this.fetchButton);
     this.element.appendChild(this.numberNeuronsShownField);
     this.registerDisposer(() => removeFromParent(this.element));
@@ -314,7 +348,16 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
       const filterType = this.filterType.value;
       const operatorType = this.operatorType.value;
       const anatomicalSelection = this.anatomicalSelection.value;
-      
+      const fetchSomata = this.fetchSomataCheckbox.checked;
+      const fetchAxons = this.fetchAxonsCheckbox.checked;
+      const fetchDendrites = this.fetchDendritesCheckbox.checked;
+
+      // Must choose to fetch at least one neuron part
+      if (!fetchSomata && !fetchAxons && !fetchDendrites) {
+        StatusMessage.showTemporaryMessage('Please select at least one neuron part to fetch')
+        return;
+      }
+
       if (!filterType) {
         StatusMessage.showTemporaryMessage('Please select a neuron part for filter #1');
         return;
@@ -325,7 +368,7 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
         return;
       }
       // Set up base url and append to it conditionally below
-      let neuronURL = `${AppSettings.API_ENDPOINT}/mlneurons/${atlasName}/${filterType}/${anatomicalSelection}`
+      let neuronURL = `${AppSettings.API_ENDPOINT}/mlneurons/${atlasName}/${fetchSomata}-${fetchAxons}-${fetchDendrites}/${filterType}/${anatomicalSelection}`
       
       if (filterType != 'soma') {
         const filterThreshold = this.filterThreshold.value;

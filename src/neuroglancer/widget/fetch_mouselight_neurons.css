@@ -49,6 +49,26 @@
   text-align: center;
 }
 
+.neuroglancer-mouselight-neuronpart-title {
+  width: 70%;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+
+}
+.neuroglancer-mouselight-neuronpart {
+  width: 70%;
+
+  display: flex;
+  /*flex-direction: column;*/
+  align-items: center;
+  position: relative;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  }
+
 .neuroglancer-fetch-mouselight-button {
   background-color: #4CAF50; /* Green */
   width: 80px;
