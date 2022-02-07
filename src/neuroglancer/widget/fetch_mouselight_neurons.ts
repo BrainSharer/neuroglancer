@@ -351,10 +351,22 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
       const fetchSomata = this.fetchSomataCheckbox.checked;
       const fetchAxons = this.fetchAxonsCheckbox.checked;
       const fetchDendrites = this.fetchDendritesCheckbox.checked;
+      let n_parts_tofetch = 0;
+      if (fetchSomata) {
+        n_parts_tofetch+=1
+      }
+      if (fetchAxons) {
+        n_parts_tofetch+=1
+      }
+      if (fetchDendrites) {
+        n_parts_tofetch+=1
+      }
 
       // Must choose to fetch at least one neuron part
-      if (!fetchSomata && !fetchAxons && !fetchDendrites) {
+      if (n_parts_tofetch == 0) {
         StatusMessage.showTemporaryMessage('Please select at least one neuron part to fetch')
+        this.numberNeuronsShownField.innerHTML = 'Please select at least one neuron part to fetch';
+        this.numberNeuronsShownField.style.color = 'red';
         return;
       }
 
@@ -419,7 +431,9 @@ export class FetchMouselightNeuronsWidget extends RefCounted{
         });
         const group = this.layer.displayState.segmentationGroupState.value;
         // let counter = 0;
-        const n_neurons_fetched = neuronJSON.segmentId.length/3;
+        const n_neurons_fetched = neuronJSON.segmentId.length/n_parts_tofetch;
+        // if we filtered out
+        // if (fetchSomata && !fetchAxons && !fetchDendrites)
         this.numberNeuronsShownField.innerHTML = `Number of neurons in last fetch:  ${n_neurons_fetched}`;
         if (n_neurons_fetched == 0) {
           this.numberNeuronsShownField.style.color = 'red';

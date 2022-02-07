@@ -13,6 +13,7 @@ import {SegmentationUserLayer} from 'neuroglancer/segmentation_user_layer';
 interface TracingJSON {
   brain_names: Array<string>
   frac_injections: Array<number>
+  primary_inj_sites: Array<string>
   brain_urls: Array<string>
 }
 
@@ -29,7 +30,7 @@ export class FetchTracingAnnotationWidget extends RefCounted {
   constructor(public layer: SegmentationUserLayer) {
     super();
     const virusTimepointOptions = ["HSV-H129_Disynaptic","HSV-H129_Trisynaptic","PRV_Disynaptic"];
-    const primaryInjectionSiteOptions = ["Lob. I-V","Lob. VI, VII","Lob. VIII-X","Simplex","Crus I","Crus II","PM, CP"];
+    const primaryInjectionSiteOptions = ["Lob. I-V","Lob. VI, VII","Lob. VIII-X","Simplex","Crus I","Crus II","PM, CP","All sites"];
 
     const buttonText = 'Click to fetch';
     const buttonTitle = 'Fetch tracing brains';
@@ -141,7 +142,9 @@ export class FetchTracingAnnotationWidget extends RefCounted {
 
         // const brain_names = tracingJSON.brain_names;
         const n_brains_fetched = tracingJSON.brain_urls.length;
+        const primary_inj_sites = tracingJSON.primary_inj_sites;
         const frac_injections = tracingJSON.frac_injections;
+        
         let lastFetchText = `Last fetch: <br />
         Virus/Timepoint: ${virusTimepoint}<br />
         Primary Injection Site: ${primaryInjectionSite}<br />
@@ -153,25 +156,26 @@ export class FetchTracingAnnotationWidget extends RefCounted {
         else {
           this.lastFetchField.style.color = 'white';
         }
-        if (n_brains_fetched > 10) {
-          StatusMessage.showTemporaryMessage('More than 10 brains would be fetched. Please adjust your search to fetch 10 or fewer');
-          throw("Error. Too many brains would be fetched. Please adjust your search to fetch 10 or fewer");
+        if (n_brains_fetched > 30) {
+          StatusMessage.showTemporaryMessage('More than 30 brains would be fetched. Please adjust your search to fetch 30 or fewer');
+          throw("Error. Too many brains would be fetched. Please adjust your search to fetch 30 or fewer");
         }
 
         let brain_counter = 0;        
         tracingJSON.brain_urls.forEach((precomputed_url:string) => {
-          // const brain_name = brain_names[brain_counter]
-          const layer_name = `${virusTimepoint} PRI_INJ: ${primaryInjectionSite} (${String(brain_counter)})`; 
+          const primary_inj_site = primary_inj_sites[brain_counter]
+          const layer_name = `${virusTimepoint} PRI_INJ: ${primary_inj_site} (${String(brain_counter)})`; 
+          
           // Get list of layer names 
           const layerSet = this.layer.manager.layerManager.layerSet;
           let layerNameArray = new Array<string>();
           layerSet.forEach((entry:any) => {
               layerNameArray.push(entry.name_)
             });
-          const frac_injection_this_brain = frac_injections[brain_counter]
+          let frac_injection_this_brain = Number(frac_injections[brain_counter]).toFixed(2)
           lastFetchText += `<br />Frac in primary injection site (${brain_counter}): ${frac_injection_this_brain}`
+          
           // Only add new layer if layer not in layer list
-
           if (!layerNameArray.includes(layer_name)) {
             // pick a random color for the annotations
             let randomColor = Math.floor(Math.random()*16777215).toString(16);

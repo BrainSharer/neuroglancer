@@ -286,7 +286,7 @@ export class AnnotationLayerView extends Tab {
 
     const layerName = layer.managedLayer.name;
 
-    if (layerName.includes('mouselight')) {
+    if (layerName.includes('mouselight') && layerName.includes('pma')) {
       const fetchTracingAnnotationWidget = this.registerDisposer(
         new FetchTracingAnnotationWidget(this.layer as SegmentationUserLayer));
       this.element.appendChild(fetchTracingAnnotationWidget.element);    }
