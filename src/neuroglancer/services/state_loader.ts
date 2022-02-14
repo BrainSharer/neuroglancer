@@ -125,6 +125,7 @@ export interface State {
     comments: string;
     user_date: string;
     neuroglancer_state: Record<string, unknown>;
+    readonly: boolean;
 }
 
 export class StateAPI {
@@ -156,6 +157,7 @@ export class StateAPI {
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
+                readonly: json['readonly']
             };
         }).catch(err => {
             StatusMessage.showTemporaryMessage('The URL is deleted from database. Please check again.');
@@ -165,6 +167,7 @@ export class StateAPI {
                 comments: err,
                 user_date: "0",
                 neuroglancer_state: {},
+                readonly: false
             };
         });
     }
@@ -177,6 +180,7 @@ export class StateAPI {
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
+            readonly: state['readonly']
         };
 
         return fetchOk(url, {
@@ -199,6 +203,7 @@ export class StateAPI {
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
+                readonly: json['readonly']
             };
         });
     }
@@ -211,6 +216,7 @@ export class StateAPI {
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
+            readonly: state['readonly']
         };
 
         return fetchOk(url, {
@@ -229,6 +235,7 @@ export class StateAPI {
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
+                readonly: json['readonly']
             };
         });
     }
@@ -330,6 +337,7 @@ export class StateLoader extends RefCounted {
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
+            readonly: false
         };
 
         this.stateAPI.saveState(this.stateID, state).then(() => {
@@ -353,6 +361,7 @@ export class StateLoader extends RefCounted {
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
+            readonly: false
         };
 
         this.stateAPI.newState(state).then((newState) => {
