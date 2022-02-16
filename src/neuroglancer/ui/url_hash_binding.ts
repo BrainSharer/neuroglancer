@@ -33,6 +33,11 @@ import { User, updateUser } from 'neuroglancer/services/user_loader';
  */
 
 
+export interface UrlHashBindingOptions {
+  defaultFragment?: string;
+  updateDelayMilliseconds?: number;
+}
+
 /**
  * An instance of this class manages a binding between a Trackable value and the URL hash state.
  * The binding is initialized in the constructor, and is removed when dispose is called.
@@ -60,8 +65,9 @@ export class UrlHashBinding extends RefCounted {
 
     constructor(
         public root: Trackable, public credentialsManager: CredentialsManager,
-        updateDelayMilliseconds = 200) {
+        options: UrlHashBindingOptions = {}) {
         super();
+        const {updateDelayMilliseconds = 200} = options;
         this.stateAPI = stateAPI;
         stateAPI.getUser().then(jsonUser => {
             this.user = jsonUser;

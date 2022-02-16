@@ -11,6 +11,7 @@ import { makeIcon } from 'neuroglancer/widget/icon';
 import { getCachedJson } from 'neuroglancer/util/trackable';
 import { AppSettings } from 'neuroglancer/services/service';
 import { User } from 'neuroglancer/services/user_loader';
+import { State } from 'neuroglancer/services/state';
 
 /**
  * Fuzzy search algorithm from https://github.com/bevacqua/fuzzysearch in Typescript.
@@ -119,14 +120,6 @@ export class StateAutocomplete extends AutocompleteTextInput {
     }
 }
 
-export interface State {
-    state_id: number;
-    owner_id: number;
-    comments: string;
-    user_date: string;
-    neuroglancer_state: Record<string, unknown>;
-    readonly: boolean;
-}
 
 export class StateAPI {
     constructor(private userUrl: string, private stateUrl: string) { }
@@ -157,7 +150,8 @@ export class StateAPI {
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
-                readonly: json['readonly']
+                readonly: json['readonly'],
+                lab: json['lab']
             };
         }).catch(err => {
             StatusMessage.showTemporaryMessage('The URL is deleted from database. Please check again.');
@@ -167,7 +161,8 @@ export class StateAPI {
                 comments: err,
                 user_date: "0",
                 neuroglancer_state: {},
-                readonly: false
+                readonly: false,
+                lab: "NA"
             };
         });
     }
@@ -180,7 +175,8 @@ export class StateAPI {
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
-            readonly: state['readonly']
+            readonly: state['readonly'],
+            lab: state['lab']
         };
 
         return fetchOk(url, {
@@ -203,7 +199,8 @@ export class StateAPI {
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
-                readonly: json['readonly']
+                readonly: json['readonly'],
+                lab: json['lab']
             };
         });
     }
@@ -216,7 +213,8 @@ export class StateAPI {
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
-            readonly: state['readonly']
+            readonly: state['readonly'],
+            lab: state['lab']
         };
 
         return fetchOk(url, {
@@ -235,7 +233,8 @@ export class StateAPI {
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
-                readonly: json['readonly']
+                readonly: json['readonly'],
+                lab: json['lab']
             };
         });
     }
@@ -273,7 +272,7 @@ export class StateLoader extends RefCounted {
                 this.input.disableCompletions();
                 this.input.element.classList.add('state-loader-input');
                 this.element.appendChild(this.input.element);
-
+                
                 this.resetButton = makeIcon({ text: 'Reset', title: 'Reset to the JSON state stored in the database' });
                 this.registerEventListener(this.resetButton, 'click', () => {
                     this.resetState();
@@ -318,6 +317,10 @@ export class StateLoader extends RefCounted {
     private getState() {
         this.stateAPI.getState(this.stateID).then(state => {
             this.validateState(state);
+            if (state.readonly) {
+                this.saveButton.style.display = 'none';
+                }
+
         }).catch(err => {
             StatusMessage.showTemporaryMessage(`Internal error: please see debug message.`);
             console.log(err);
@@ -337,7 +340,8 @@ export class StateLoader extends RefCounted {
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
-            readonly: false
+            readonly: false,
+            lab: 'NA'
         };
 
         this.stateAPI.saveState(this.stateID, state).then(() => {
@@ -361,7 +365,8 @@ export class StateLoader extends RefCounted {
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
-            readonly: false
+            readonly: false,
+            lab: "NA"
         };
 
         this.stateAPI.newState(state).then((newState) => {

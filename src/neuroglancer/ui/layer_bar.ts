@@ -200,13 +200,13 @@ export class LayerBar extends RefCounted {
     this.layerWidgetInsertionPoint.style.display = 'none';
     this.element.appendChild(this.layerWidgetInsertionPoint);
 
-    const addButton = makeIcon({
+    let addButton = makeIcon({
       svg: svg_plus,
       title: 'Click to add layer, control+click/right click/⌘+click to add local annotation layer.',
     });
     addButton.classList.add('neuroglancer-layer-add-button');
 
-    const dropZone = this.dropZone = document.createElement('div');
+    let dropZone = this.dropZone = document.createElement('div');
     dropZone.className = 'neuroglancer-layer-panel-drop-zone';
 
     const addLayer = (event: MouseEvent) => {
@@ -281,12 +281,12 @@ export class LayerBar extends RefCounted {
     if (this.showLayerHoverValues.value === false) {
       return
     }
-    const values = this.manager.layerSelectedValues;
-    for (const [layer, widget] of this.layerWidgets) {
-      const userLayer = layer.layer;
+    let values = this.manager.layerSelectedValues;
+    for (let [layer, widget] of this.layerWidgets) {
+      let userLayer = layer.layer;
       let text = '';
       if (userLayer !== null) {
-        const state = values.get(userLayer);
+        let state = values.get(userLayer);
         if (state !== undefined) {
           const {value} = state;
           if (value !== undefined) {

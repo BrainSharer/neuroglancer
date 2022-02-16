@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2016 Google Inc.
+ * Copyright 2022 William Silversmith
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,25 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import {asyncComputation} from 'neuroglancer/async_computation';
 
-html, body {
-  margin: 0px;
-  padding: 0px;
-  overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-  background-color: black;
-  color: white;
-}
-
-body {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-#neuroglancer-container {
-  width: 100vw;
-  overflow: hidden;
-  flex: 1;
-}
+export const decodePng = asyncComputation<( 
+    data: Uint8Array, width: number, height: number, 
+    numComponents: number, bytesPerPixel:number, 
+    convertToGrayscale: boolean
+) => Uint8Array>('decodePng');
