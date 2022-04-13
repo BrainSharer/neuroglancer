@@ -20,9 +20,7 @@ interface AnnotationJSON {
 interface AnnotationLayerInfo {
   animal_id: number,
   animal_name: string,
-  label: string,
-  input_type: string,
-  FK_input_id: number
+  label: string
 }
 
 export class FetchAnnotationWidget extends RefCounted {
@@ -80,10 +78,10 @@ export class FetchAnnotationWidget extends RefCounted {
       annotationSelectionFetched.add(defaultOption);
 
       response.forEach(AnnotationLayerInfo => {
-        const { animal_id, animal_name, label, input_type, FK_input_id } = AnnotationLayerInfo;
+        const { animal_id, animal_name, label } = AnnotationLayerInfo;
         const option = document.createElement('option');
-        option.value = `${animal_id}/${encodeURIComponent(label)}/${FK_input_id}`;
-        option.text = `${animal_name}/${label}/${input_type}`;
+        option.value = `${animal_id}/${encodeURIComponent(label)}`;
+        option.text = `${animal_name}/${label}`;
         annotationSelectionFetched.add(option);
       });
 

@@ -124,7 +124,7 @@ export class StateAutocomplete extends AutocompleteTextInput {
 export class StateAPI {
     constructor(private userUrl: string, private stateUrl: string) { }
 
-    public getUser(): Promise<User> {
+    public async getUser(): Promise<User> {
         const url = this.userUrl;
 
         return fetchOk(url, {
@@ -136,7 +136,7 @@ export class StateAPI {
         });
     }
 
-    public getState(stateID: number | string): Promise<State> {
+    public async getState(stateID: number | string): Promise<State> {
         const url = `${this.stateUrl}/${stateID}`;
 
         return fetchOk(url, {
@@ -145,8 +145,8 @@ export class StateAPI {
             return response.json();
         }).then(json => {
             return {
-                state_id: json['id'],
-                owner_id: json['owner_id'],
+                id: json['id'],
+                owner: json['owner'],
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
@@ -156,8 +156,8 @@ export class StateAPI {
         }).catch(err => {
             StatusMessage.showTemporaryMessage('The URL is deleted from database. Please check again.');
             return {
-                state_id: 0,
-                owner_id: 0,
+                id: 0,
+                owner: 0,
                 comments: err,
                 user_date: "0",
                 neuroglancer_state: {},
@@ -167,11 +167,11 @@ export class StateAPI {
         });
     }
 
-    newState(state: State): Promise<State> {
+    async newState(state: State): Promise<State> {
         const url = this.stateUrl;
         const body = {
-            id: state['state_id'],
-            owner_id: state['owner_id'],
+            id: state['id'],
+            owner: state['owner'],
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
@@ -194,8 +194,8 @@ export class StateAPI {
             window.history.pushState({}, '', href.toString());
             urlParams.stateID = json['id'];
             return {
-                state_id: json['id'],
-                owner_id: json['owner_id'],
+                id: json['id'],
+                owner: json['owner'],
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
@@ -205,11 +205,11 @@ export class StateAPI {
         });
     }
 
-    saveState(stateID: number | string, state: State): Promise<State> {
+    async saveState(stateID: number | string, state: State): Promise<State> {
         const url = `${this.stateUrl}/${stateID}`;
         const body = {
-            id: state['state_id'],
-            owner_id: state['owner_id'],
+            id: state['id'],
+            owner: state['owner'],
             comments: state['comments'],
             user_date: state['user_date'],
             neuroglancer_state: state['neuroglancer_state'],
@@ -228,8 +228,8 @@ export class StateAPI {
             return response.json();
         }).then(json => {
             return {
-                state_id: json['id'],
-                owner_id: json['owner_id'],
+                id: json['id'],
+                owner: json['owner'],
                 comments: json['comments'],
                 user_date: json['user_date'],
                 neuroglancer_state: json['neuroglancer_state'],
@@ -307,7 +307,7 @@ export class StateLoader extends RefCounted {
 
     private validateState(state: State | null) {
         if (state !== null) {
-            this.stateID = state['state_id'];
+            this.stateID = state['id'];
             this.input.value = state['comments'];
             this.saveButton.style.removeProperty('display');
             this.resetButton.style.removeProperty('display');
@@ -335,14 +335,15 @@ export class StateLoader extends RefCounted {
         }
 
         const state = {
-            state_id: this.stateID,
-            owner_id: this.user.user_id,
+            id: this.stateID,
+            owner: this.user.user_id,
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
             readonly: false,
             lab: 'NA'
         };
+        console.log(state);
 
         this.stateAPI.saveState(this.stateID, state).then(() => {
             StatusMessage.showTemporaryMessage(`The data was saved successfully.`);
@@ -360,8 +361,8 @@ export class StateLoader extends RefCounted {
         }
 
         const state = {
-            state_id: this.stateID,
-            owner_id: this.user.user_id,
+            id: this.stateID,
+            owner: this.user.user_id,
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
