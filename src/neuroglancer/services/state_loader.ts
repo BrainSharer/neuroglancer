@@ -318,6 +318,7 @@ export class StateLoader extends RefCounted {
         this.stateAPI.getState(this.stateID).then(state => {
             this.validateState(state);
             if (state.readonly) {
+                this.saveButton.style.removeProperty('display');
                 this.saveButton.style.display = 'none';
                 }
 

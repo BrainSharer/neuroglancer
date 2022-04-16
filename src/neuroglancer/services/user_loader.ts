@@ -37,8 +37,8 @@ export class UserLoader {
         if (urlParams.stateID) {
             const stateID = urlParams.stateID;
 
-            this.googleLoginButton = makeIcon({ text: 'Google', title: 'Login with your Google account.' });
-            this.localLoginButton = makeIcon({ text: 'Local', title: 'Login as a local user.' });
+            this.googleLoginButton = makeIcon({ text: 'Google login', title: 'Login with your Google account.' });
+            this.localLoginButton = makeIcon({ text: 'Local login', title: 'Login as a local user.' });
             this.logoutButton = makeIcon({ text: 'Leave', title: 'Leave multi-user mode. You will be directed to database portal.' });
 
             registerEventListener(this.googleLoginButton, 'click', () => {
@@ -96,12 +96,15 @@ export class UserLoader {
         this.userList = newList;
     }
 
+    // We're not showing them for now
+    // toggle between none and display to not show, show
     private notLoggedIn() {
-        this.googleLoginButton.style.removeProperty('display');
-        this.localLoginButton.style.removeProperty('display');
+        // this.googleLoginButton.style.removeProperty('display');
+        // this.localLoginButton.style.removeProperty('display');
+        this.googleLoginButton.style.display = 'none';
+        this.localLoginButton.style.display = 'none';
         this.userList.style.display = 'none';
         this.logoutButton.style.display = 'none';
-        //TODO fixme migrate web 8 -> 9 userDataRef.off("child_changed");
         off(userDataRef, "child_changed");
     }
 
