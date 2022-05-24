@@ -27,7 +27,8 @@ import { urlParams, stateAPI, StateAPI } from 'neuroglancer/services/state_loade
 import { State } from 'neuroglancer/services/state';
 import { database, dbRef } from 'neuroglancer/services/firebase';
 import { child, get, onValue, ref, update } from "firebase/database";
-import { User, updateUser } from 'neuroglancer/services/user_loader';
+import { updateUser } from 'neuroglancer/services/user_loader';
+import { User } from 'neuroglancer/services/user';
 
 /**
  * @file Implements a binding between a Trackable value and the URL hash state.
@@ -90,7 +91,7 @@ export class UrlHashBinding extends RefCounted {
      */
     private setUrlHash() {
         if (this.stateID && this.multiUserMode) {
-            if (this.user.user_id == 0) {
+            if (this.user.id == 0) {
                 StatusMessage.showTemporaryMessage('You have not logged in yet. Changes will not be pushed to the cloud. Please log in and refresh the page to use multi-user mode.');
                 return;
             }
@@ -100,7 +101,7 @@ export class UrlHashBinding extends RefCounted {
             const { prevUrlString } = this;
             const sameUrl = prevUrlString === urlString;
             if (!sameUrl) {
-                updateUser(this.stateID, this.user.user_id, this.user.username);
+                updateUser(this.stateID, this.user.id, this.user.username);
                 this.stateData.neuroglancer_state = urlData;
                 this.updateStateData(this.stateData);
                 this.prevUrlString = urlString;
@@ -121,7 +122,7 @@ export class UrlHashBinding extends RefCounted {
         if (this.stateID) {
             const { stateID } = this;
             if (this.multiUserMode) {
-                if (this.user.user_id === 0) {
+                if (this.user.id === 0) {
                     StatusMessage.showTemporaryMessage('You have not logged in yet. Please log in and refresh the page to use multi-user mode.');
                     return;
                 }
@@ -199,7 +200,7 @@ export class UrlHashBinding extends RefCounted {
         this.root.restoreState(jsonStateUrl);
         this.prevUrlString = JSON.stringify(jsonStateUrl);
         this.updateStateData(this.stateData);
-        updateUser(this.stateID, this.user.user_id, this.user.username);
+        updateUser(this.stateID, this.user.id, this.user.username);
         this.checkAndSetStateFromFirebase();
     }
 

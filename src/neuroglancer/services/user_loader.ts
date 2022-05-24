@@ -4,16 +4,11 @@ import { registerEventListener } from 'neuroglancer/util/disposable';
 import { database, dbRef, userDataRef } from 'neuroglancer/services/firebase';
 import { child, get, off, ref, update, } from "firebase/database";
 
-import { urlParams, stateAPI, StateAPI } from 'neuroglancer/services/state_loader';
 import { StatusMessage } from 'neuroglancer/status';
-
+import { urlParams, stateAPI, StateAPI } from 'neuroglancer/services/state_loader';
 import { AppSettings } from 'neuroglancer/services/service';
+import { User } from 'neuroglancer/services/user';
 
-
-export interface User {
-    user_id: number;
-    username: string;
-}
 
 export interface ActiveUser {
     name: string;
@@ -54,7 +49,7 @@ export class UserLoader {
 
             this.stateAPI.getUser().then(jsonUser => {
                 this.user = jsonUser;
-                if (this.user.user_id === 0) {
+                if (this.user.id === 0) {
                     StatusMessage.showTemporaryMessage('You are not logged in.');
                     this.notLoggedIn();
                 } else {
@@ -115,7 +110,7 @@ export class UserLoader {
 
         if (urlParams.multiUserMode) {
             this.logoutButton.style.removeProperty('display');
-            updateUser(stateID, this.user.user_id, this.user.username);
+            updateUser(stateID, this.user.id, this.user.username);
             get(child(dbRef, `users/${stateID}`)).then((snapshot) => {
                 if (snapshot.exists()) {
                     this.updateUserList(snapshot);
@@ -146,7 +141,7 @@ export class UserLoader {
     }
 
     private logout(stateID: string) {
-        const userID = this.user.user_id;
+        const userID = this.user.id;
         const updates: { [dbRef: string]: null } = {};
         updates[`/users/${stateID}/${userID}`] = null;
         update(ref(database), updates);

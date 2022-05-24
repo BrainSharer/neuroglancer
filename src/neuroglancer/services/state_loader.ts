@@ -10,7 +10,7 @@ import { StatusMessage } from 'neuroglancer/status';
 import { makeIcon } from 'neuroglancer/widget/icon';
 import { getCachedJson } from 'neuroglancer/util/trackable';
 import { AppSettings } from 'neuroglancer/services/service';
-import { User } from 'neuroglancer/services/user_loader';
+import { User } from 'neuroglancer/services/user';
 import { State } from 'neuroglancer/services/state';
 
 /**
@@ -267,7 +267,7 @@ export class StateLoader extends RefCounted {
         this.stateAPI.getUser().then(user => {
             this.user = user;
 
-            if (this.user.user_id !== 0) {
+            if (this.user.id !== 0) {
                 this.input = new StateAutocomplete(viewer);
                 this.input.disableCompletions();
                 this.input.element.classList.add('state-loader-input');
@@ -337,7 +337,7 @@ export class StateLoader extends RefCounted {
 
         const state = {
             id: this.stateID,
-            owner: this.user.user_id,
+            owner: this.user.id,
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
@@ -363,7 +363,7 @@ export class StateLoader extends RefCounted {
 
         const state = {
             id: this.stateID,
-            owner: this.user.user_id,
+            owner: this.user.id,
             comments: comments,
             user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewer.state).value,
