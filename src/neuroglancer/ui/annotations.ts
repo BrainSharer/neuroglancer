@@ -61,6 +61,9 @@ import {makeMoveToButton} from 'neuroglancer/widget/move_to_button';
 import {Tab} from 'neuroglancer/widget/tab_view';
 import {VirtualList, VirtualListSource} from 'neuroglancer/widget/virtual_list';
 import {FetchAnnotationWidget} from 'neuroglancer/widget/fetch_annotation';
+import {FetchTracingAnnotationWidget} from 'neuroglancer/widget/fetch_tracing_annotation';
+import {SegmentationUserLayer} from 'neuroglancer/segmentation_user_layer';
+
 
 export class MergedAnnotationStates extends RefCounted implements
     WatchableValueInterface<readonly AnnotationLayerState[]> {
@@ -280,8 +283,18 @@ export class AnnotationLayerView extends Tab {
       public layer: Borrowed<UserLayerWithAnnotations>,
       public displayState: AnnotationDisplayState) {
     super();
-    const fetchAnnotationWidget = this.registerDisposer(new FetchAnnotationWidget(this));
-    this.element.appendChild(fetchAnnotationWidget.element);
+
+    const layerName = layer.managedLayer.name;
+
+    if (layerName.includes('mouselight') && layerName.includes('pma')) {
+      const fetchTracingAnnotationWidget = this.registerDisposer(
+        new FetchTracingAnnotationWidget(this.layer as SegmentationUserLayer));
+      this.element.appendChild(fetchTracingAnnotationWidget.element);    }
+
+    else {
+      const fetchAnnotationWidget = this.registerDisposer(new FetchAnnotationWidget(this));
+      this.element.appendChild(fetchAnnotationWidget.element);
+    }
     this.element.classList.add('neuroglancer-annotation-layer-view');
     this.registerDisposer(this.visibility.changed.add(() => this.updateView()));
     this.registerDisposer(
@@ -299,7 +312,9 @@ export class AnnotationLayerView extends Tab {
             shader => shader.match(/\bdefaultColor\b/) !== null,
             displayState.shaderControls.processedFragmentMain),
         colorPicker.element));
-    toolbox.appendChild(colorPicker.element);
+    if (!layerName.includes('mouselight')) {
+      toolbox.appendChild(colorPicker.element);
+    }
     const {mutableControls} = this;
     const pointButton = makeIcon({
       text: annotationTypeHandlers[AnnotationType.POINT].icon,

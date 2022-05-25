@@ -41,7 +41,7 @@ import {clampToInterval, computeInvlerp, dataTypeCompare, DataTypeInterval, data
 import {CdfController, getUpdatedRangeAndWindowParameters, RangeAndWindowIntervals} from 'neuroglancer/widget/invlerp';
 import {makeToolButton} from 'neuroglancer/ui/tool';
 import {ANNOTATE_MERGE_SEGMENTS_TOOL_ID, ANNOTATE_SPLIT_SEGMENTS_TOOL_ID} from 'neuroglancer/ui/segment_split_merge_tools';
-import { SELECT_SEGMENTS_TOOLS_ID } from 'neuroglancer/ui/segment_select_tools';
+import {FetchMouselightNeuronsWidget} from 'neuroglancer/widget/fetch_mouselight_neurons'
 
 const tempUint64 = new Uint64();
 
@@ -775,10 +775,27 @@ function renderTagSummary(
 }
 
 export class SegmentDisplayTab extends Tab {
+
+
   constructor(public layer: SegmentationUserLayer) {
     super();
+
     const {element} = this;
     element.classList.add('neuroglancer-segment-display-tab');
+    const layerName = layer.managedLayer.name;
+    if (layerName.includes('mouselight')) {
+      
+      const fetchMouselightNeuronsWidget = this.registerDisposer(
+        new FetchMouselightNeuronsWidget(this.layer,layerName));
+      
+      this.element.appendChild(fetchMouselightNeuronsWidget.element);
+      // this.element.appendChild(fetchMouselightNeuronsWidget.elementSecond);
+    }
+    //   const newElement = document.createElement('div');
+    //   newElement.classList.add('neuroglancer-fetch-annotation-tool');
+    //   newElement.appendChild(annotationSelectionFetched);
+    //   newElement.appendChild(this.fetchButton);
+
     element.appendChild(
         this.registerDisposer(new DependentViewWidget(
                                   layer.displayState.segmentationGroupState.value.graph,
@@ -799,17 +816,6 @@ export class SegmentDisplayTab extends Tab {
                                     parent.appendChild(toolbox);
                                   }))
             .element);
-
-
-    const toolbox = document.createElement('div');
-    toolbox.className ='neuroglancer-segmentation-toolbox';
-    toolbox.appendChild(makeToolButton(this, layer, {
-      toolJson: SELECT_SEGMENTS_TOOLS_ID,
-      label: 'Select',
-      title: 'Select/Deselect segments'
-    }));
-    element.appendChild(toolbox);
-
     const queryElement = document.createElement('input');
     queryElement.classList.add('neuroglancer-segment-list-query');
     queryElement.addEventListener('focus', () => {
@@ -821,7 +827,7 @@ export class SegmentDisplayTab extends Tab {
     const debouncedUpdateQueryModel = this.registerCancellable(debounce(() => {
       segmentQuery.value = queryElement.value;
     }, 200));
-    queryElement.autocomplete = 'off';
+    queryElement.autocomplete = 'on';
     queryElement.title = keyMap.describe();
     queryElement.spellcheck = false;
     queryElement.placeholder = 'Enter ID, name prefix or /regexp';
@@ -1086,4 +1092,7 @@ export class SegmentDisplayTab extends Tab {
                 }))
             .element);
   }
+  
+
+    
 }
