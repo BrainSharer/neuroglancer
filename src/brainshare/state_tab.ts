@@ -2,6 +2,7 @@ import { Trackable, getCachedJson } from "#/util/trackable";
 import { StatusMessage } from "#/status";
 import { makeIcon } from "#/widget/icon";
 import { Tab } from "#/widget/tab_view";
+import { verifyObject } from '#/util/json';
 import { StateAPI, StateAutocomplete } from "./state_utils";
 import { APIs } from "./service";
 
@@ -29,8 +30,17 @@ export class StateTab extends Tab {
       this.stateUpdated();
     });
     this.stateAPI.brainState.changed.add(() => {
+      this.init_viewerState();
       this.stateUpdated();
     });
+  }
+
+  private init_viewerState() {
+    const brainState = this.stateAPI.brainState.value;
+    if (brainState !== null) {
+      this.viewerState.reset();
+      this.viewerState.restoreState(verifyObject(brainState.neuroglancer_state));
+    }
   }
 
   private stateUpdated() {

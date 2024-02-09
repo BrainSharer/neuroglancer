@@ -74,7 +74,7 @@ export class StateAutocomplete extends AutocompleteTextInput {
   constructor(
     private viewerState: Trackable
   ) {
-    super({
+    super({ 
       completer: (value: string, _cancellationToken: CancellationToken) => {
         this.curCompletions = [];
         for (const result of this.allCompletions) {
@@ -90,7 +90,8 @@ export class StateAutocomplete extends AutocompleteTextInput {
           selectSingleResult: true,
           makeElement: makeCompletionElementWithState,
         });
-      }, delay: 0
+      }, 
+      delay: 0
     });
 
     this.placeholder = 'State comment';
@@ -190,7 +191,7 @@ export class StateAPI {
    * If the username cookie exists, use it, otherwise set to an empty string
    * @returns json of user
    */
-  getUser(): void{
+  getUser() {
     const user_id = getCookie("id") ?? 0;
     const access = getCookie("access") ?? "";
     const lab = getCookie("lab") ?? "";
@@ -214,7 +215,7 @@ export class StateAPI {
    * @param stateID The integer from the REST API of the neuroglancer_state id.
    * @returns the JSON state
    */
-  getState(stateID: number | string): void {
+  getState(stateID: number | string) {
     const url = `${this.stateUrl}/${stateID}`;
 
     fetchOk(url, { method: 'GET' }).then(
@@ -253,7 +254,7 @@ export class StateAPI {
    * @param state the JSON state
    * @returns the JSON state
    */
-  newState(state: State): void {
+  newState(state: State) {
     const url = this.stateUrl;
     const json_body = {
       id: state['state_id'],
@@ -300,7 +301,7 @@ export class StateAPI {
    * @param state the JSON state
    * @returns the JSON state
    */
-  saveState(stateID: number | string, state: State): void {
+  saveState(stateID: number | string, state: State) {
     const url = `${this.stateUrl}/${stateID}`;
     const json_body = {
       id: state['state_id'],

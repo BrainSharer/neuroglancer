@@ -158,7 +158,6 @@ export class UserSidePanel extends SidePanel {
           changed: panelState.tabsChanged,
         })),
         handleTabElement: (id: string, element: HTMLElement) => {
-          console.log("handleTabElement", id, element);
         },
       },
       this.visibility,
