@@ -18,3 +18,4 @@ tsconfig.tsbuildinfo
 .nox
 .pytest_cache
 /ngauth_server/secrets/
+/src/brainshare/firestore.ts

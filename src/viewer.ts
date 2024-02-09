@@ -124,6 +124,9 @@ import { MousePositionWidget, PositionWidget } from "#/widget/position_widget";
 import { TrackableScaleBarOptions } from "#/widget/scale_bar";
 import { RPC } from "#/worker_rpc";
 
+import svg_people from "ikonate/icons/people.svg";
+import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
+
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
 
 interface CreditLink {
@@ -187,6 +190,7 @@ export class InputEventBindings extends DataPanelInputEventBindings {
 }
 
 export const VIEWER_TOP_ROW_CONFIG_OPTIONS = [
+  "showUserButton",
   "showHelpButton",
   "showSettingsButton",
   "showEditStateButton",
@@ -484,6 +488,8 @@ export class Viewer extends RefCounted implements ViewerState {
   dataSourceProvider: Borrowed<DataSourceProviderRegistry>;
 
   uiConfiguration: ViewerUIConfiguration;
+
+  userSidePanelState = new UserSidePanelState();
 
   private makeUiControlVisibilityState(key: keyof ViewerUIOptions) {
     const showUIControls = this.uiConfiguration.showUIControls;
@@ -874,6 +880,26 @@ export class Viewer extends RefCounted implements ViewerState {
       topRow.appendChild(button.element);
     }
 
+    // User panel button
+    {
+      const { userSidePanelState } = this;
+      const button = this.registerDisposer(
+        new CheckboxIcon(userSidePanelState.location.watchableVisible, {
+          svg: svg_people,
+          backgroundScheme: "dark",
+          enableTitle: "Show user panel",
+          disableTitle: "Hide user panel",
+        }),
+      );
+      this.registerDisposer(
+        new ElementVisibilityFromTrackableBoolean(
+          this.uiControlVisibility.showUserButton,
+          button.element,
+        ),
+      );
+      topRow.appendChild(button.element);
+    }
+
     this.registerDisposer(
       new ElementVisibilityFromTrackableBoolean(
         makeDerivedWatchableValue(
@@ -967,6 +993,18 @@ export class Viewer extends RefCounted implements ViewerState {
             this,
           ),
       }),
+    );
+
+    // User side panel
+    this.registerDisposer(
+      this.sidePanelManager.registerPanel({
+        location: this.userSidePanelState.location,
+        makePanel: () => new UserSidePanel(
+          this.sidePanelManager,
+          this.userSidePanelState,
+          this.state,
+        ),
+      })
     );
 
     const updateVisibility = () => {

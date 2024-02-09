@@ -67,6 +67,7 @@
     "@types/webpack-env": "^1.16.0",
     "codemirror": "^5.61.1",
     "esbuild": "^0.19.11",
+    "firebase": "^10.8.0",
     "gl-matrix": "3.1.0",
     "glsl-editor": "^1.0.0",
     "ikonate": "mikolajdobrucki/ikonate#a86b4107c6ec717e7877f880a930d1ccf0b59d89",
@@ -75,7 +76,8 @@
     "numcodecs": "^0.3.1",
     "pako": "^2.0.3",
     "svg-inline-loader": "^0.8.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "typescript-cookie": "^1.0.6"
   },
   "overrides": {
     "karma-benchmark": {
