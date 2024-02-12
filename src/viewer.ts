@@ -124,6 +124,7 @@ import { MousePositionWidget, PositionWidget } from "#/widget/position_widget";
 import { TrackableScaleBarOptions } from "#/widget/scale_bar";
 import { RPC } from "#/worker_rpc";
 
+// BrainShare imports
 import svg_people from "ikonate/icons/people.svg";
 import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
 
@@ -190,7 +191,7 @@ export class InputEventBindings extends DataPanelInputEventBindings {
 }
 
 export const VIEWER_TOP_ROW_CONFIG_OPTIONS = [
-  "showUserButton",
+  "showUserButton", // brainshare user button
   "showHelpButton",
   "showSettingsButton",
   "showEditStateButton",
@@ -489,6 +490,7 @@ export class Viewer extends RefCounted implements ViewerState {
 
   uiConfiguration: ViewerUIConfiguration;
 
+  // Brainshare class variables
   userSidePanelState = new UserSidePanelState();
 
   private makeUiControlVisibilityState(key: keyof ViewerUIOptions) {
@@ -880,7 +882,7 @@ export class Viewer extends RefCounted implements ViewerState {
       topRow.appendChild(button.element);
     }
 
-    // User panel button
+    // Brainshare panel buttons
     {
       const { userSidePanelState } = this;
       const button = this.registerDisposer(
@@ -995,7 +997,7 @@ export class Viewer extends RefCounted implements ViewerState {
       }),
     );
 
-    // User side panel
+    // Brainshare side panels
     this.registerDisposer(
       this.sidePanelManager.registerPanel({
         location: this.userSidePanelState.location,

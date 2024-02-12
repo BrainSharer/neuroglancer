@@ -1,0 +1,19 @@
+.neuroglancer-state-tab-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.neuroglancer-state-tab-comment {
+  background-color: #151515;
+  color: white;
+  font-family: monospace;
+  font-size: medium;
+  border: 2px solid #333;
+  padding: 2px;
+  outline: 0px;
+}
+
+.neuroglancer-state-tab-button-container {
+    display: flex;
+    flex-direction: row;
+}

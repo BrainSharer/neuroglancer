@@ -11,6 +11,7 @@ import { Tab } from "#/widget/tab_view";
 import { WatchableValue } from "#/trackable_value";
 import { StateAPI } from "./state_utils";
 import { db } from "./firestore";
+import { verifyObject } from "src/util/json";
 
 
 enum MultiUsersStatus {
@@ -232,7 +233,6 @@ export class MultiUsersTab extends Tab {
       actionButtonTextContent = "Stop";
       actionButtonOnclick = () => {
         db.collection('users').doc(state_id).delete();
-
       };
     }
     else if (status === MultiUsersStatus.observing) {
@@ -241,7 +241,7 @@ export class MultiUsersTab extends Tab {
         .onSnapshot((doc) => {
           const data = doc.data();
           if (data !== undefined) {
-            this.viewerState.restoreState(data);
+            this.viewerState.restoreState(verifyObject(data));
           }
         });
 
