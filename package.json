@@ -13,8 +13,6 @@
   },
   "scripts": {
     "generate-code": "node ./config/generate_code.js",
-	 "build-demo": "./set_service.sh demo && node ./config/esbuild-cli.js --config=min",
-	 "build-local": "./set_service.sh local && node ./config/esbuild-cli.js --config=min ",	 
     "build-min": "node ./config/esbuild-cli.js --config=min",
     "build": "node ./config/esbuild-cli.js --config=min",
     "build:watch": "node ./config/esbuild-cli.js --config=dev --serve --watch",
