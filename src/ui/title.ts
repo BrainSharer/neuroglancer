@@ -17,14 +17,20 @@
 import { WatchableValueInterface } from "#/trackable_value";
 import { animationFrameDebounce } from "#/util/animation_frame_debounce";
 
+declare let NEUROGLANCER_BUILD_INFO:
+| { tag: string; url?: string; timestamp?: string };
+
+
 export function bindTitle(title: WatchableValueInterface<string | undefined>) {
   const debouncedSetTitle = animationFrameDebounce(() => {
-    const value = title.value?.trim();
-    if (value) {
-      document.title = `${value} - neuroglancer`;
-    } else {
-      document.title = "neuroglancer";
-    }
+    // const value = title.value?.trim();
+	 let tag_title = NEUROGLANCER_BUILD_INFO.tag;
+	 let date_title = NEUROGLANCER_BUILD_INFO.timestamp;
+	 document.title = 'Neuroglancer';
+	 if ((tag_title) && (date_title)) {
+	  document.title = tag_title + ' built at ' + date_title;
+	 }
+										
   });
   const unregisterSignalHandler = title.changed.add(debouncedSetTitle);
   debouncedSetTitle();
