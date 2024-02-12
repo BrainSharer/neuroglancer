@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_PATH="./src/brainshare/service.ts" # Update this path to your file's actual path
+SERVICE_PATH="./src/brainshare/service.ts"
 SERVICE_PRODUCTION=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: 'https://imageserv.dk.ucsd.edu/brainsharer',
