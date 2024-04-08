@@ -124,9 +124,10 @@ import { MousePositionWidget, PositionWidget } from "#/widget/position_widget";
 import { TrackableScaleBarOptions } from "#/widget/scale_bar";
 import { RPC } from "#/worker_rpc";
 
-// BrainShare imports
+/* BRAINSHARE STARTS */
 import svg_people from "ikonate/icons/people.svg";
 import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
+/* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
 
@@ -191,7 +192,9 @@ export class InputEventBindings extends DataPanelInputEventBindings {
 }
 
 export const VIEWER_TOP_ROW_CONFIG_OPTIONS = [
-  "showUserButton", // brainshare user button
+  /* BRAINSHARE STARTS */
+  "showUserButton",
+  /* BRAINSHARE ENDS */
   "showHelpButton",
   "showSettingsButton",
   "showEditStateButton",
@@ -490,8 +493,9 @@ export class Viewer extends RefCounted implements ViewerState {
 
   uiConfiguration: ViewerUIConfiguration;
 
-  // Brainshare class variables
+  /* BRAINSHARE STARTS */
   userSidePanelState = new UserSidePanelState();
+  /* BRAINSHARE ENDS */
 
   private makeUiControlVisibilityState(key: keyof ViewerUIOptions) {
     const showUIControls = this.uiConfiguration.showUIControls;
@@ -882,7 +886,7 @@ export class Viewer extends RefCounted implements ViewerState {
       topRow.appendChild(button.element);
     }
 
-    // Brainshare panel buttons
+    /* BRAINSHARE STARTS */
     {
       const { userSidePanelState } = this;
       const button = this.registerDisposer(
@@ -913,6 +917,7 @@ export class Viewer extends RefCounted implements ViewerState {
         topRow,
       ),
     );
+    /* BRAINSHARE ENDS */
 
     gridContainer.appendChild(topRow);
 
@@ -997,7 +1002,7 @@ export class Viewer extends RefCounted implements ViewerState {
       }),
     );
 
-    // Brainshare side panels
+    /* BRAINSHARE STARTS */
     this.registerDisposer(
       this.sidePanelManager.registerPanel({
         location: this.userSidePanelState.location,
@@ -1008,6 +1013,7 @@ export class Viewer extends RefCounted implements ViewerState {
         ),
       })
     );
+    /* BRAINSHARE ENDS */
 
     const updateVisibility = () => {
       const shouldBeVisible = this.visibility.visible;

@@ -49,6 +49,10 @@ import {
   verifyOptionalObjectProperty,
   verifyOptionalString,
   verifyString,
+  /* BRAINSHARE STARTS */
+  verifyBoolean,
+  verifyStringArray,
+  /* BRAINSHARE ENDS */
 } from "#/util/json";
 import { parseDataTypeValue } from "#/util/lerp";
 import { getRandomHexString } from "#/util/random";
@@ -76,6 +80,12 @@ export enum AnnotationType {
   LINE = 1,
   AXIS_ALIGNED_BOUNDING_BOX = 2,
   ELLIPSOID = 3,
+  /* BRAINSHARE STARTS */
+  POLYGON,
+  VOLUME,
+  COM,
+  CELL,
+  /* BRAINSHARE ENDS */
 }
 
 export const annotationTypes = [
@@ -83,6 +93,12 @@ export const annotationTypes = [
   AnnotationType.LINE,
   AnnotationType.AXIS_ALIGNED_BOUNDING_BOX,
   AnnotationType.ELLIPSOID,
+  /* BRAINSHARE STARTS */
+  AnnotationType.POLYGON,
+  AnnotationType.VOLUME,
+  AnnotationType.COM,
+  AnnotationType.CELL,
+  /* BRAINSHARE ENDS */
 ];
 
 export interface AnnotationPropertySpecBase {
@@ -643,6 +659,9 @@ export interface AnnotationBase {
 
   relatedSegments?: Uint64[][];
   properties: any[];
+  /* BRAINSHARE STARTS */
+  parentAnnotationId?: string;
+  /* BRAINSHARE ENDS */
 }
 
 export interface Line extends AnnotationBase {
@@ -668,7 +687,11 @@ export interface Ellipsoid extends AnnotationBase {
   type: AnnotationType.ELLIPSOID;
 }
 
-export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid;
+/* BRAINSHARE STARTS */
+// export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid;
+export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid 
+  | Polygon | Volume | Com | Cell;
+/* BRAINSHARE ENDS */
 
 export interface AnnotationTypeHandler<T extends Annotation = Annotation> {
   icon: string;
@@ -994,6 +1017,240 @@ export const annotationTypeHandlers: Record<
       callback(annotation.radii, true);
     },
   },
+  /* BRAINSHARE STARTS */
+  [AnnotationType.POLYGON]: {
+    icon: '△',
+    description: 'Polygon',
+    toJSON: (annotation: Polygon) => {
+      return {
+        source: Array.from(annotation.source),
+        childAnnotationIds: annotation.childAnnotationIds,
+        childrenVisible: annotation.childrenVisible,
+      }
+    },
+    restoreState: (annotation: Polygon, obj: any, rank: number) => {
+      annotation.source = verifyObjectProperty(
+        obj, 'source', x => parseFixedLengthArray(
+          new Float32Array(rank), x, verifyFiniteFloat
+        )
+      );
+
+      if (!obj.hasOwnProperty('childAnnotationIds')) {
+        annotation.childAnnotationIds = [];
+      }
+      else {
+        annotation.childAnnotationIds = verifyObjectProperty(
+          obj, 'childAnnotationIds', verifyStringArray
+        );
+      }
+
+      annotation.childrenVisible = false;
+    },
+    serializedBytes: rank => rank * 4,
+    serialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      annotation: Polygon
+    ) => {
+      serializeFloatVector(
+        buffer, 
+        offset, 
+        isLittleEndian, 
+        rank, 
+        annotation.source
+      );
+    },
+    deserialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      id: string
+    ): Polygon => {
+      const source = new Float32Array(rank);
+      deserializeFloatVector(buffer, offset, isLittleEndian, rank, source);
+      return {
+        type: AnnotationType.POLYGON, 
+        source, 
+        id, 
+        properties: [], 
+        childAnnotationIds: [], 
+        childrenVisible: false
+      };
+    },
+    visitGeometry(annotation: Polygon, callback) {
+      callback(annotation.source, false);
+    },
+  },
+  [AnnotationType.VOLUME]: {
+    icon: 'VOL',
+    description: 'Volume',
+    toJSON: (annotation: Volume) => {
+      return {
+        source: Array.from(annotation.source),
+        childAnnotationIds: annotation.childAnnotationIds,
+        childrenVisible: annotation.childrenVisible,
+      }
+    },
+    restoreState: (annotation: Volume, obj: any, rank: number) => {
+      annotation.source = verifyObjectProperty(
+        obj, 'source', x => parseFixedLengthArray(
+          new Float32Array(rank), x, verifyFiniteFloat
+        )
+      );
+
+      if (!obj.hasOwnProperty('childAnnotationIds')) {
+        annotation.childAnnotationIds = [];
+      }
+      else {
+        annotation.childAnnotationIds = verifyObjectProperty(
+          obj, 'childAnnotationIds', verifyStringArray
+        );
+      }
+
+      annotation.childrenVisible = true;
+
+      if (obj.hasOwnProperty('childrenVisible')) {
+        const value = verifyObjectProperty(
+          obj, 'childrenVisible', verifyBoolean
+        );
+        annotation.childrenVisible = value;
+      }
+    },
+    serializedBytes: rank => rank * 4,
+    serialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      annotation: Volume
+    ) => {
+      serializeFloatVector(
+        buffer, 
+        offset, 
+        isLittleEndian, 
+        rank, 
+        annotation.source
+      );
+    },
+    deserialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      id: string
+    ): Volume => {
+      const source = new Float32Array(rank);
+      deserializeFloatVector(buffer, offset, isLittleEndian, rank, source);
+      return {
+        type: AnnotationType.VOLUME, 
+        source, 
+        id, 
+        properties: [], 
+        childAnnotationIds: [], 
+        childrenVisible: false
+      };
+    },
+    visitGeometry(annotation: Volume, callback) {
+      callback(annotation.source, false);
+    },
+  },
+  [AnnotationType.COM]: {
+    icon: 'COM',
+    description: 'COM',
+    toJSON: (annotation: Com) => {
+      return {
+        point: Array.from(annotation.point),
+      };
+    },
+    restoreState: (annotation: Com, obj: any, rank: number) => {
+      annotation.point = verifyObjectProperty(
+        obj, 'point', x => parseFixedLengthArray(
+          new Float32Array(rank), x, verifyFiniteFloat
+        )
+      );
+    },
+    serializedBytes: rank => rank * 4,
+    serialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number,
+      annotation: Com
+    ) => { 
+      serializeFloatVector(buffer, offset, isLittleEndian, rank, annotation.point); 
+    },
+    deserialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      id: string
+    ): Com => { 
+      const point = new Float32Array(rank); 
+      deserializeFloatVector(buffer, offset, isLittleEndian, rank, point); 
+      return {
+        type: AnnotationType.COM, 
+        point, 
+        id, 
+        properties: []
+      }; 
+    },
+    visitGeometry(annotation: Com, callback) {
+      callback(annotation.point, false);
+    },
+  },
+  [AnnotationType.CELL]: {
+    icon: 'CELL',
+    description: 'Cell',
+    toJSON: (annotation: Cell) => {
+      return {
+        point: Array.from(annotation.point),
+        category: annotation.category
+      };
+    },
+    restoreState: (annotation: Cell, obj: any, rank: number) => {
+      annotation.point = verifyObjectProperty(
+        obj, 'point', x => parseFixedLengthArray(
+          new Float32Array(rank), x, verifyFiniteFloat
+        )
+      );
+      annotation.category = verifyObjectProperty(
+        obj, 'category', verifyOptionalString
+      );
+    },
+    serializedBytes: rank => rank * 4,
+    serialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      annotation: Cell) => { 
+        serializeFloatVector(buffer, offset, isLittleEndian, rank, annotation.point); 
+      },
+    deserialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      id: string
+    ): Cell => { 
+      const point = new Float32Array(rank); 
+      deserializeFloatVector(buffer, offset, isLittleEndian, rank, point); 
+      return {
+        type: AnnotationType.CELL, 
+        point, 
+        id, 
+        properties: []
+      }; 
+    },
+    visitGeometry(annotation: Cell, callback) {
+      callback(annotation.point, false);
+    },
+  },
+  /* BRAINSHARE ENDS */
 };
 
 export interface AnnotationSchema {
@@ -1013,6 +1270,9 @@ export function annotationToJson(
   result.type = AnnotationType[annotation.type].toLowerCase();
   result.id = annotation.id;
   result.description = annotation.description || undefined;
+  /* BRAINSHARE STARTS */
+  result.parentAnnotationId = annotation.parentAnnotationId || undefined;
+  /* BRAINSHARE ENDS */
   const { relatedSegments } = annotation;
   if (relatedSegments?.some((x) => x.length !== 0)) {
     result.segments = relatedSegments.map((segments) =>
@@ -1072,6 +1332,11 @@ function restoreAnnotation(
     relatedSegments,
     properties,
     type,
+    /* BRAINSHARE STARTS */
+    parentAnnotationId: verifyObjectProperty(
+      obj, 'parentAnnotationId', verifyOptionalString
+    ),
+    /* BRAINSHARE ENDS */
   } as Annotation;
   annotationTypeHandlers[type].restoreState(result, obj, schema.rank);
   return result;
@@ -1124,8 +1389,19 @@ export class AnnotationSource
     return true;
   }
 
-  add(annotation: Annotation, commit = true): AnnotationReference {
+  /* BRAINSHARE STARTS */
+  // add(annotation: Annotation, commit = true): AnnotationReference {
+  add(
+    annotation: Annotation, 
+    commit = true,
+    parentRef?: AnnotationReference, 
+    index?: number
+  ): AnnotationReference {
+  /* BRAINSHARE ENDS */
     this.ensureUpdated();
+    /* BRAINSHARE STARTS */
+    annotation = this.roundZCoordinateBasedOnAnnotation(annotation);
+    /* BRAINSHARE ENDS */
     if (!annotation.id) {
       annotation.id = makeAnnotationId();
     } else if (this.annotationMap.has(annotation.id)) {
@@ -1133,6 +1409,38 @@ export class AnnotationSource
         `Annotation id already exists: ${JSON.stringify(annotation.id)}.`,
       );
     }
+
+    /* BRAINSHARE STARTS */
+    if(parentRef && isTypeCollection(parentRef.value!)) {
+      annotation.parentAnnotationId = parentRef.id;
+      let parAnnotation = <Collection>parentRef.value!;
+      if (index === undefined) index = parAnnotation.childAnnotationIds.length;
+      parAnnotation.childAnnotationIds.splice(index, 0, annotation.id);
+      parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
+      this.update(parentRef, <Annotation>parAnnotation);
+    }
+
+    // TODO: Will create two rectangles if uncommented
+    // if (!annotation.parentAnnotationId) {
+    //   this.childAdded.dispatch(annotation);
+    // }
+
+    if (isTypeCollection(annotation)) {
+      const collection = <Collection>annotation;
+      if (collection.childrenVisible) {
+        for (let childId of collection.childAnnotationIds) {
+          this.getAllAnnsUnderRootToDisplay(childId, true);
+        }
+      } else {
+        const annList = this.getAllAnnsUnderRoot(collection.id);
+        annList.shift(); // remove current annotation from list
+        for (let ann of annList) {
+          this.childDeleted.dispatch(ann.id);
+        }
+      }
+    }
+    /* BRAINSHARE ENDS */
+
     this.annotationMap.set(annotation.id, annotation);
     if (!commit) {
       this.pending.add(annotation.id);
@@ -1149,6 +1457,14 @@ export class AnnotationSource
     this.ensureUpdated();
     const id = reference.id;
     this.pending.delete(id);
+    /* BRAINSHARE STARTS */
+    if(reference.value!.type == AnnotationType.POLYGON) {
+      const ann = <Polygon> reference.value!;
+      ann.childAnnotationIds.forEach((childAnnotationId) => {
+        this.pending.delete(childAnnotationId);
+      });
+    }
+    /* BRAINSHARE ENDS */
     this.changed.dispatch();
     this.childCommitted.dispatch(id);
   }
@@ -1158,10 +1474,40 @@ export class AnnotationSource
     if (reference.value === null) {
       throw new Error("Annotation already deleted.");
     }
+    /* BRAINSHARE STARTS */
+    annotation = this.roundZCoordinateBasedOnAnnotation(annotation);
+    /* BRAINSHARE ENDS */
     reference.value = annotation;
     this.annotationMap.set(annotation.id, annotation);
+    /* BRAINSHARE STARTS */
+    if (annotation.parentAnnotationId) {
+      const parentRef = this.getReference(annotation.parentAnnotationId);
+      if (parentRef.value && isTypeCollection(parentRef.value)) {
+        let parAnnotation = <Collection>parentRef.value;
+        parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
+        this.update(parentRef, <Annotation>parAnnotation);
+      }
+      parentRef.dispose();
+    }
+    /* BRAINSHARE ENDS */
     reference.changed.dispatch();
     this.changed.dispatch();
+    /* BRAINSHARE STARTS */
+    if (isTypeCollection(annotation)) {
+      const collection = <Collection>annotation;
+      if (collection.childrenVisible) {
+        for (let childId of collection.childAnnotationIds) {
+          this.getAllAnnsUnderRootToDisplay(childId, true);
+        }
+      } else {
+        const annList = this.getAllAnnsUnderRoot(collection.id);
+        annList.shift(); // remove current annotation from list
+        for (let ann of annList) {
+          this.childDeleted.dispatch(ann.id);
+        }
+      }
+    }
+    /* BRAINSHARE ENDS */
     this.childUpdated.dispatch(annotation);
   }
 
@@ -1175,10 +1521,56 @@ export class AnnotationSource
     return this.annotationMap.get(id);
   }
 
-  delete(reference: AnnotationReference) {
+  delete(
+    reference: AnnotationReference,
+    /* BRAINSHARE STARTS */
+    fromParent: boolean = false,
+    /* BRAINSHARE ENDS */
+  ) {
     if (reference.value === null) {
       return;
     }
+    /* BRAINSHARE STARTS */
+    if (reference.value!.parentAnnotationId) {
+      const parentRef = this.getReference(reference.value!.parentAnnotationId);
+      if (parentRef.value && isChildDummyAnnotation(parentRef.value) && !fromParent) {
+        parentRef.dispose();
+        // StatusMessage.showTemporaryMessage('Cannot delete child annotations');
+        console.log('Cannot delete child annotations');
+        return;
+      }
+      if (parentRef.value && isTypeCollection(parentRef.value)) {
+        let parAnnotation = <Collection>parentRef.value;
+        const index = parAnnotation.childAnnotationIds.indexOf(
+          reference.value!.id, 0
+        );
+        if (index > -1) {
+          parAnnotation.childAnnotationIds.splice(index, 1);
+        }
+        parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
+        this.update(parentRef, <Annotation>parAnnotation);
+      }
+      parentRef.dispose();
+    }
+    if(isTypeCollection(reference.value!)) {
+      const annotation = <Collection>reference.value;
+      const allAnnsUnderRoot = this.getAllAnnsUnderRoot(annotation.id);
+      for (let idx = 1; idx < allAnnsUnderRoot.length; idx++) {
+        const ann = allAnnsUnderRoot[idx];
+        const ref = this.getReference(ann.id);
+        ref.value = null;
+        this.annotationMap.delete(ref.id);
+        this.pending.delete(ref.id);
+        ref.changed.dispatch();
+        this.changed.dispatch();
+        this.childDeleted.dispatch(ref.id);
+      }
+      // const childAnnotationIds = Object.assign([], annotation.childAnnotationIds);
+      // childAnnotationIds.forEach((childId) => {
+      //   this.delete(this.getReference(childId), true);
+      // });
+    }
+    /* BRAINSHARE ENDS */
     reference.value = null;
     this.annotationMap.delete(reference.id);
     this.pending.delete(reference.id);
@@ -1248,6 +1640,344 @@ export class AnnotationSource
   reset() {
     this.clear();
   }
+
+  /* BRAINSHARE STARTS */
+  /**
+   * Takes a color, description and category and updates all CELL annotations 
+   * with the color matching description and category.
+   * @param color New color for Cell annotations
+   * @param description Description of cells that need to be updated
+   * @param category Category of cells that need to be updated
+   * @returns void
+   */
+  updateCellColors(color: number, description: string, category: string): void {
+    for(const [id, ann] of this.annotationMap) {
+      if (
+        ann.type === AnnotationType.CELL && ann.description === description 
+        && ann.category === category
+      ) {
+        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
+        const newAnn = {...ann};
+        if (newAnn.properties.length <= colorIdx) return;
+        newAnn.properties[colorIdx] = color;
+        this.update(this.getReference(id), newAnn);
+      }
+    }
+  }
+
+  /**
+   * Takes a color, description and updates all COM annotations with the color 
+   * matching description.
+   * @param color New color for COM annotations
+   * @param description Description of COMs that need to be updated
+   * @returns void
+   */
+  updateCOMColors(color: number, description: string): void {
+    for(const [id, ann] of this.annotationMap) {
+      if (ann.type === AnnotationType.COM && ann.description === description) {
+        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
+        const newAnn = {...ann};
+        if (newAnn.properties.length <= colorIdx) return;
+        newAnn.properties[colorIdx] = color;
+        this.update(this.getReference(id), newAnn);
+      }
+    }
+  }
+
+  roundZCoordinateBasedOnAnnotation(ann: Annotation): Annotation {
+    switch (ann.type) {
+      case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
+        return {...ann, pointA: this.roundZCoordinate(ann.pointA), pointB: this.roundZCoordinate(ann.pointB)};
+      case AnnotationType.CELL:
+        return {...ann, point: this.roundZCoordinate(ann.point)};
+      case AnnotationType.COM:
+        return {...ann, point: this.roundZCoordinate(ann.point)};
+      case AnnotationType.ELLIPSOID:
+        return {...ann, center: this.roundZCoordinate(ann.center)};
+      case AnnotationType.LINE:
+        return {...ann, pointA: this.roundZCoordinate(ann.pointA), pointB: this.roundZCoordinate(ann.pointB)};
+      case AnnotationType.POINT:
+        return {...ann, point: this.roundZCoordinate(ann.point)};
+      case AnnotationType.POLYGON:
+        return {...ann, source: this.roundZCoordinate(ann.source)};
+      case AnnotationType.VOLUME:
+        return {...ann, source: this.roundZCoordinate(ann.source)};
+    }
+    return ann;
+  }
+
+  /**
+   * Takes a point (x,y,z) coordinate as input and assigns the z value to 
+   * integral part of z + 0.5
+   * This is required for fixing the bug: 
+   * https://github.com/ActiveBrainAtlas2/activebrainatlasadmin/issues/130
+   * @param point Input point to be rounded off
+   * @returns Rounded point
+   */
+  roundZCoordinate(point: Float32Array): Float32Array {
+    if (point.length == 3) {
+      point[2] = Math.floor(point[2]) + 0.5;
+    } else if (point.length == 4) {
+      point[3] = Math.floor(point[3]) + 0.5;
+    }
+    return point;
+  }
+
+  /**
+   * Takes an annotation id as input and returns the parent if the annotation 
+   * type is line and parent is polygon.
+   * @param id annotation id
+   * @returns Returns parent annotation id if annotation type is line otherwise 
+   * returns the current id.
+   */
+  getNonDummyAnnotationReference(id: AnnotationId): AnnotationReference {
+    const reference = this.getReference(id);
+    if (!reference.value) return reference;
+
+    const annotation = reference.value;
+    if (annotation.parentAnnotationId) {
+      const parentRef = this.getReference(annotation.parentAnnotationId);
+      if (parentRef.value && isChildDummyAnnotation(parentRef.value)) {
+        reference.dispose();
+        parentRef.dispose();
+        return this.getNonDummyAnnotationReference(annotation.parentAnnotationId);
+      }
+      parentRef.dispose();
+    }
+    
+    return reference;
+  }
+
+  /**
+   * Takes an annotation id as input and finds the top most ancestor of it.
+   * @param id annotation id input
+   * @returns Reference to the top most ancestor of it.
+   */
+  getTopMostAnnotationReference(id: AnnotationId): AnnotationReference {
+    const reference = this.getReference(id);
+    if (!reference.value) return reference;
+
+    const annotation = reference.value;
+    if (annotation.parentAnnotationId) {
+      const parentId = annotation.parentAnnotationId;
+      reference.dispose();
+      return this.getTopMostAnnotationReference(parentId);
+    }
+    
+    return reference;
+  }
+
+  /**
+   * Update the source vertex if child's source vertex gets updated.
+   * @param ann Annotation which needs to be updated.
+   * @returns a new annotation with updated source vertex.
+   */
+  getUpdatedSourceVertex(ann: Collection) : Collection {
+    if (ann.childAnnotationIds.length === 0) return ann;
+    const reference = this.getReference(ann.childAnnotationIds[0]);
+    if (ann.type === AnnotationType.POLYGON) {
+      const line = <Line>reference.value;
+      if (!line) {
+        reference.dispose();
+        return ann;
+      }
+      const newAnn = {...ann, source: line.pointA};
+      reference.dispose();
+      return newAnn;
+    } else {
+      const polygon = <Polygon>reference.value;
+      if (!polygon) {
+        reference.dispose();
+        return ann;
+      }
+      const newAnn = {...ann, source: polygon.source};
+      reference.dispose();
+      return newAnn;
+    }
+  }
+
+  /**
+   * Takes a annotation reference and update the color of that annotation.
+   * @param reference 
+   * @param color 
+   * @returns void
+   */
+  updateColor(reference: AnnotationReference, color: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
+    if (newAnn.properties.length <= colorIdx) return;
+    newAnn.properties[colorIdx] = color;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection>newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateColor(childRef, color);
+        childRef.dispose();
+      }
+    }
+  }
+
+  /**
+   * Takes a annotation reference and update the visibility of that annotation.
+   * @param reference 
+   * @param visibility 
+   * @returns void
+   */
+   updateVisibility(reference: AnnotationReference, visibility: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const visibilityIdx = this.properties.findIndex(
+      x => x.identifier === 'visibility'
+    );
+    if (newAnn.properties.length <= visibilityIdx) return;
+    newAnn.properties[visibilityIdx] = visibility;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection>newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateVisibility(childRef, visibility);
+        childRef.dispose();
+      }
+    }
+  }
+
+  /**
+   * Takes a annotation id and finds the visibility of that annotation.
+   * @param annotationId 
+   * @returns void
+   */
+   getVisibility(annotationId: string): number {
+    const reference = this.getReference(annotationId);
+    if (!reference.value) {
+      reference.dispose();
+      return 1.0;
+    }
+    const ann = reference.value;
+    const visibilityIdx = this.properties.findIndex(
+      x => x.identifier === 'visibility'
+    );
+    if (ann.properties.length <= visibilityIdx) {
+      reference.dispose();
+      return 1.0;
+    }
+    return ann.properties[visibilityIdx];
+  }
+
+  /**
+   * Takes the annotation reference and updates its description with new string.
+   * @param reference 
+   * @param description 
+   * @returns 
+   */
+  updateDescription(reference: AnnotationReference, description: string|undefined) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value, description};
+    this.update(reference, newAnn);
+  }
+
+  /**
+   * Takes an annotation and returns all descendants under that annotation
+   * @param annotationId 
+   * @returns an array of descendants of this annotation.
+   */
+  private getAllAnnsUnderRoot(annotationId: AnnotationId) : Annotation[] {
+    const reference = this.getReference(annotationId);
+    let annotationList : Annotation[] = [];
+    if (!reference.value) {
+      reference.dispose();
+      return annotationList;
+    }
+    let annotation : Annotation | undefined;
+    annotation = reference.value;
+    annotationList.push(annotation);
+    if (isTypeCollection(annotation)) {
+      const collection = <Collection>annotation;
+      for (
+        let i = 0; 
+        annotation && i < collection.childAnnotationIds!.length; 
+        i++
+      ) {
+        annotationList = [
+          ...annotationList, 
+          ...this.getAllAnnsUnderRoot(collection.childAnnotationIds[i])
+        ];
+      }
+    }
+    reference.dispose();
+    return annotationList;
+  }
+  /**
+   * Makes sure that all descendants under this annotation which need to be visible
+   * added to the annotations tab.
+   * @param annotationId annotation id of the input annotation
+   * @param visible if the current annotation is visible or not, default is false.
+   * @returns void
+   */
+  private getAllAnnsUnderRootToDisplay(
+    annotationId: AnnotationId, 
+    visible: boolean = false
+  ) : void {
+    const reference = this.getReference(annotationId);
+    if (!reference.value) {
+      reference.dispose();
+      return;
+    }
+    let annotation : Annotation | undefined;
+    annotation = reference.value;
+    if (visible) {
+      this.childAdded.dispatch(annotation);
+    }
+    if (isTypeCollection(annotation)) {
+      const collection = <Collection>annotation;
+      for (
+        let i = 0; 
+        annotation && i < collection.childAnnotationIds!.length; 
+        i++
+      ) {
+        this.getAllAnnsUnderRootToDisplay(
+          collection.childAnnotationIds[i], 
+          collection.childrenVisible);
+      }
+    }
+    reference.dispose();
+    return;
+  }
+  /**
+   * Make all ancestors of the current annotation to be visible 
+   * in the annotations tab.
+   * @param annotationId 
+   * @returns void
+   */
+  makeAllParentsVisible(annotationId: AnnotationId) : void {
+    const reference = this.getReference(annotationId);
+    if (!reference.value) {
+      reference.dispose();
+      return;
+    }
+    const annotation = reference.value;
+    if (annotation.parentAnnotationId) {
+      this.makeAllParentsVisible(annotation.parentAnnotationId);
+      const parentRef = this.getReference(annotation.parentAnnotationId);
+      if (parentRef.value && isTypeCollection(parentRef.value)) {
+        const newParentAnn = <Collection>{...parentRef.value};
+        newParentAnn.childrenVisible = true;
+        parentRef.value = <Annotation>newParentAnn;
+        this.annotationMap.set(newParentAnn.id, <Annotation>newParentAnn);
+        parentRef.changed.dispatch();
+        for (let childId of newParentAnn.childAnnotationIds) {
+          this.getAllAnnsUnderRootToDisplay(childId, true);
+        }
+      }
+      parentRef.dispose();
+    }
+    reference.dispose();
+  }
+  /* BRAINSHARE ENDS */
 }
 
 export class LocalAnnotationSource extends AnnotationSource {
@@ -1308,9 +2038,19 @@ export class LocalAnnotationSource extends AnnotationSource {
 
     for (const annotation of this.annotationMap.values()) {
       switch (annotation.type) {
+        /* BRAINSHARE STARTS */
+        case AnnotationType.CELL:
+        case AnnotationType.COM:
+        /* BRAINSHARE ENDS */
         case AnnotationType.POINT:
           annotation.point = mapVector(annotation.point);
           break;
+        /* BRAINSHARE STARTS */
+        case AnnotationType.VOLUME:
+        case AnnotationType.POLYGON:
+          annotation.source = mapVector(annotation.source);
+          break;
+        /* BRAINSHARE ENDS */
         case AnnotationType.LINE:
         case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
           annotation.pointA = mapVector(annotation.pointA);
@@ -1423,12 +2163,33 @@ function serializeAnnotations(
 }
 
 export class AnnotationSerializer {
-  annotations: [Point[], Line[], AxisAlignedBoundingBox[], Ellipsoid[]] = [
-    [],
-    [],
-    [],
-    [],
+  /* BRAINSHARE STARTS */
+  // annotations: [Point[], Line[], AxisAlignedBoundingBox[], Ellipsoid[]] = [
+  //   [],
+  //   [],
+  //   [],
+  //   [],
+  // ];
+  annotations: [
+    Point[], 
+    Line[], 
+    AxisAlignedBoundingBox[], 
+    Ellipsoid[], 
+    Polygon[], 
+    Volume[], 
+    Com[], 
+    Cell[]
+  ] = [
+    [], 
+    [], 
+    [], 
+    [], 
+    [], 
+    [], 
+    [], 
+    []
   ];
+  /* BRAINSHARE ENDS */
   constructor(public propertySerializers: AnnotationPropertySerializer[]) {}
   add(annotation: Annotation) {
     (<Annotation[]>this.annotations[annotation.type]).push(annotation);
@@ -1458,3 +2219,103 @@ export function fixAnnotationAfterStructuredCloning(obj: Annotation | null) {
   }
   return obj;
 }
+
+/* BRAINSHARE STARTS */
+/**
+ * Function takes an annotation and returns True if the type of annotation is 
+ * collection otherwise false
+ * @param annotation Input annotation
+ * @returns boolean indicating whether the annotation is of type collection or 
+ * not.
+ */
+export function isTypeCollection(annotation: Annotation) : boolean {
+  return annotation.type === AnnotationType.POLYGON 
+    || annotation.type === AnnotationType.VOLUME;
+}
+
+/**
+ * Returns if the annotation's children are dummy annotation. (Ex: In case of 
+ * polygon annotation, the line segments are dummy annotation.) 
+ * @param annotation Input annotation element.
+ * @returns boolean indicating if the child annotations are dummy or not.
+ */
+export function isChildDummyAnnotation(annotation: Annotation) : boolean {
+  return annotation.type === AnnotationType.POLYGON;
+}
+
+/**
+ * Returns if the annotation is dummy annotation. (Ex: In case of polygon 
+ * annotation, the line segments are dummy annotation.) 
+ * @param annotation Input annotation element.
+ * @returns boolean indicating if the annotation is dummy or not.
+ */
+export function isDummyAnnotation(annotation: Annotation) : boolean {
+  return annotation.type === AnnotationType.LINE && (
+    annotation.parentAnnotationId !== null 
+    || annotation.parentAnnotationId !== undefined
+  );
+}
+
+/**
+ * An interface to indicate a collection annotation.
+ * Collection annotation contains child collection of annotations.
+ * Eg: Polygon (group of line segments), Volume (group of polygons)
+ */
+export interface Collection extends AnnotationBase {
+  source: Float32Array;
+  childAnnotationIds: string[];
+  childrenVisible: boolean;
+}
+
+/**
+ * An interface to indicate Polygon annotation. Inherits collection interface.
+ */
+export interface Polygon extends Collection {
+  type: AnnotationType.POLYGON;
+}
+
+/**
+ * An interface to indicate Volume annotation. Inherits collection interface.
+ */
+export interface Volume extends Collection {
+  type: AnnotationType.VOLUME;
+}
+
+/**
+ * An interface to indicate Centre of Mass annotation.
+ */
+export interface Com extends AnnotationBase {
+  point: Float32Array;
+  type: AnnotationType.COM;
+}
+
+/**
+ * An interface to indicate Cell annotation.
+ */
+export interface Cell extends AnnotationBase {
+  point: Float32Array;
+  category?: string|undefined;
+  type: AnnotationType.CELL;
+}
+
+export function getSortPoint(ann: Annotation): Float32Array {
+  switch (ann.type) {
+    case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
+      return ann.pointA;
+    case AnnotationType.CELL:
+      return ann.point;
+    case AnnotationType.COM:
+      return ann.point;
+    case AnnotationType.ELLIPSOID:
+      return ann.center;
+    case AnnotationType.LINE:
+      return ann.pointA;
+    case AnnotationType.POINT:
+      return ann.point;
+    case AnnotationType.POLYGON:
+      return ann.source;
+    case AnnotationType.VOLUME:
+      return ann.source;
+  }
+}
+/* BRAINSHARE ENDS */

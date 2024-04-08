@@ -18,6 +18,12 @@ import "#/annotation/bounding_box";
 import "#/annotation/line";
 import "#/annotation/point";
 import "#/annotation/ellipsoid";
+/* BRAINSHARE STARTS */
+import "#/annotation/polygon";
+import "#/annotation/volume";
+import "#/annotation/cell";
+import "#/annotation/com";
+/* BRAINSHARE ENDS */
 
 import {
   AnnotationBase,

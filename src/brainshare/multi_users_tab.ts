@@ -16,7 +16,7 @@ import { verifyObject } from "src/util/json";
 
 enum MultiUsersStatus {
   disabled = 1,
-  broadcastintg,
+  sharing,
   observing,
   no_state,
 }
@@ -77,11 +77,11 @@ export class MultiUsersTab extends Tab {
   private usersListenerDetach: () => void;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
-    status: MultiUsersStatus.no_state,
     username: "",
     state_id: "",
     editor: "",
     usernames: [],
+    status: MultiUsersStatus.no_state,
   });
 
   constructor(
@@ -165,7 +165,7 @@ export class MultiUsersTab extends Tab {
               const usernames = Object.keys(data);
 
               const status = usernames.includes(username) ? (
-                editor === username ? MultiUsersStatus.broadcastintg
+                editor === username ? MultiUsersStatus.sharing
                   : MultiUsersStatus.observing
               ) : MultiUsersStatus.disabled
 
@@ -214,21 +214,21 @@ export class MultiUsersTab extends Tab {
     if (status === MultiUsersStatus.disabled) {
       // Update UI
       const header_editor = editor === "" ? "No one" : editor;
-      headerTextContent = header_editor + " is broadcasting";
+      headerTextContent = header_editor + " is sharing";
       actionButtonDisplay = "block";
-      actionButtonTextContent = editor === "" ? "Broadcast" : "Observe";
+      actionButtonTextContent = editor === "" ? "Share" : "Observe";
       actionButtonOnclick = () => {
         db.collection('users').doc(state_id).set({
           [username]: editor === "" ? true : false
         }, { merge: true });
       };
     }
-    else if (status === MultiUsersStatus.broadcastintg) {
+    else if (status === MultiUsersStatus.sharing) {
       // Add state change listener
       this.viewerState.changed.add(this.throttledUpdateStateToFirebase);
 
       // Update UI
-      headerTextContent = "You are broadcasting";
+      headerTextContent = "You are sharing";
       actionButtonDisplay = "block";
       actionButtonTextContent = "Stop";
       actionButtonOnclick = () => {
@@ -256,7 +256,7 @@ export class MultiUsersTab extends Tab {
         }, { merge: true });
       };
     }
-    else {
+    else if (status === MultiUsersStatus.no_state) {
       headerTextContent = "Load a state to enable multi-user mode"
       actionButtonDisplay = "none";
       actionButtonTextContent = "";
@@ -288,7 +288,7 @@ export class MultiUsersTab extends Tab {
       userItem.element.style.borderColor = otherUsername === editor ?
         "#3c3" : "rgba(0, 0, 0, 0";
       userItem.swapButton.style.display = otherUsername === editor ? "none" : (
-        status === MultiUsersStatus.broadcastintg ? "block" : "none"
+        status === MultiUsersStatus.sharing ? "block" : "none"
       )
     });
   }
