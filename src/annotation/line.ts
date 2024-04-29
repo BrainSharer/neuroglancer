@@ -140,14 +140,14 @@ vVisibility = 1.0;
 vColor = vec4(0.0, 0.0, 0.0, 0.0);
 ${this.invokeUserMain}
 /* BRAINSHARE STARTS */
-// emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
+emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
          uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
          ng_LineWidth);
-if (ng_Visibility == 1.0) {
-  emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
-         uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
-         ng_LineWidth);
-}
+// if (ng_Visibility == 1.0) {
+//   emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
+//          uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
+//          ng_LineWidth);
+// }
 /* BRAINSHARE ENDS */
 ${this.setPartIndex(builder)};
 `);
@@ -227,10 +227,10 @@ ng_markerDiameter = 5.0;
 ng_markerBorderWidth = 1.0;
 ${this.invokeUserMain}
 /* BRAINSHARE STARTS */
-// emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
-if (ng_endPointVisibility == 1.0) {
-  emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
-}
+emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
+// if (ng_endPointVisibility == 1.0) {
+//   emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
+// }
 /* BRAINSHARE ENDS */
 ${this.setPartIndex(builder, "uint(getEndpointIndex()) + 1u")};
 `);
@@ -239,10 +239,10 @@ vec4 color = getCircleColor(vColor, vBorderColor);
 color.a *= vClipCoefficient;
 /* BRAINSHARE STARTS */
 color.a *= vEndpointOpacity;
-// emitAnnotation(color);
-if (vEndpointVisibility == 1.0) {
-  emitAnnotation(color);
-}
+emitAnnotation(color);
+// if (vEndpointVisibility == 1.0) {
+//   emitAnnotation(color);
+// }
 /* BRAINSHARE ENDS */
 `);
     },

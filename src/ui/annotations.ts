@@ -252,7 +252,7 @@ interface AnnotationLayerViewAttachedState {
   idToIndex: Map<AnnotationId, number>;
   listOffset: number;
   /* BRAINSHARE STARTS */
-  // idToLevel: Map<AnnotationId, number>;
+  idToLevel: Map<AnnotationId, number>;
   /* BRAINSHARE ENDS */
 }
 
@@ -268,7 +268,7 @@ export class AnnotationLayerView extends Tab {
   private previousHoverAnnotationLayerState: AnnotationLayerState | undefined =
     undefined;
   /* BRAINSHARE STARTS */
-  // private annotationColorPicker: AnnotationColorWidget | undefined = undefined;
+  private annotationColorPicker: AnnotationColorWidget | undefined = undefined;
   /* BRAINSHARE ENDS */
 
   private virtualListSource: VirtualListSource = {
@@ -349,7 +349,7 @@ export class AnnotationLayerView extends Tab {
         idToIndex: new Map(),
         listOffset: 0,
         /* BRAINSHARE STARTS */
-        // idToLevel: new Map(),
+        idToLevel: new Map(),
         /* BRAINSHARE ENDS */
       });
     }
@@ -490,7 +490,7 @@ export class AnnotationLayerView extends Tab {
       text: annotationTypeHandlers[AnnotationType.POLYGON].icon,
       title: 'Annotate polygon',
       onClick: () => {
-        this.layer.tool.value = new PlacePolygonTool(this.layer, {});
+        this.layer.tool.value = new PlacePolygonTool(this.layer, undefined);
       },
     });
     mutableControls.appendChild(polygonButton);
@@ -604,6 +604,7 @@ export class AnnotationLayerView extends Tab {
   );
 
   private updateSelectionView() {
+    // console.log("AnnotationLayerView > updatedSelectionView");
     const selectionState = this.selectedAnnotationState.value;
     const { previousSelectedState } = this;
     if (
@@ -631,6 +632,7 @@ export class AnnotationLayerView extends Tab {
   }
 
   private updateHoverView() {
+    // console.log("AnnotationLayerView > updatedHoverView");
     const selectedValue = this.displayState.hoverState.value;
     let newHoverId: string | undefined;
     let newAnnotationLayerState: AnnotationLayerState | undefined;
@@ -658,6 +660,7 @@ export class AnnotationLayerView extends Tab {
   }
 
   private render(index: number) {
+    // console.log("AnnotationLayerView > render");
     const { annotation, state } = this.listElements[index];
     return this.makeAnnotationListElement(annotation, state);
   }
@@ -678,6 +681,7 @@ export class AnnotationLayerView extends Tab {
   }
 
   private updateView() {
+    // console.log("AnnotationLayerView > updateView");
     if (!this.visible) {
       return;
     }
@@ -776,6 +780,7 @@ export class AnnotationLayerView extends Tab {
   }
 
   private updateListLength() {
+    // console.log("AnnotationLayerView > updateListLength");
     let length = 0;
     for (const info of this.attachedAnnotationStates.values()) {
       info.listOffset = length;
@@ -788,6 +793,7 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
+    // console.log("AnnotationLayerView > addAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -815,6 +821,7 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
+    console.log("AnnotationLayerView > updateAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -842,6 +849,7 @@ export class AnnotationLayerView extends Tab {
     annotationId: string,
     state: AnnotationLayerState,
   ) {
+    // console.log("AnnotationLayerView > deleteAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -884,6 +892,7 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
+    // console.log("AnnotationLayerView > makeAnnotationListElement");
     const chunkTransform = state.chunkTransform
       .value as ChunkTransformParameters;
     const element = document.createElement("div");
@@ -1124,7 +1133,7 @@ const ANNOTATE_BOUNDING_BOX_TOOL_ID = "annotateBoundingBox";
 const ANNOTATE_ELLIPSOID_TOOL_ID = "annotateSphere";
 /* BRAINSHARE STARTS */
 const ANNOTATE_POLYGON_TOOL_ID = 'annotatePolygon';
-// const ANNOTATE_VOLUME_TOOL_ID = 'annotateVolume';
+const ANNOTATE_VOLUME_TOOL_ID = 'annotateVolume';
 // const ANNOTATE_CELL_TOOL_ID = 'annotateCell';
 // const ANNOTATE_COM_TOOL_ID = 'annotateCom';
 /* BRAINSHARE ENDS */
@@ -1218,6 +1227,7 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
     parentRef?: AnnotationReference
   ) {
   /* BRAINSHARE ENDS */
+    console.log("TwoStepAnnotationTool > trigger")
     const { annotationLayer, inProgressAnnotation } = this;
     if (annotationLayer === undefined) {
       // Not yet ready.
@@ -1480,7 +1490,7 @@ class PlaceEllipsoidTool extends TwoStepAnnotationTool {
  * An abstract class to represent any annotation tool with multiple steps to 
  * complete annotation.
  */
-abstract class MultiStepAnnotationTool extends PlaceAnnotationTool {
+export abstract class MultiStepAnnotationTool extends PlaceAnnotationTool {
   inProgressAnnotation: {
     annotationLayer: AnnotationLayerState, 
     reference: AnnotationReference, 
@@ -1627,6 +1637,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
   zCoordinate: number|undefined;
 
   constructor(public layer: UserLayerWithAnnotations, options: any) {
+    console.log("PlacePolygonTool > constructor")
     super(layer, options);
     this.active = true;
     this.childTool = new PlaceLineTool(layer, {...options, parent: this});
@@ -1692,6 +1703,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
    * @returns void
    */
   trigger(mouseState: MouseSelectionState, parentRef?: AnnotationReference) {
+    console.log("PlacePolygonTool > trigger")
     volume_tool_used = true;
     global_mouseState = mouseState;
     const {annotationLayer} = this;
@@ -1838,6 +1850,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
       super.setActive(_value);
     }
   }
+
   /**
    * Deactivates the annotation tool.
    */
@@ -1848,6 +1861,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
     this.childTool.deactivate();
     super.deactivate();
   }
+
   /**
    * Completes the last edge of polygon to be drawn.
    * @returns true if the operation suceeded otherwise false.
@@ -2227,6 +2241,429 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
   }
 }
 PlacePolygonTool.prototype.annotationType = AnnotationType.POLYGON;
+
+export interface VolumeSession {
+  reference: AnnotationReference;
+}
+
+export interface COMSession {
+  label: string|undefined;
+  color: string|undefined;
+}
+
+export interface CellSession {
+  label: string|undefined;
+  color: string|undefined;
+  category: string|undefined;
+}
+
+let has_volume_tool: boolean = false;
+
+export function updateHasVolumeTool(value: boolean = true) {
+  has_volume_tool = value;
+}
+
+let volume_ref_id: string|undefined = undefined;
+
+export function updateVolumeRef(ref_id: string) {
+  volume_ref_id = ref_id;
+}
+
+export function getVolumeRef() {
+  return volume_ref_id;
+}
+
+/**
+ * This class is used to create the Volume annotation tool.
+ */
+export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
+  /** Volume tool utilises the polygon tool to draw annotations. */
+  childTool: PlacePolygonTool | undefined;
+  sourceMouseState: MouseSelectionState;
+  sourcePosition: any;
+  active: boolean;
+  session: WatchableValue<VolumeSession | undefined> = new WatchableValue(undefined);
+  sessionWidget: RefCounted | undefined;
+  sessionWidgetDiv: HTMLElement | undefined;
+  icon: WatchableValue<HTMLElement | undefined> = new WatchableValue(undefined);
+
+  constructor(
+    public layer: UserLayerWithAnnotations, 
+    options: any, 
+    session: VolumeSession | undefined = undefined,
+    sessionDiv: HTMLElement | undefined = undefined,
+    iconDiv: HTMLElement|undefined = undefined, 
+    restore_from_firebase: boolean = false) {
+    super(layer, options);
+    const func = this.displayVolumeSession.bind(this);
+    this.sessionWidgetDiv = sessionDiv;
+    this.session.changed.add(() => func());
+    this.session.value = session;
+    this.active = true;
+
+    // if(urlParams.multiUserMode) {
+      // has_volume_tool = true;
+    // }
+
+    this.childTool = new PlacePolygonTool(layer, {...options, parent: this});
+
+    this.icon.changed.add(this.setIconColor.bind(this));
+    this.icon.value = iconDiv;
+    this.registerDisposer(() => {
+      const iconDiv = this.icon.value;
+      if (iconDiv === undefined) return;
+      iconDiv.style.backgroundColor = '';
+      this.icon.value = undefined;
+    });
+
+    // if(this.session.value === undefined && urlParams.multiUserMode) {
+    //   // @ts-ignore
+    //   if(!this.annotationLayer || !this.annotationLayer.source || !this.annotationLayer.source.annotationMap) {
+    //     return
+    //   }
+
+    //   if(restore_from_firebase) {
+    //     volume_ref_id = getVolumeRef();
+    //   }
+
+    //   //@ts-ignore
+    //   let volume_annotation = this.annotationLayer.source.annotationMap.get(volume_ref_id);
+
+    //   if(volume_annotation) {
+    //     this.session.value = <VolumeSession>{reference: this.annotationLayer.source.getReference(volume_ref_id!)};
+    //     if(this.childTool) {
+    //       this.childTool.restore_multi_user_drawing();
+    //     }
+    //   }
+    // }
+
+  }
+
+  /** Sets the icon color of the volume tool based on the type of mode */
+  setIconColor() {
+    const iconDiv = this.icon.value;
+    if (iconDiv === undefined) return;
+    iconDiv.style.backgroundColor = 'green';
+  }
+  /**
+   * This function is called when the user tries to draw annotation
+   * @param mouseState
+   * @returns void
+   */
+  trigger(mouseState: MouseSelectionState) {
+    console.log("PlaceVolumeTool > trigger");
+    const {annotationLayer} = this;
+    const {session} = this;
+
+    console.log(mouseState);
+    console.log(annotationLayer);
+    console.log(session);
+    // if (annotationLayer === undefined || session.value === undefined || this.childTool === undefined) {
+    //   // Not yet ready.
+    //   return;
+    // }
+    // if (!session.value.reference.value) return;
+    
+    // if (mouseState.updateUnconditionally()) {
+    //   this.childTool.trigger(mouseState, session.value.reference);
+    // }
+
+    if (this.childTool !== undefined) {
+      this.childTool.trigger(mouseState, undefined);
+    }
+  }
+
+  /**
+   * Takes description and color and creates a new volume annotation.
+   * @param description 
+   * @param color 
+   * @returns 
+   */
+  createNewVolumeAnn(description: string|undefined, color: string|undefined) : AnnotationReference | undefined {
+    const {annotationLayer} = this;
+    if (annotationLayer === undefined) return undefined;
+    //@ts-ignore
+    const collection = <Collection>this.getInitialAnnotation(window['viewer'].mouseState, annotationLayer);
+    collection.childrenVisible = true;
+    if (description) collection.description = description;
+    if (color) {
+      for(let idx = 0; idx < annotationLayer.source.properties.length; idx++) {
+        if (annotationLayer.source.properties[idx].identifier === 'color' && collection.properties.length > idx) {
+          collection.properties[idx] = packColor(parseRGBColorSpecification(color));
+          break;
+        }
+      }
+    }
+    // if(id) collection.id = id;
+    const reference = annotationLayer.source.add(<Annotation>collection, true, undefined, undefined);
+    this.layer.selectAnnotation(annotationLayer, reference.id, true);
+
+    return reference;
+  }
+
+  /**
+   * Disposes the annotation tool.
+   */
+  dispose() {
+    console.log("running volume tool disposer");
+    if (this.childTool) {
+      this.childTool.dispose();
+    }
+    // completely delete the session
+    this.disposeSession();
+    super.dispose();
+  }
+  
+  /**
+   * Activates the annotation tool if value is true.
+   * @param _value 
+   */
+  setActive(_value: boolean) {
+    if (this.active !== _value) {
+      this.active = _value;
+      if (this.childTool) {
+        this.childTool.setActive(_value);
+      }
+      super.setActive(_value);
+    }
+  }
+  
+  /**
+   * Deactivates the annotation tool.
+   */
+  deactivate() {
+    this.active = false;
+    if (this.childTool) this.childTool.deactivate();
+    super.deactivate();
+  }
+
+  /**
+   * Completes the last edge of polygon to be drawn.
+   * @returns true if the operation suceeded otherwise false.
+   */
+  complete(): boolean {
+    const {annotationLayer} = this;
+    const {session} = this;
+
+    if (annotationLayer === undefined || session.value === undefined) {
+      return false;
+    }
+    if (!session.value.reference.value) return false;
+
+    global_parentRef = session.value.reference;
+    if(this.childTool && this.childTool.complete()) {
+      //this.layer.selectAnnotation(annotationLayer, session.value.reference.id, true);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Deletes the current active session
+   */
+  private disposeSession() {
+    const {session} = this;
+    if (session.value) session.value.reference.dispose();
+    this.session.value = undefined;
+    if (this.sessionWidget) this.sessionWidget.dispose();
+    this.sessionWidget = undefined;
+  }
+
+  /**
+   * Undo the last drawn polygon line segment.
+   */
+  undo(mouseState: MouseSelectionState): boolean {
+    const {session} = this;
+    if (session.value === undefined || !session.value.reference.value || this.childTool === undefined) return false;
+    
+    return this.childTool.undo(mouseState);
+  }
+
+  /**
+   * Adds a new vertex to the polygon in edit mode.
+   * @param mouseState 
+   * @returns 
+   */
+  addVertexPolygon(mouseState: MouseSelectionState) {
+    if (!this.validateSession(mouseState.pickedAnnotationId, mouseState.pickedAnnotationLayer)) return;
+    if (this.childTool) this.childTool.addVertexPolygon(mouseState);
+  }
+
+  /**
+   * Deletes a vertex of the polygon in edit mode.
+   * @param mouseState 
+   * @returns 
+   */
+  deleteVertexPolygon(mouseState: MouseSelectionState) {
+    if (!this.validateSession(mouseState.pickedAnnotationId, mouseState.pickedAnnotationLayer)) return;
+    if (this.childTool) this.childTool.deleteVertexPolygon(mouseState);
+  }
+
+  /**
+   * Valides the session, that is if the volume id edited is the current active session or not.
+   * @param annotationId 
+   * @param annotationLayer 
+   * @returns 
+   */
+  validateSession(annotationId: string|undefined, annotationLayer: AnnotationLayerState|undefined) : boolean {
+    if (this.session.value === undefined || annotationId === undefined || annotationLayer === undefined) return false;
+    if (this.session.value.reference === undefined || !this.session.value.reference.value) return false;
+    if (!this.active) return false;
+    const reference = annotationLayer.source.getTopMostAnnotationReference(annotationId);
+    if (!reference.value) return false;
+    const annotation = reference.value;
+    if (annotation.id !== this.session.value.reference.value.id) return false;
+    return true;
+  }
+
+  /**
+   * This function is used to display the Volume session data in the annotation tabs
+   * while the user is annotating.
+   */
+  displayVolumeSession() {
+    const {annotationLayer, session, sessionWidgetDiv} = this;
+    if (this.sessionWidget) this.sessionWidget.dispose();
+    this.sessionWidget = new RefCounted();
+    const {sessionWidget} = this; 
+    if (annotationLayer === undefined || session.value === undefined || sessionWidgetDiv === undefined) return;
+
+    const reference = session.value.reference;
+    sessionWidgetDiv.appendChild(
+      this.sessionWidget.registerDisposer(new DependentViewWidget(
+        this.sessionWidget.registerDisposer(
+                    new AggregateWatchableValue(() => ({
+                                                  annotation: reference,
+                                                  chunkTransform: annotationLayer.chunkTransform
+                                                }))),
+                                                //@ts-ignore
+                ({annotation, chunkTransform}, parent, context) => {
+                  if (annotation == null) {
+                    const statusMessage = document.createElement('div');
+                    statusMessage.classList.add('neuroglancer-selection-annotation-status');
+                    statusMessage.textContent =
+                        (annotation === null) ? 'Annotation not found' : 'Loading...';
+                    parent.appendChild(statusMessage);
+                    return;
+                  }
+
+                  const sessionTitle = document.createElement('div');
+                  sessionTitle.classList.add('volume-session-display-title');
+                  sessionTitle.textContent = "Volume session";
+
+                  const sessionBody = document.createElement('div');
+                  sessionBody.classList.add('volume-session-display-body');
+
+                  const {properties} = annotationLayer.source;
+
+                  for (let i = 0, count = properties.length; i < count; ++i) {
+                    const property = properties[i];
+                    if (property.identifier === 'visibility') {
+                      continue;
+                    }
+                    const label = document.createElement('label');
+                    label.classList.add('neuroglancer-annotation-property');
+                    const idElement = document.createElement('span');
+                    idElement.classList.add('neuroglancer-annotation-property-label');
+                    idElement.textContent = property.identifier;
+                    label.appendChild(idElement);
+                    const {description} = property;
+                    if (description !== undefined) {
+                      label.title = description;
+                    }
+                    let valueElement: HTMLSpanElement;
+                    let colorElement : HTMLInputElement;
+                    const value = annotation.properties[i];
+                    switch (property.type) {
+                      case 'float32':
+                        valueElement = document.createElement('span');
+                        valueElement.classList.add('neuroglancer-annotation-property-value');
+                        valueElement.textContent = value.toPrecision(6);
+                        label.appendChild(valueElement);
+                        break;
+                      case 'rgb': {
+                        colorElement = document.createElement('input');
+                        if (reference.value && reference.value.parentAnnotationId) {
+                          colorElement.disabled = true;
+                        };
+                        colorElement.type = 'color';
+                        const colorVec = unpackRGB(value);
+                        const hex = serializeColor(colorVec);
+                        colorElement.value = hex;
+                        colorElement.style.backgroundColor =
+                            useWhiteBackground(colorVec) ? 'white' : 'black';
+                        colorElement.disabled = true;
+                        // colorElement.addEventListener('change', () => {
+                        //   const colorInNum = packColor(parseRGBColorSpecification(colorElement.value));
+                          // annotationLayer.source.updateColor(reference, colorInNum);
+                        // });
+                        label.appendChild(colorElement);
+                        break;
+                      }
+                      case 'rgba': {
+                        valueElement = document.createElement('span');
+                        valueElement.classList.add('neuroglancer-annotation-property-value');
+                        const colorVec = unpackRGB(value >>> 8);
+                        valueElement.textContent = serializeColor(unpackRGBA(value));
+                        valueElement.style.backgroundColor =
+                            serializeColor(unpackRGB(value >>> 8));
+                        valueElement.style.color =
+                            useWhiteBackground(colorVec) ? 'white' : 'black';
+                        label.appendChild(valueElement);
+                        break;
+                      }
+                      default:
+                        valueElement = document.createElement('span');
+                        valueElement.classList.add('neuroglancer-annotation-property-value');
+                        valueElement.textContent = value.toString();
+                        label.appendChild(valueElement);
+                        break;
+                    }
+                    
+                    sessionBody.appendChild(label);
+                  }
+
+                  if (annotation.description && annotation.description.length > 0) {
+                    // console.log('annotations.ts line=2504 desc=' + annotation.description);
+                    // console.log('annotations.ts line=2505 length=' + annotation.description.length);
+                    const label = document.createElement('label');
+                    label.classList.add('neuroglancer-annotation-property');
+                    const idElement = document.createElement('span');
+                    idElement.classList.add('neuroglancer-annotation-property-label');
+                    idElement.textContent = "Description";
+                    label.appendChild(idElement);
+                    const valueElement = document.createElement('span');
+                    valueElement.classList.add('neuroglancer-annotation-property-description');
+                    valueElement.textContent = annotation.description || '';
+                    label.appendChild(valueElement);
+                    sessionBody.appendChild(label);
+                  }
+                  parent.appendChild(sessionTitle);
+                  parent.appendChild(sessionBody);
+                  
+                  sessionWidget.registerDisposer(() => {
+                    try {
+                      sessionWidgetDiv.removeChild(parent);
+                    }
+                    catch (e) {
+                      //ignore errors
+                    }
+                  });
+                }))
+            .element);
+    return;
+  }
+
+  get description() {
+    return `volume session (draw mode)`;
+  }
+
+  toJSON() {
+    return ANNOTATE_VOLUME_TOOL_ID;
+  }
+}
+
+PlaceVolumeTool.prototype.annotationType = AnnotationType.VOLUME;
 /* BRAINSHARE ENDS */
 
 registerLegacyTool(

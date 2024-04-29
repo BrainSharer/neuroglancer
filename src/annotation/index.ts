@@ -1475,38 +1475,38 @@ export class AnnotationSource
       throw new Error("Annotation already deleted.");
     }
     /* BRAINSHARE STARTS */
-    annotation = this.roundZCoordinateBasedOnAnnotation(annotation);
+    // annotation = this.roundZCoordinateBasedOnAnnotation(annotation);
     /* BRAINSHARE ENDS */
     reference.value = annotation;
     this.annotationMap.set(annotation.id, annotation);
     /* BRAINSHARE STARTS */
-    if (annotation.parentAnnotationId) {
-      const parentRef = this.getReference(annotation.parentAnnotationId);
-      if (parentRef.value && isTypeCollection(parentRef.value)) {
-        let parAnnotation = <Collection>parentRef.value;
-        parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
-        this.update(parentRef, <Annotation>parAnnotation);
-      }
-      parentRef.dispose();
-    }
+    // if (annotation.parentAnnotationId) {
+    //   const parentRef = this.getReference(annotation.parentAnnotationId);
+    //   if (parentRef.value && isTypeCollection(parentRef.value)) {
+    //     let parAnnotation = <Collection>parentRef.value;
+    //     parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
+    //     this.update(parentRef, <Annotation>parAnnotation);
+    //   }
+    //   parentRef.dispose();
+    // }
     /* BRAINSHARE ENDS */
     reference.changed.dispatch();
     this.changed.dispatch();
     /* BRAINSHARE STARTS */
-    if (isTypeCollection(annotation)) {
-      const collection = <Collection>annotation;
-      if (collection.childrenVisible) {
-        for (let childId of collection.childAnnotationIds) {
-          this.getAllAnnsUnderRootToDisplay(childId, true);
-        }
-      } else {
-        const annList = this.getAllAnnsUnderRoot(collection.id);
-        annList.shift(); // remove current annotation from list
-        for (let ann of annList) {
-          this.childDeleted.dispatch(ann.id);
-        }
-      }
-    }
+    // if (isTypeCollection(annotation)) {
+    //   const collection = <Collection>annotation;
+    //   if (collection.childrenVisible) {
+    //     for (let childId of collection.childAnnotationIds) {
+    //       this.getAllAnnsUnderRootToDisplay(childId, true);
+    //     }
+    //   } else {
+    //     const annList = this.getAllAnnsUnderRoot(collection.id);
+    //     annList.shift(); // remove current annotation from list
+    //     for (let ann of annList) {
+    //       this.childDeleted.dispatch(ann.id);
+    //     }
+    //   }
+    // }
     /* BRAINSHARE ENDS */
     this.childUpdated.dispatch(annotation);
   }
