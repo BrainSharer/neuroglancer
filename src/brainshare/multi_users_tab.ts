@@ -131,7 +131,7 @@ export class MultiUsersTab extends Tab {
   private stateUpdated() {
     if (this.stateAPI.userState.value !== null) {
       const userState = this.stateAPI.userState.value;
-      if (userState.user_id === 0) {
+      if (userState.id === 0) {
         // Detach user change listener
         if (this.usersListenerDetach !== undefined) {
           this.usersListenerDetach();
@@ -141,7 +141,7 @@ export class MultiUsersTab extends Tab {
         const brainState = this.stateAPI.brainState.value;
         if (brainState !== null) {
           const username = String(userState.username);
-          const state_id = String(brainState.state_id);
+          const state_id = String(brainState.id);
 
           this.throttledUpdateStateToFirebase = debounce(() => {
             const cacheState = getCachedJson(this.viewerState);

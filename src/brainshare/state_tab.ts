@@ -23,9 +23,9 @@ export class StateTab extends Tab {
     text: 'Save',
     title: 'Save to the current JSON state'
   });
-  private resetButton = makeIcon({
-    text: 'Reset',
-    title: 'Reset to the JSON state stored in the database',
+  private loadButton = makeIcon({
+    text: 'Load',
+    title: 'Load the JSON state stored in the database',
   });
 
   constructor(
@@ -40,7 +40,6 @@ export class StateTab extends Tab {
       this.stateUpdated();
     });
     this.stateAPI.brainState.changed.add(() => {
-      this.init_viewerState();
       this.stateUpdated();
     });
   }
@@ -68,8 +67,7 @@ export class StateTab extends Tab {
       const userState = this.stateAPI.userState.value;
       if (userState !== null) {
         const newBrainstate = {
-          state_id: 0,
-          owner: userState.user_id,
+          owner: userState.id,
           comments: comments,
           user_date: String(Date.now()),
           neuroglancer_state: getCachedJson(this.viewerState).value,
@@ -96,33 +94,28 @@ export class StateTab extends Tab {
       const userState = this.stateAPI.userState.value;
       if (brainState !== null && userState !== null) {
         const newBrainState = {
-          state_id: brainState.state_id,
-          owner: userState.user_id,
           comments: comments,
           user_date: String(Date.now()),
           neuroglancer_state: getCachedJson(this.viewerState).value,
-          readonly: false,
-          public: true,
-          lab: userState.lab
         };
-        this.stateAPI.saveState(brainState.state_id, newBrainState);
+        this.stateAPI.saveState(brainState.id, newBrainState);
       }
     });
 
     // Reset button
-    this.resetButton.style.display = 'none;'
-    this.registerEventListener(this.resetButton, 'click', () => {
-      this.init_viewerState();
+    this.loadButton.style.display = 'none;'
+    this.registerEventListener(this.loadButton, 'click', () => {
+      this.load_viewerState();
     });
 
     this.element.appendChild(this.comment);
     this.element.appendChild(this.buttonContainer);
     this.buttonContainer.appendChild(this.newButton);
     this.buttonContainer.appendChild(this.saveButton);
-    this.buttonContainer.appendChild(this.resetButton);
+    this.buttonContainer.appendChild(this.loadButton);
   }
 
-  private init_viewerState() {
+  private load_viewerState() {
     const brainState = this.stateAPI.brainState.value;
     if (brainState !== null) {
       this.viewerState.reset();
@@ -133,12 +126,12 @@ export class StateTab extends Tab {
   private stateUpdated() {
     const userState = this.stateAPI.userState.value;
     if (userState !== null) {
-      if (userState.user_id !== 0) {
+      if (userState.id !== 0) {
         const brainState = this.stateAPI.brainState.value;
         if (brainState !== null) {
           this.comment.value = brainState['comments'];
           this.saveButton.style.removeProperty('display');
-          this.resetButton.style.removeProperty('display');
+          this.loadButton.style.removeProperty('display');
 
           if ((brainState.readonly) || (brainState.lab !== userState.lab)) {
             this.saveButton.style.removeProperty('display');

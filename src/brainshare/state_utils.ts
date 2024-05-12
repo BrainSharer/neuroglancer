@@ -20,7 +20,6 @@ export interface CompletionWithState extends Completion {
   json: string;
 }
 
-
 /**
  * Fuzzy search algorithm in Typescript.
  * https://github.com/bevacqua/fuzzysearch
@@ -124,9 +123,14 @@ export class StateAutocomplete extends AutocompleteTextInput {
   }
 }
 
+//
+// State API
+//
+
 export interface UrlParams {
   "stateID": string | null,
 }
+
 /**
  * This function gets the two parameters from the URL
  * 1. The id which is the primary key in the neuroglancer state table
@@ -142,9 +146,8 @@ export function getUrlParams(): any {
   return locationVariables;
 }
 
-
 export interface State {
-  state_id: number;
+  id: number;
   owner: number;
   comments: string;
   user_date: string;
@@ -155,11 +158,10 @@ export interface State {
 }
 
 export interface User {
-  user_id: number;
+  id: number;
   username: string;
   lab: string;
 }
-
 
 /**
  * This class works with the REST API with the Neuroglancer state.
@@ -192,15 +194,15 @@ export class StateAPI {
    * @returns json of user
    */
   getUser() {
-    const user_id = getCookie("id") ?? 0;
-    const access = getCookie("access") ?? "";
-    const lab = getCookie("lab") ?? "";
+    const id = getCookie("id") ?? 0;
     const username = getCookie("username") ?? "";
+    const lab = getCookie("lab") ?? "";
+    const access = getCookie("access") ?? "";
 
-    let userjson = { "user_id": 0, "username": "", "lab": "", "access": "" };
-    if ((user_id !== 0) && (username !== "")) {
+    let userjson = { "id": 0, "username": "", "lab": "", "access": "" };
+    if ((id !== 0) && (username !== "")) {
       userjson = {
-        "user_id": +user_id,
+        "id": +id,
         "username": username,
         "lab": lab,
         "access": access
@@ -221,22 +223,13 @@ export class StateAPI {
     fetchOk(url, { method: 'GET' }).then(
       response => response.json()
     ).then(json => {
-      this.brainState.value = {
-        state_id: json['id'],
-        owner: json['owner'],
-        comments: json['comments'],
-        user_date: json['user_date'],
-        neuroglancer_state: json['neuroglancer_state'],
-        readonly: json['readonly'],
-        public: json['public'],
-        lab: json['lab']
-      };
+      this.brainState.value = json;
     }).catch(err => {
       StatusMessage.showTemporaryMessage(
         'The URL is deleted from database. Please check again.'
       );
       this.brainState.value = {
-        state_id: 0,
+        id: 0,
         owner: 0,
         comments: err,
         user_date: "0",
@@ -254,18 +247,9 @@ export class StateAPI {
    * @param state the JSON state
    * @returns the JSON state
    */
-  newState(state: State) {
+  newState(state: Object) {
     const url = this.stateUrl;
-    const json_body = {
-      id: state['state_id'],
-      owner: state['owner'],
-      comments: state['comments'],
-      user_date: state['user_date'],
-      neuroglancer_state: state['neuroglancer_state'],
-      readonly: state['readonly'],
-      public: state['public'],
-      lab: state['lab']
-    };
+    const json_body = { ...this.brainState.value, ...state }
 
     fetchOk(url, {
       method: 'POST',
@@ -282,16 +266,7 @@ export class StateAPI {
       window.history.pushState({}, '', href.toString());
       this.urlParams.stateID = json['id'];
 
-      this.brainState.value = {
-        state_id: json['id'],
-        owner: json['owner'],
-        comments: json['comments'],
-        user_date: json['user_date'],
-        neuroglancer_state: json['neuroglancer_state'],
-        readonly: json['readonly'],
-        public: json['public'],
-        lab: json['lab']
-      };
+      this.brainState.value = json;
     })
   }
 
@@ -301,18 +276,9 @@ export class StateAPI {
    * @param state the JSON state
    * @returns the JSON state
    */
-  saveState(stateID: number | string, state: State) {
+  saveState(stateID: number | string, state: Object) {
     const url = `${this.stateUrl}/${stateID}`;
-    const json_body = {
-      id: state['state_id'],
-      owner: state['owner'],
-      comments: state['comments'],
-      user_date: state['user_date'],
-      neuroglancer_state: state['neuroglancer_state'],
-      readonly: state['readonly'],
-      public: state['public'],
-      lab: state['lab']
-    };
+    const json_body = { ...this.brainState.value, ...state }
 
     fetchOk(url, {
       method: 'PUT',
@@ -322,16 +288,7 @@ export class StateAPI {
       },
       body: JSON.stringify(json_body, null, 0),
     }).then(response => response.json()).then(json => {
-      this.brainState.value = {
-        state_id: json['id'],
-        owner: json['owner'],
-        comments: json['comments'],
-        user_date: json['user_date'],
-        neuroglancer_state: json['neuroglancer_state'],
-        readonly: json['readonly'],
-        public: json['public'],
-        lab: json['lab']
-      };
+      this.brainState.value = json;
     });
   }
 }

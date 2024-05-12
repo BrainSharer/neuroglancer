@@ -494,6 +494,15 @@ export class AnnotationLayerView extends Tab {
       },
     });
     mutableControls.appendChild(polygonButton);
+    // const volumeButton = makeIcon({
+    //   text: annotationTypeHandlers[AnnotationType.VOLUME].icon,
+    //   title: 'Annotate volume',
+    //   onClick: () => {
+    //     this.layer.tool.value = new PlaceVolumeTool(this.layer, {}, 
+    //       undefined, undefined, undefined, false);
+    //   },
+    // });
+    // mutableControls.appendChild(volumeButton);
     /* BRAINSHARE ENDS */
     toolbox.appendChild(mutableControls);
     this.element.appendChild(toolbox);
@@ -821,7 +830,7 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
-    console.log("AnnotationLayerView > updateAnnotationElement");
+    // console.log("AnnotationLayerView > updateAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -1227,7 +1236,7 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
     parentRef?: AnnotationReference
   ) {
   /* BRAINSHARE ENDS */
-    console.log("TwoStepAnnotationTool > trigger")
+    // console.log("TwoStepAnnotationTool > trigger")
     const { annotationLayer, inProgressAnnotation } = this;
     if (annotationLayer === undefined) {
       // Not yet ready.
@@ -1637,7 +1646,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
   zCoordinate: number|undefined;
 
   constructor(public layer: UserLayerWithAnnotations, options: any) {
-    console.log("PlacePolygonTool > constructor")
+    // console.log("PlacePolygonTool > constructor")
     super(layer, options);
     this.active = true;
     this.childTool = new PlaceLineTool(layer, {...options, parent: this});
@@ -1703,7 +1712,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
    * @returns void
    */
   trigger(mouseState: MouseSelectionState, parentRef?: AnnotationReference) {
-    console.log("PlacePolygonTool > trigger")
+    // console.log("PlacePolygonTool > trigger")
     volume_tool_used = true;
     global_mouseState = mouseState;
     const {annotationLayer} = this;
@@ -1867,6 +1876,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
    * @returns true if the operation suceeded otherwise false.
    */
   complete(): boolean {
+    // console.log("PlacePolygonTool > complete")
     volume_tool_used = true;
     const {annotationLayer} = this;
 
@@ -2351,13 +2361,10 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
    * @returns void
    */
   trigger(mouseState: MouseSelectionState) {
-    console.log("PlaceVolumeTool > trigger");
+    // console.log("PlaceVolumeTool > trigger");
     const {annotationLayer} = this;
     const {session} = this;
 
-    console.log(mouseState);
-    console.log(annotationLayer);
-    console.log(session);
     // if (annotationLayer === undefined || session.value === undefined || this.childTool === undefined) {
     //   // Not yet ready.
     //   return;
@@ -2405,7 +2412,7 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
    * Disposes the annotation tool.
    */
   dispose() {
-    console.log("running volume tool disposer");
+    // console.log("running volume tool disposer");
     if (this.childTool) {
       this.childTool.dispose();
     }
@@ -2442,15 +2449,17 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
    * @returns true if the operation suceeded otherwise false.
    */
   complete(): boolean {
+    // console.log("PlaceVolumeTool > complete")
     const {annotationLayer} = this;
     const {session} = this;
 
-    if (annotationLayer === undefined || session.value === undefined) {
-      return false;
-    }
-    if (!session.value.reference.value) return false;
+    // if (annotationLayer === undefined || session.value === undefined) {
+      // return false;
+    // }
+    //
+    // if (!session.value.reference.value) return false;
 
-    global_parentRef = session.value.reference;
+    // global_parentRef = session.value.reference;
     if(this.childTool && this.childTool.complete()) {
       //this.layer.selectAnnotation(annotationLayer, session.value.reference.id, true);
       return true;
@@ -2686,6 +2695,13 @@ registerLegacyTool(
   (layer, options) =>
     new PlaceEllipsoidTool(<UserLayerWithAnnotations>layer, options),
 );
+/* BRAINSHARE STARTS */
+registerLegacyTool(
+  ANNOTATE_POLYGON_TOOL_ID,
+  (layer, options) => 
+    new PlacePolygonTool(<UserLayerWithAnnotations>layer, options)
+);
+/* BRAINSHARE ENDS */
 
 const newRelatedSegmentKeyMap = EventActionMap.fromObject({
   enter: { action: "commit" },

@@ -1,6 +1,6 @@
 .neuroglancer-state-tab-container {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .neuroglancer-state-tab-comment {
@@ -14,6 +14,6 @@
 }
 
 .neuroglancer-state-tab-button-container {
-    display: flex;
-    flex-direction: row;
+  display: flex;
+  flex-direction: row;
 }

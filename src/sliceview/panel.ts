@@ -45,6 +45,9 @@ import {
   identityMat4,
   kAxes,
   mat4,
+  /* BRAINSHARE STARTS */
+  vec2,
+  /* BRAINSHARE ENDS */
   vec3,
   vec4,
 } from "#/util/geom";
@@ -60,6 +63,31 @@ import {
   MultipleScaleBarTextures,
   TrackableScaleBarOptions,
 } from "#/widget/scale_bar";
+/* BRAINSHARE STARTS */
+import { 
+  Annotation, 
+  AnnotationReference, 
+  AnnotationType, 
+  Line, 
+  Polygon 
+} from '#/annotation';
+import { getPointPartIndex, isCornerPicked } from '#/annotation/line';
+import { getAnnotationTypeRenderHandler } from '#/annotation/type_handler';
+import { 
+  displayToLayerCoordinates, 
+  layerToDisplayCoordinates 
+} from '#/render_coordinate_transform';
+import { arraysEqual } from '../util/array';
+import * as matrix from '#/util/matrix';
+import { StatusMessage } from '../status';
+import { 
+  // PlaceCellTool, 
+  // PlaceComTool, 
+  PlaceVolumeTool, 
+  setInProgressAnnotation 
+} from '../ui/annotations';
+import { checkIfSameZCoordinate, copyZCoordinate } from '../annotation/polygon';
+/* BRAINSHARE ENDS */
 
 export interface SliceViewerState extends RenderedDataViewerState {
   showScaleBar: TrackableBoolean;
@@ -219,6 +247,378 @@ export class SliceViewPanel extends RenderedDataPanel {
         }
       },
     );
+
+    /* BRAINSHARE STARTS */
+    registerActionListener(
+      element, 
+      'move-polygon-annotation', 
+      (e: ActionEvent<MouseEvent>) => {
+        const { mouseState } = this.viewer;
+        const selectedAnnotationId = mouseState.pickedAnnotationId;
+        const annotationLayer = mouseState.pickedAnnotationLayer;
+        const selectedLayer = this.viewer.selectedLayer.layer;
+
+        if (selectedAnnotationId === undefined 
+          || annotationLayer === undefined) return;
+        if (selectedLayer === undefined) {
+          StatusMessage.showTemporaryMessage(
+            'The annotate command requires a layer to be selected.'
+          );
+          return;
+        }
+        const userLayer = selectedLayer.layer;
+        if (userLayer === null || userLayer.tool.value === undefined) {
+          StatusMessage.showTemporaryMessage(
+            `The selected layer (${
+              JSON.stringify(selectedLayer.name)
+            }) does not have an active annotation tool.`);
+          return;
+        }
+        if (userLayer.tool.value instanceof PlaceVolumeTool) {
+          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+          if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
+            return;
+        }
+
+        let selectedAnnotationRef = annotationLayer.source.getReference(
+          selectedAnnotationId
+        )!;
+        let selectedAnn = <Annotation>selectedAnnotationRef.value;
+        if (selectedAnn.parentAnnotationId === undefined) return;
+        let parAnnotationRef = annotationLayer.source.getReference(
+          selectedAnn.parentAnnotationId
+        )!;
+        let parAnn = <Annotation>parAnnotationRef.value;
+        if (parAnn.type !== AnnotationType.POLYGON) return;
+        const { chunkTransform: { value: chunkTransform } } = annotationLayer;
+        if (chunkTransform.error !== undefined) return;
+
+        const handler = getAnnotationTypeRenderHandler(parAnn.type);
+        const pickedOffset = mouseState.pickedOffset;
+        const { layerRank } = chunkTransform;
+        const repPoint = new Float32Array(layerRank);
+        handler.getRepresentativePoint(
+          repPoint, 
+          parAnn, 
+          mouseState.pickedOffset
+        );
+        const childAnnotationRefs: AnnotationReference[] = [];
+        parAnn.childAnnotationIds.forEach((childAnnotationId) => {
+          childAnnotationRefs.push(
+            annotationLayer.source.getReference(childAnnotationId)
+          );
+        });
+
+        let totDeltaVec = vec2.set(vec2.create(), 0, 0);
+        if (mouseState.updateUnconditionally()) {
+          startRelativeMouseDrag(
+            e.detail,
+            (_event, deltaX, deltaY) => {
+              vec2.add(totDeltaVec, totDeltaVec, [deltaX, deltaY]);
+              const layerPoint = new Float32Array(layerRank);
+              matrix.transformPoint(
+                layerPoint, 
+                chunkTransform.chunkToLayerTransform, 
+                layerRank + 1, 
+                repPoint,
+                layerRank);
+              const renderPt = tempVec3;
+              const { displayDimensionIndices } =
+                this.navigationState.pose.displayDimensions.value;
+              layerToDisplayCoordinates(
+                renderPt, 
+                layerPoint, 
+                chunkTransform.modelTransform, 
+                displayDimensionIndices
+              );
+              this.translateDataPointByViewportPixels(
+                renderPt, 
+                renderPt, 
+                totDeltaVec[0], 
+                totDeltaVec[1]
+              );
+              displayToLayerCoordinates(
+                layerPoint, 
+                renderPt, 
+                chunkTransform.modelTransform, 
+                displayDimensionIndices
+              );
+              const newPoint = new Float32Array(layerRank);
+              matrix.transformPoint(
+                newPoint, 
+                chunkTransform.layerToChunkTransform, 
+                layerRank + 1, 
+                layerPoint,
+                layerRank
+              );
+              const oldPoint = new Float32Array(
+                (<Polygon>parAnnotationRef.value!).source.length
+              );
+              for (let i = 0; i < oldPoint.length; ++i) {
+                oldPoint[i] = (<Polygon>parAnnotationRef.value!).source[i];
+              }
+              let newAnnotation =
+                handler.updateViaRepresentativePoint(
+                  parAnn, 
+                  newPoint, 
+                  pickedOffset
+                );
+              annotationLayer.source.update(parAnnotationRef, newAnnotation);
+              childAnnotationRefs.forEach((childAnnotationRef) => {
+                const childAnn = <Line>childAnnotationRef.value;
+                const newPointA = new Float32Array(oldPoint.length);
+                const newPointB = new Float32Array(oldPoint.length);
+                for (let i = 0; i < oldPoint.length; ++i) {
+                  newPointA[i] = newPoint[i] - oldPoint[i] + childAnn.pointA[i];
+                  newPointB[i] = newPoint[i] - oldPoint[i] + childAnn.pointB[i];
+                }
+                const newChildAnnotation = { 
+                  ...childAnn, 
+                  pointA: newPointA, 
+                  pointB: newPointB 
+                };
+                annotationLayer.source.update(
+                  childAnnotationRef, 
+                  newChildAnnotation
+                );
+              });
+            },
+            (_event) => {
+              childAnnotationRefs.forEach((
+                childAnnotationRef) => annotationLayer.source.commit(
+                  childAnnotationRef
+                )
+              );
+              annotationLayer.source.commit(parAnnotationRef);
+              childAnnotationRefs.forEach(
+                (childAnnotationRef) => childAnnotationRef.dispose()
+              );
+              parAnnotationRef.dispose();
+            });
+        }
+      });
+
+    // registerActionListener(element, 'move-point-annotation', (e: ActionEvent<MouseEvent>) => {
+    //   const { mouseState } = this.viewer;
+    //   const selectedLayer = this.viewer.selectedLayer.layer;
+    //   const selectedAnnotationId = mouseState.pickedAnnotationId;
+    //   const annotationLayer = mouseState.pickedAnnotationLayer;
+    //   if (selectedLayer === undefined) {
+    //     StatusMessage.showTemporaryMessage('The annotate command requires a layer to be selected.');
+    //     return;
+    //   }
+    //   const userLayer = selectedLayer.layer;
+    //   if (userLayer === null || userLayer.tool.value === undefined) {
+    //     StatusMessage.showTemporaryMessage(`The selected layer (${JSON.stringify(selectedLayer.name)}) does not have an active annotation tool.`);
+    //     return;
+    //   }
+    //   if (userLayer.tool.value instanceof PlaceCellTool) {
+    //     const cellTool = <PlaceCellTool>userLayer.tool.value;
+    //     if (!cellTool.validateSession(selectedAnnotationId, annotationLayer)) return;
+    //   } else if (userLayer.tool.value instanceof PlaceComTool) {
+    //     const comTool = <PlaceComTool>userLayer.tool.value;
+    //     if (!comTool.validateSession(selectedAnnotationId, annotationLayer)) return;
+    //   } else {
+    //     return;
+    //   }
+    //   if (annotationLayer !== undefined) {
+    //     if (selectedAnnotationId !== undefined) {
+    //       e.stopPropagation();
+    //       let annotationRef = annotationLayer.source.getReference(selectedAnnotationId)!;
+    //       let ann = <Annotation>annotationRef.value;
+    //       if (ann.parentAnnotationId) {
+    //         annotationRef.dispose();
+    //         return;
+    //       }
+    //       const handler = getAnnotationTypeRenderHandler(ann.type);
+    //       const pickedOffset = mouseState.pickedOffset;
+    //       const { chunkTransform: { value: chunkTransform } } = annotationLayer;
+    //       if (chunkTransform.error !== undefined) return;
+    //       const { layerRank } = chunkTransform;
+    //       const repPoint = new Float32Array(layerRank);
+    //       handler.getRepresentativePoint(repPoint, ann, mouseState.pickedOffset);
+    //       let totDeltaVec = vec2.set(vec2.create(), 0, 0);
+    //       if (mouseState.updateUnconditionally()) {
+    //         startRelativeMouseDrag(
+    //           e.detail,
+    //           (_event, deltaX, deltaY) => {
+    //             vec2.add(totDeltaVec, totDeltaVec, [deltaX, deltaY]);
+    //             const layerPoint = new Float32Array(layerRank);
+    //             matrix.transformPoint(
+    //               layerPoint, chunkTransform.chunkToLayerTransform, layerRank + 1, repPoint,
+    //               layerRank);
+    //             const renderPt = tempVec3;
+    //             const { displayDimensionIndices } =
+    //               this.navigationState.pose.displayDimensions.value;
+    //             layerToDisplayCoordinates(
+    //               renderPt, layerPoint, chunkTransform.modelTransform, displayDimensionIndices);
+    //             this.translateDataPointByViewportPixels(
+    //               renderPt, renderPt, totDeltaVec[0], totDeltaVec[1]);
+    //             displayToLayerCoordinates(
+    //               layerPoint, renderPt, chunkTransform.modelTransform, displayDimensionIndices);
+    //             const newPoint = new Float32Array(layerRank);
+    //             matrix.transformPoint(
+    //               newPoint, chunkTransform.layerToChunkTransform, layerRank + 1, layerPoint,
+    //               layerRank);
+    //             let newAnnotation =
+    //               handler.updateViaRepresentativePoint(ann, newPoint, pickedOffset);
+    //             annotationLayer.source.update(annotationRef, newAnnotation);
+    //           },
+    //           (_event) => {
+    //             annotationLayer.source.commit(annotationRef);
+    //             annotationRef.dispose();
+    //           });
+    //       }
+    //     }
+    //   }
+    // });
+
+    registerActionListener(
+      element, 
+      'move-polygon-vertex', 
+      (e: ActionEvent<MouseEvent>) => {
+        const { mouseState } = this.viewer;
+        const selectedLayer = this.viewer.selectedLayer.layer;
+        const selectedAnnotationId = mouseState.pickedAnnotationId;
+        const annotationLayer = mouseState.pickedAnnotationLayer;
+        if (annotationLayer === undefined 
+          || selectedAnnotationId === undefined) return;
+        if (selectedLayer === undefined) {
+          StatusMessage.showTemporaryMessage(
+            'The annotate command requires a layer to be selected.'
+          );
+          return;
+        }
+        const userLayer = selectedLayer.layer;
+        if (userLayer === null || userLayer.tool.value === undefined) {
+          StatusMessage.showTemporaryMessage(
+            `The selected layer (${
+              JSON.stringify(selectedLayer.name)
+            }) does not have an active annotation tool.`);
+          return;
+        }
+        if (userLayer.tool.value instanceof PlaceVolumeTool) {
+          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+          if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
+            return;
+        }
+        e.stopPropagation();
+        let annotationRef = annotationLayer.source.getReference(
+          selectedAnnotationId
+        )!;
+        let ann = <Annotation>annotationRef.value;
+        if (!ann.parentAnnotationId) return;
+
+        let parAnnotationRef = annotationLayer.source.getReference(
+          ann.parentAnnotationId
+        )!;
+        let parAnn = <Annotation>parAnnotationRef.value;
+        if (parAnn.type === AnnotationType.POLYGON 
+          && isCornerPicked(mouseState.pickedOffset)) {
+          // if(urlParams.multiUserMode)
+          // setInProgressAnnotation(true)
+          const handler = getAnnotationTypeRenderHandler(ann.type);
+          const { chunkTransform: { value: chunkTransform } } = annotationLayer;
+          if (chunkTransform.error !== undefined) return;
+          const { layerRank } = chunkTransform;
+          const repPoint = new Float32Array(layerRank);
+          handler.getRepresentativePoint(repPoint, ann, mouseState.pickedOffset);
+
+          let childAnnotationIds = (<Polygon>parAnn).childAnnotationIds;
+          let pickedAnnotations: { 
+            partIndex: number, 
+            annotationRef: AnnotationReference 
+          }[] = [];
+
+          childAnnotationIds.forEach((childAnnotationId) => {
+            let childAnnotationRef = annotationLayer.source.getReference(
+              childAnnotationId
+            );
+            let childAnn = <Line>childAnnotationRef.value;
+            if (arraysEqual(childAnn.pointA, repPoint) 
+              || arraysEqual(childAnn.pointB, repPoint)) {
+              pickedAnnotations.push(
+                {
+                  partIndex: getPointPartIndex(<Line>childAnn, repPoint),
+                  annotationRef: childAnnotationRef
+                }
+              );
+            }
+          });
+
+          let totDeltaVec = vec2.set(vec2.create(), 0, 0);
+          if (mouseState.updateUnconditionally()) {
+            startRelativeMouseDrag(
+              e.detail,
+              (_event, deltaX, deltaY) => {
+                vec2.add(totDeltaVec, totDeltaVec, [deltaX, deltaY]);
+                const layerPoint = new Float32Array(layerRank);
+                matrix.transformPoint(
+                  layerPoint, 
+                  chunkTransform.chunkToLayerTransform, 
+                  layerRank + 1, 
+                  repPoint,
+                  layerRank
+                );
+                const renderPt = tempVec3;
+                const { displayDimensionIndices } =
+                  this.navigationState.pose.displayDimensions.value;
+                layerToDisplayCoordinates(
+                  renderPt, 
+                  layerPoint, 
+                  chunkTransform.modelTransform, 
+                  displayDimensionIndices
+                );
+                this.translateDataPointByViewportPixels(
+                  renderPt, 
+                  renderPt, 
+                  totDeltaVec[0], 
+                  totDeltaVec[1]
+                );
+                displayToLayerCoordinates(
+                  layerPoint, 
+                  renderPt, 
+                  chunkTransform.modelTransform, 
+                  displayDimensionIndices
+                );
+                const newPoint = new Float32Array(layerRank);
+                matrix.transformPoint(
+                  newPoint, 
+                  chunkTransform.layerToChunkTransform, 
+                  layerRank + 1, 
+                  layerPoint,
+                  layerRank
+                );
+                copyZCoordinate((<Polygon>parAnn).source, newPoint);
+                pickedAnnotations.forEach((pickedAnnotation) => {
+                  let newAnnotation = handler.updateViaRepresentativePoint(
+                    pickedAnnotation.annotationRef.value!,
+                    newPoint, pickedAnnotation.partIndex
+                  );
+                  let newLineAnn = <Line>newAnnotation;
+                  if (checkIfSameZCoordinate(
+                    newLineAnn.pointA, 
+                    newLineAnn.pointB)
+                  ) {
+                    annotationLayer.source.update(
+                      pickedAnnotation.annotationRef, 
+                      newAnnotation
+                    );
+                  }
+                });
+              },
+              (_event) => {
+                // if(urlParams.multiUserMode)
+                // setInProgressAnnotation(false)
+                pickedAnnotations.forEach((pickedAnnotation) => {
+                  annotationLayer.source.commit(pickedAnnotation.annotationRef);
+                  pickedAnnotation.annotationRef.dispose();
+                });
+              });
+          }
+        }
+      });
+      /* BRAINSHARE ENDS */
 
     this.registerDisposer(sliceView);
     // Create visible layer tracker after registering SliceView, to ensure it is destroyed before

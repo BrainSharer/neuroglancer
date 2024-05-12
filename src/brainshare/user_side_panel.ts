@@ -163,7 +163,7 @@ export class UserSidePanel extends SidePanel {
   private stateUpdated() {
     const userState = this.stateAPI.userState.value;
     if (userState !== null) {
-      if (userState.user_id === 0) {
+      if (userState.id === 0) {
         if (this.titleElement !== undefined) {
           this.titleElement.textContent = "Please log in";
         }

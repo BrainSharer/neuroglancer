@@ -407,7 +407,7 @@ function getTransformedPoint(
  */
 //@ts-ignore
 export function scalePolygon(
-  // navigationState: NavigationState, 
+  navigationState: NavigationState, 
   annotationLayer: AnnotationLayerState,
   reference: AnnotationReference, 
   scale: number

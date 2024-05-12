@@ -126,7 +126,11 @@ import { RPC } from "#/worker_rpc";
 /* BRAINSHARE STARTS */
 import svg_people from "ikonate/icons/people.svg";
 import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
-import { MultiStepAnnotationTool } from '#/ui/annotations';
+import { 
+  MultiStepAnnotationTool, 
+  PlacePolygonTool, 
+  PlaceVolumeTool 
+} from '#/ui/annotations';
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
@@ -1113,6 +1117,60 @@ export class Viewer extends RefCounted implements ViewerState {
     });
 
     /* BRAINSHARE STARTS */
+    this.bindAction('add-vertex-polygon', () => {
+      const selectedLayer = this.selectedLayer.layer;
+      if (selectedLayer === undefined) {
+        StatusMessage.showTemporaryMessage(
+          'The annotate command requires a layer to be selected.'
+        );
+        return;
+      }
+      const userLayer = selectedLayer.layer;
+      if (userLayer === null || userLayer.tool.value === undefined) {
+        StatusMessage.showTemporaryMessage(`The selected layer (${
+          JSON.stringify(selectedLayer.name)
+        }) does not have an active annotation tool.`);
+        return;
+      }
+
+      if (!(userLayer.tool.value instanceof PlacePolygonTool 
+        || userLayer.tool.value instanceof PlaceVolumeTool)) {
+        StatusMessage.showTemporaryMessage(
+          `Please select polygon tool in edit mode to perform this operation`
+        );
+        return;
+      }
+
+      roundViewerZPosition();
+      userLayer.tool.value.addVertexPolygon(this.mouseState);
+    });
+
+    this.bindAction('delete-vertex-polygon', () => {
+      const selectedLayer = this.selectedLayer.layer;
+      if (selectedLayer === undefined) {
+        StatusMessage.showTemporaryMessage(
+          'The annotate command requires a layer to be selected.'
+        );
+        return;
+      }
+      const userLayer = selectedLayer.layer;
+      if (userLayer === null || userLayer.tool.value === undefined) {
+        StatusMessage.showTemporaryMessage(`The selected layer (${
+          JSON.stringify(selectedLayer.name)
+        }) does not have an active annotation tool.`);
+        return;
+      }
+
+      if (!(userLayer.tool.value instanceof PlacePolygonTool 
+        || userLayer.tool.value instanceof PlaceVolumeTool)) {
+        StatusMessage.showTemporaryMessage(
+          `Please select polygon tool in edit mode to perform this operation`);
+        return;
+      }
+
+      userLayer.tool.value.deleteVertexPolygon(this.mouseState);
+    });
+
     this.bindAction('complete-annotation', () => {
       const selectedLayer = this.selectedLayer.layer;
       if (selectedLayer === undefined) {
@@ -1139,6 +1197,32 @@ export class Viewer extends RefCounted implements ViewerState {
 
       roundViewerZPosition();
       (<MultiStepAnnotationTool>userLayer.tool.value).complete();
+    });
+
+    this.bindAction('undo-annotation', () => {
+      const selectedLayer = this.selectedLayer.layer;
+      if (selectedLayer === undefined) {
+        StatusMessage.showTemporaryMessage(
+          'The annotate command requires a layer to be selected.'
+        );
+        return;
+      }
+      const userLayer = selectedLayer.layer;
+      if (userLayer === null || userLayer.tool.value === undefined) {
+        StatusMessage.showTemporaryMessage(`The selected layer (${
+          JSON.stringify(selectedLayer.name)
+        }) does not have an active annotation tool.`);
+        return;
+      }
+      if(!(userLayer.tool.value instanceof MultiStepAnnotationTool)) {
+        StatusMessage.showTemporaryMessage(
+          `The selected layer (${
+            JSON.stringify(selectedLayer.name)
+          }) does not have annotation tool with complete step.`
+        );
+        return;
+      }
+      (<MultiStepAnnotationTool>userLayer.tool.value).undo(this.mouseState);
     });
     /* BRAINSHARE ENDS */
 

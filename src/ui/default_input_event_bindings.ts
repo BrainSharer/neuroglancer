@@ -208,17 +208,30 @@ export function getPolygonDrawModeBindings() {
   if (polygonDrawModeBindings === undefined) {
     polygonDrawModeBindings = EventActionMap.fromObject(
       {
-        'at:mousedown0': 'annotate',
-        'at:mousedown2': 'complete-annotation',
-        'at:keyz': 'undo-annotation',
+        'at:control+mousedown0': 'annotate',
+        'at:escape': 'complete-annotation',
         'at:control+keyc': 'clone-polygon-annotation',
+        'at:control+keyz': 'undo-annotation',
+        'at:alt+mousedown0': 'move-polygon-annotation',
+        'at:shift+alt+mousedown0': 'move-polygon-vertex',
+        'at:shift+mousedown0': 'add-vertex-polygon',
+        'at:shift+mousedown2': 'delete-vertex-polygon',
+        'at:shift+keyr': 'rotate-polygon-z+',
+        'at:shift+keye': 'rotate-polygon-z-',
+        'at:shift+equal': 'scale-polygon-enlarge',
+        'at:shift+minus': 'scale-polygon-shrink',
 
-        'at:control+mousedown0': 'move-polygon-vertex',
-        'at:control+alt+mousedown0': 'add-vertex-polygon',
-        'at:control+alt+mousedown2': 'delete-vertex-polygon',
-        'at:shift+mousedown0': 'move-polygon-annotation',
-        'at:keyr': 'rotate-polygon-z+',
-        'at:keye': 'rotate-polygon-z-',
+        // 'at:mousedown0': 'annotate',
+        // 'at:mousedown2': 'complete-annotation',
+        // 'at:keyz': 'undo-annotation',
+        // 'at:control+keyc': 'clone-polygon-annotation',
+
+        // 'at:control+mousedown0': 'move-polygon-vertex',
+        // 'at:control+alt+mousedown0': 'add-vertex-polygon',
+        // 'at:control+alt+mousedown2': 'delete-vertex-polygon',
+        // 'at:shift+mousedown0': 'move-polygon-annotation',
+        // 'at:keyr': 'rotate-polygon-z+',
+        // 'at:keye': 'rotate-polygon-z-',
       }
     );
   }
