@@ -77,15 +77,8 @@ import {
   displayToLayerCoordinates, 
   layerToDisplayCoordinates 
 } from '#/render_coordinate_transform';
-import { arraysEqual } from '../util/array';
 import * as matrix from '#/util/matrix';
 import { StatusMessage } from '../status';
-import { 
-  // PlaceCellTool, 
-  // PlaceComTool, 
-  PlaceVolumeTool, 
-  setInProgressAnnotation 
-} from '../ui/annotations';
 import { checkIfSameZCoordinate, copyZCoordinate } from '../annotation/polygon';
 /* BRAINSHARE ENDS */
 
@@ -274,11 +267,11 @@ export class SliceViewPanel extends RenderedDataPanel {
             }) does not have an active annotation tool.`);
           return;
         }
-        if (userLayer.tool.value instanceof PlaceVolumeTool) {
-          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-          if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
-            return;
-        }
+        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+        //   if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
+        //     return;
+        // }
 
         let selectedAnnotationRef = annotationLayer.source.getReference(
           selectedAnnotationId
@@ -481,8 +474,10 @@ export class SliceViewPanel extends RenderedDataPanel {
         const selectedLayer = this.viewer.selectedLayer.layer;
         const selectedAnnotationId = mouseState.pickedAnnotationId;
         const annotationLayer = mouseState.pickedAnnotationLayer;
-        if (annotationLayer === undefined 
-          || selectedAnnotationId === undefined) return;
+        if (
+          annotationLayer === undefined || 
+          selectedAnnotationId === undefined
+        ) return;
         if (selectedLayer === undefined) {
           StatusMessage.showTemporaryMessage(
             'The annotate command requires a layer to be selected.'
@@ -494,59 +489,62 @@ export class SliceViewPanel extends RenderedDataPanel {
           StatusMessage.showTemporaryMessage(
             `The selected layer (${
               JSON.stringify(selectedLayer.name)
-            }) does not have an active annotation tool.`);
+            }) does not have an active annotation tool.`
+          );
           return;
         }
-        if (userLayer.tool.value instanceof PlaceVolumeTool) {
-          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-          if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
-            return;
-        }
+        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+        //   if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
+        //     return;
+        // }
         e.stopPropagation();
-        let annotationRef = annotationLayer.source.getReference(
+
+        const annotationRef = annotationLayer.source.getReference(
           selectedAnnotationId
         )!;
-        let ann = <Annotation>annotationRef.value;
+        const ann = <Annotation>annotationRef.value;
         if (!ann.parentAnnotationId) return;
-
-        let parAnnotationRef = annotationLayer.source.getReference(
+        const parAnnotationRef = annotationLayer.source.getReference(
           ann.parentAnnotationId
         )!;
-        let parAnn = <Annotation>parAnnotationRef.value;
-        if (parAnn.type === AnnotationType.POLYGON 
-          && isCornerPicked(mouseState.pickedOffset)) {
-          // if(urlParams.multiUserMode)
-          // setInProgressAnnotation(true)
+        const parAnn = <Annotation>parAnnotationRef.value;
+        if (
+          parAnn.type === AnnotationType.POLYGON && 
+          isCornerPicked(mouseState.pickedOffset)
+        ) {
           const handler = getAnnotationTypeRenderHandler(ann.type);
           const { chunkTransform: { value: chunkTransform } } = annotationLayer;
           if (chunkTransform.error !== undefined) return;
           const { layerRank } = chunkTransform;
           const repPoint = new Float32Array(layerRank);
-          handler.getRepresentativePoint(repPoint, ann, mouseState.pickedOffset);
+          handler.getRepresentativePoint(
+            repPoint, 
+            ann, 
+            mouseState.pickedOffset
+          );
 
-          let childAnnotationIds = (<Polygon>parAnn).childAnnotationIds;
-          let pickedAnnotations: { 
+          const childAnnotationIds = (<Polygon>parAnn).childAnnotationIds;
+          const pickedAnnotations: { 
             partIndex: number, 
             annotationRef: AnnotationReference 
           }[] = [];
-
           childAnnotationIds.forEach((childAnnotationId) => {
-            let childAnnotationRef = annotationLayer.source.getReference(
+            const childAnnotationRef = annotationLayer.source.getReference(
               childAnnotationId
             );
-            let childAnn = <Line>childAnnotationRef.value;
-            if (arraysEqual(childAnn.pointA, repPoint) 
-              || arraysEqual(childAnn.pointB, repPoint)) {
-              pickedAnnotations.push(
-                {
-                  partIndex: getPointPartIndex(<Line>childAnn, repPoint),
-                  annotationRef: childAnnotationRef
-                }
-              );
+            const childAnn = <Line>childAnnotationRef.value;
+            
+            const partIndex = getPointPartIndex(<Line>childAnn, repPoint);
+            if (partIndex > -1) {
+              pickedAnnotations.push({
+                partIndex: getPointPartIndex(<Line>childAnn, repPoint),
+                annotationRef: childAnnotationRef
+              });
             }
           });
 
-          let totDeltaVec = vec2.set(vec2.create(), 0, 0);
+          const totDeltaVec = vec2.set(vec2.create(), 0, 0);
           if (mouseState.updateUnconditionally()) {
             startRelativeMouseDrag(
               e.detail,
@@ -591,15 +589,15 @@ export class SliceViewPanel extends RenderedDataPanel {
                 );
                 copyZCoordinate((<Polygon>parAnn).source, newPoint);
                 pickedAnnotations.forEach((pickedAnnotation) => {
-                  let newAnnotation = handler.updateViaRepresentativePoint(
+                  const newAnnotation = handler.updateViaRepresentativePoint(
                     pickedAnnotation.annotationRef.value!,
                     newPoint, pickedAnnotation.partIndex
                   );
-                  let newLineAnn = <Line>newAnnotation;
+                  const newLineAnn = <Line>newAnnotation;
                   if (checkIfSameZCoordinate(
                     newLineAnn.pointA, 
-                    newLineAnn.pointB)
-                  ) {
+                    newLineAnn.pointB
+                  )) {
                     annotationLayer.source.update(
                       pickedAnnotation.annotationRef, 
                       newAnnotation
@@ -608,8 +606,6 @@ export class SliceViewPanel extends RenderedDataPanel {
                 });
               },
               (_event) => {
-                // if(urlParams.multiUserMode)
-                // setInProgressAnnotation(false)
                 pickedAnnotations.forEach((pickedAnnotation) => {
                   annotationLayer.source.commit(pickedAnnotation.annotationRef);
                   pickedAnnotation.annotationRef.dispose();

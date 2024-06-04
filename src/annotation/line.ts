@@ -41,7 +41,7 @@ import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
 import { defineVectorArrayVertexShaderInput } from "#/webgl/shader_lib";
 import { defineVertexId, VertexIdHelper } from "#/webgl/vertex_id";
 /* BRAINSHARE STARTS */
-import { arraysEqual } from '#/util/array';
+import { arraysEqualWithPredicate } from '#/util/array';
 /* BRAINSHARE ENDS */
 
 const FULL_OBJECT_PICK_OFFSET = 0;
@@ -379,17 +379,32 @@ registerAnnotationTypeRenderHandler<Line>(AnnotationType.LINE, {
  * @returns returns true if the part index indicates a corner is picked.
  */
 export function isCornerPicked(partIndex: number) : boolean {
-  return partIndex === FULL_OBJECT_PICK_OFFSET + 1 || partIndex === FULL_OBJECT_PICK_OFFSET + 2
+  return partIndex === FULL_OBJECT_PICK_OFFSET + 1 || 
+    partIndex === FULL_OBJECT_PICK_OFFSET + 2
 }
 /**
  * Finds which part index is picked based on the annotation and the point.
- * @param annotation The line annotation for which part index needs to be found based on point.
+ * @param annotation The line annotation for which part index needs to be found 
+ *  based on point.
  * @param point Input point of the line.
  * @returns part index corresponding to the point.
  */
-export function getPointPartIndex(annotation: Line, point: Float32Array) : number {
-  if (arraysEqual(annotation.pointA, point)) return FULL_OBJECT_PICK_OFFSET + 1;
-  if (arraysEqual(annotation.pointB, point)) return FULL_OBJECT_PICK_OFFSET + 2;
+export function getPointPartIndex(
+  annotation: Line, 
+  point: Float32Array
+): number {
+  if (arraysEqualWithPredicate(
+    annotation.pointA,
+    point,
+    (a, b) => Math.abs(a - b) <= 1e-4
+  )) return FULL_OBJECT_PICK_OFFSET + 1;
+
+  if (arraysEqualWithPredicate(
+    annotation.pointB,
+    point,
+    (a, b) => Math.abs(a - b) <= 1e-4
+  )) return FULL_OBJECT_PICK_OFFSET + 2;
+
   return -1;
 }
 /**
@@ -399,8 +414,10 @@ export function getPointPartIndex(annotation: Line, point: Float32Array) : numbe
  * @returns undefined if the part index is valid otherwise 
  * returns the point corresponding to the part index.
  */
-export function getEndPointBasedOnPartIndex(annotation: Line, partIndex: number) : 
-Float32Array|undefined {
+export function getEndPointBasedOnPartIndex(
+  annotation: Line, 
+  partIndex: number
+): Float32Array|undefined {
   if (partIndex === FULL_OBJECT_PICK_OFFSET + 1) {
     return annotation.pointA;
   }

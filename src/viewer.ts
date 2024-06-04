@@ -318,6 +318,9 @@ class TrackableViewerState extends CompoundTrackable {
     this.add("partialViewport", viewer.partialViewport);
     this.add("selectedStateServer", viewer.selectedStateServer);
     this.add("toolBindings", viewer.toolBinder);
+    /* BRAINSHARE STARTS */
+    this.add("userSidePanel", viewer.userSidePanelState);
+    /* BRAINSHARE ENDS */
   }
 
   restoreState(obj: any) {
@@ -1133,8 +1136,10 @@ export class Viewer extends RefCounted implements ViewerState {
         return;
       }
 
-      if (!(userLayer.tool.value instanceof PlacePolygonTool 
-        || userLayer.tool.value instanceof PlaceVolumeTool)) {
+      if (!(
+        userLayer.tool.value instanceof PlacePolygonTool || 
+        userLayer.tool.value instanceof PlaceVolumeTool
+      )) {
         StatusMessage.showTemporaryMessage(
           `Please select polygon tool in edit mode to perform this operation`
         );
@@ -1142,7 +1147,9 @@ export class Viewer extends RefCounted implements ViewerState {
       }
 
       roundViewerZPosition();
-      userLayer.tool.value.addVertexPolygon(this.mouseState);
+      (<PlacePolygonTool> userLayer.tool.value).addVertexPolygon(
+        this.mouseState
+      );
     });
 
     this.bindAction('delete-vertex-polygon', () => {
@@ -1168,7 +1175,9 @@ export class Viewer extends RefCounted implements ViewerState {
         return;
       }
 
-      userLayer.tool.value.deleteVertexPolygon(this.mouseState);
+      (<PlacePolygonTool> userLayer.tool.value).deleteVertexPolygon(
+        this.mouseState
+      );
     });
 
     this.bindAction('complete-annotation', () => {

@@ -661,6 +661,8 @@ export interface AnnotationBase {
   properties: any[];
   /* BRAINSHARE STARTS */
   parentAnnotationId?: string;
+  childrenVisible?: boolean;
+  childAnnotationIds?: string[];
   /* BRAINSHARE ENDS */
 }
 
@@ -1044,7 +1046,13 @@ export const annotationTypeHandlers: Record<
         );
       }
 
-      annotation.childrenVisible = false;
+      annotation.childrenVisible = true;
+      if (obj.hasOwnProperty('childrenVisible')) {
+        const value = verifyObjectProperty(
+          obj, 'childrenVisible', verifyBoolean
+        );
+        annotation.childrenVisible = value;
+      }
     },
     serializedBytes: rank => rank * 4,
     serialize: (
@@ -1085,7 +1093,7 @@ export const annotationTypeHandlers: Record<
     },
   },
   [AnnotationType.VOLUME]: {
-    icon: 'VOL',
+    icon: '⛁',
     description: 'Volume',
     toJSON: (annotation: Volume) => {
       return {
@@ -1111,7 +1119,6 @@ export const annotationTypeHandlers: Record<
       }
 
       annotation.childrenVisible = true;
-
       if (obj.hasOwnProperty('childrenVisible')) {
         const value = verifyObjectProperty(
           obj, 'childrenVisible', verifyBoolean
@@ -1411,33 +1418,14 @@ export class AnnotationSource
     }
 
     /* BRAINSHARE STARTS */
-    if(parentRef && isTypeCollection(parentRef.value!)) {
+    // Update source vertex for parent annotation
+    if (parentRef && isTypeCollection(parentRef.value!)) {
       annotation.parentAnnotationId = parentRef.id;
-      let parAnnotation = <Collection>parentRef.value!;
+      let parAnnotation = <Collection> parentRef.value!;
       if (index === undefined) index = parAnnotation.childAnnotationIds.length;
       parAnnotation.childAnnotationIds.splice(index, 0, annotation.id);
       parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
-      this.update(parentRef, <Annotation>parAnnotation);
-    }
-
-    // TODO: Will create two rectangles if uncommented
-    // if (!annotation.parentAnnotationId) {
-    //   this.childAdded.dispatch(annotation);
-    // }
-
-    if (isTypeCollection(annotation)) {
-      const collection = <Collection>annotation;
-      if (collection.childrenVisible) {
-        for (let childId of collection.childAnnotationIds) {
-          this.getAllAnnsUnderRootToDisplay(childId, true);
-        }
-      } else {
-        const annList = this.getAllAnnsUnderRoot(collection.id);
-        annList.shift(); // remove current annotation from list
-        for (let ann of annList) {
-          this.childDeleted.dispatch(ann.id);
-        }
-      }
+      this.update(parentRef, <Annotation> parAnnotation);
     }
     /* BRAINSHARE ENDS */
 
@@ -1475,39 +1463,25 @@ export class AnnotationSource
       throw new Error("Annotation already deleted.");
     }
     /* BRAINSHARE STARTS */
-    // annotation = this.roundZCoordinateBasedOnAnnotation(annotation);
+    annotation = this.roundZCoordinateBasedOnAnnotation(annotation);
     /* BRAINSHARE ENDS */
     reference.value = annotation;
     this.annotationMap.set(annotation.id, annotation);
     /* BRAINSHARE STARTS */
-    // if (annotation.parentAnnotationId) {
-    //   const parentRef = this.getReference(annotation.parentAnnotationId);
-    //   if (parentRef.value && isTypeCollection(parentRef.value)) {
-    //     let parAnnotation = <Collection>parentRef.value;
-    //     parAnnotation = this.getUpdatedSourceVertex(parAnnotation);
-    //     this.update(parentRef, <Annotation>parAnnotation);
-    //   }
-    //   parentRef.dispose();
-    // }
+    // Update parent annotation
+    if (annotation.parentAnnotationId) {
+      const parentRef = this.getReference(annotation.parentAnnotationId);
+      if (parentRef.value && isTypeCollection(parentRef.value)) {
+        const parAnnotation = this.getUpdatedSourceVertex(
+          <Collection>parentRef.value
+        );
+        this.update(parentRef, <Annotation>parAnnotation);
+      }
+      parentRef.dispose();
+    }
     /* BRAINSHARE ENDS */
     reference.changed.dispatch();
     this.changed.dispatch();
-    /* BRAINSHARE STARTS */
-    // if (isTypeCollection(annotation)) {
-    //   const collection = <Collection>annotation;
-    //   if (collection.childrenVisible) {
-    //     for (let childId of collection.childAnnotationIds) {
-    //       this.getAllAnnsUnderRootToDisplay(childId, true);
-    //     }
-    //   } else {
-    //     const annList = this.getAllAnnsUnderRoot(collection.id);
-    //     annList.shift(); // remove current annotation from list
-    //     for (let ann of annList) {
-    //       this.childDeleted.dispatch(ann.id);
-    //     }
-    //   }
-    // }
-    /* BRAINSHARE ENDS */
     this.childUpdated.dispatch(annotation);
   }
 
@@ -1642,52 +1616,14 @@ export class AnnotationSource
   }
 
   /* BRAINSHARE STARTS */
-  /**
-   * Takes a color, description and category and updates all CELL annotations 
-   * with the color matching description and category.
-   * @param color New color for Cell annotations
-   * @param description Description of cells that need to be updated
-   * @param category Category of cells that need to be updated
-   * @returns void
-   */
-  updateCellColors(color: number, description: string, category: string): void {
-    for(const [id, ann] of this.annotationMap) {
-      if (
-        ann.type === AnnotationType.CELL && ann.description === description 
-        && ann.category === category
-      ) {
-        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
-        const newAnn = {...ann};
-        if (newAnn.properties.length <= colorIdx) return;
-        newAnn.properties[colorIdx] = color;
-        this.update(this.getReference(id), newAnn);
-      }
-    }
-  }
-
-  /**
-   * Takes a color, description and updates all COM annotations with the color 
-   * matching description.
-   * @param color New color for COM annotations
-   * @param description Description of COMs that need to be updated
-   * @returns void
-   */
-  updateCOMColors(color: number, description: string): void {
-    for(const [id, ann] of this.annotationMap) {
-      if (ann.type === AnnotationType.COM && ann.description === description) {
-        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
-        const newAnn = {...ann};
-        if (newAnn.properties.length <= colorIdx) return;
-        newAnn.properties[colorIdx] = color;
-        this.update(this.getReference(id), newAnn);
-      }
-    }
-  }
-
   roundZCoordinateBasedOnAnnotation(ann: Annotation): Annotation {
     switch (ann.type) {
       case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
-        return {...ann, pointA: this.roundZCoordinate(ann.pointA), pointB: this.roundZCoordinate(ann.pointB)};
+        return {
+          ...ann, 
+          pointA: this.roundZCoordinate(ann.pointA), 
+          pointB: this.roundZCoordinate(ann.pointB)
+        };
       case AnnotationType.CELL:
         return {...ann, point: this.roundZCoordinate(ann.point)};
       case AnnotationType.COM:
@@ -1695,7 +1631,11 @@ export class AnnotationSource
       case AnnotationType.ELLIPSOID:
         return {...ann, center: this.roundZCoordinate(ann.center)};
       case AnnotationType.LINE:
-        return {...ann, pointA: this.roundZCoordinate(ann.pointA), pointB: this.roundZCoordinate(ann.pointB)};
+        return {
+          ...ann, 
+          pointA: this.roundZCoordinate(ann.pointA), 
+          pointB: this.roundZCoordinate(ann.pointB)
+        };
       case AnnotationType.POINT:
         return {...ann, point: this.roundZCoordinate(ann.point)};
       case AnnotationType.POLYGON:
@@ -1911,6 +1851,7 @@ export class AnnotationSource
     reference.dispose();
     return annotationList;
   }
+
   /**
    * Makes sure that all descendants under this annotation which need to be visible
    * added to the annotations tab.
@@ -1977,6 +1918,49 @@ export class AnnotationSource
     }
     reference.dispose();
   }
+
+  /**
+   * Takes a color, description and category and updates all CELL annotations 
+   * with the color matching description and category.
+   * @param color New color for Cell annotations
+   * @param description Description of cells that need to be updated
+   * @param category Category of cells that need to be updated
+   * @returns void
+   */
+  updateCellColors(color: number, description: string, category: string): void {
+    for(const [id, ann] of this.annotationMap) {
+      if (
+        ann.type === AnnotationType.CELL && ann.description === description 
+        && ann.category === category
+      ) {
+        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
+        const newAnn = {...ann};
+        if (newAnn.properties.length <= colorIdx) return;
+        newAnn.properties[colorIdx] = color;
+        this.update(this.getReference(id), newAnn);
+      }
+    }
+  }
+
+  /**
+   * Takes a color, description and updates all COM annotations with the color 
+   * matching description.
+   * @param color New color for COM annotations
+   * @param description Description of COMs that need to be updated
+   * @returns void
+   */
+  updateCOMColors(color: number, description: string): void {
+    for(const [id, ann] of this.annotationMap) {
+      if (ann.type === AnnotationType.COM && ann.description === description) {
+        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
+        const newAnn = {...ann};
+        if (newAnn.properties.length <= colorIdx) return;
+        newAnn.properties[colorIdx] = color;
+        this.update(this.getReference(id), newAnn);
+      }
+    }
+  }
+
   /* BRAINSHARE ENDS */
 }
 

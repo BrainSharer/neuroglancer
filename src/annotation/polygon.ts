@@ -407,7 +407,6 @@ function getTransformedPoint(
  */
 //@ts-ignore
 export function scalePolygon(
-  navigationState: NavigationState, 
   annotationLayer: AnnotationLayerState,
   reference: AnnotationReference, 
   scale: number
@@ -565,7 +564,7 @@ function getCentroidPolygon(
  * @param point Float32Array of 3D point.
  * @returns z-coordinate of the point.
  */
-export function getZCoordinate(point: Float32Array): number|undefined {
+export function getZCoordinate(point: Float32Array): number | undefined {
   if (point.length < 3) return undefined;
   return Math.floor(point[2]);
 }

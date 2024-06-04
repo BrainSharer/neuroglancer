@@ -36,6 +36,7 @@ import {
   /* BRAINSHARE STARTS */
   Polygon,
   Volume,
+  isTypeCollection,
   /* BRAINSHARE ENDS */
 } from "#/annotation";
 import {
@@ -68,7 +69,9 @@ import {
   SegmentationDisplayState,
   SegmentWidgetFactory,
 } from "#/segmentation_display_state/frontend";
-import { ElementVisibilityFromTrackableBoolean } from "#/trackable_boolean";
+/* BRAINSHARE STARTS */
+// import { ElementVisibilityFromTrackableBoolean } from "#/trackable_boolean";
+/* BRAINSHARE ENDS */
 import {
   AggregateWatchableValue,
   makeCachedLazyDerivedWatchableValue,
@@ -80,7 +83,6 @@ import {
 // import { getDefaultAnnotationListBindings } from "#/ui/default_input_event_bindings";
 import {
   getDefaultAnnotationListBindings, 
-  // setPointDrawModeInputEventBindings, 
   setPolygonDrawModeInputEventBindings 
 } from "#/ui/default_input_event_bindings";
 /* BRAINSHARE ENDS */
@@ -95,7 +97,6 @@ import {
   useWhiteBackground,
   /* BRAINSHARE STARTS */
   packColor, 
-  // parseRGBAColorSpecification, 
   parseRGBColorSpecification, 
   /* BRAINSHARE ENDS */
 } from "#/util/color";
@@ -128,11 +129,10 @@ import { makeMoveToButton } from "#/widget/move_to_button";
 import { Tab } from "#/widget/tab_view";
 import { VirtualList, VirtualListSource } from "#/widget/virtual_list";
 /* BRAINSHARE STARTS */
-import { removeFromParent } from "#/util/dom";
 import { StatusMessage } from '#/status';
 import { getZCoordinate, isPointUniqueInPolygon } from '#/annotation/polygon';
 import { isSectionValid } from '#/annotation/volume';
-import { getEndPointBasedOnPartIndex, isCornerPicked } from '../annotation/line';
+import { getEndPointBasedOnPartIndex, isCornerPicked } from '#/annotation/line';
 /* BRAINSHARE ENDS */
 
 export class MergedAnnotationStates
@@ -252,6 +252,8 @@ interface AnnotationLayerViewAttachedState {
   idToIndex: Map<AnnotationId, number>;
   listOffset: number;
   /* BRAINSHARE STARTS */
+  // Number of sub annotations in the list tab
+  idToLength: Map<AnnotationId, number>;
   idToLevel: Map<AnnotationId, number>;
   /* BRAINSHARE ENDS */
 }
@@ -267,9 +269,6 @@ export class AnnotationLayerView extends Tab {
   private previousHoverId: string | undefined = undefined;
   private previousHoverAnnotationLayerState: AnnotationLayerState | undefined =
     undefined;
-  /* BRAINSHARE STARTS */
-  private annotationColorPicker: AnnotationColorWidget | undefined = undefined;
-  /* BRAINSHARE ENDS */
 
   private virtualListSource: VirtualListSource = {
     length: 0,
@@ -284,14 +283,6 @@ export class AnnotationLayerView extends Tab {
   private updated = false;
   private mutableControls = document.createElement("div");
   private headerRow = document.createElement("div");
-  /* BRAINSHARE STARTS */
-  // volumeSession = document.createElement('div');
-  // cellSession = document.createElement('div');
-  // comSession = document.createElement('div');
-  // volumeButton: HTMLElement;
-  // cellButton: HTMLElement;
-  // comButton: HTMLElement;
-  /* BRAINSHARE ENDS */
 
   get annotationStates() {
     return this.layer.annotationStates;
@@ -349,6 +340,7 @@ export class AnnotationLayerView extends Tab {
         idToIndex: new Map(),
         listOffset: 0,
         /* BRAINSHARE STARTS */
+        idToLength: new Map(),
         idToLevel: new Map(),
         /* BRAINSHARE ENDS */
       });
@@ -438,15 +430,18 @@ export class AnnotationLayerView extends Tab {
       new ColorWidget(this.displayState.color),
     );
     colorPicker.element.title = "Change annotation display color";
-    this.registerDisposer(
-      new ElementVisibilityFromTrackableBoolean(
-        makeCachedLazyDerivedWatchableValue(
-          (shader) => shader.match(/\bdefaultColor\b/) !== null,
-          displayState.shaderControls.processedFragmentMain,
-        ),
-        colorPicker.element,
-      ),
-    );
+    /* BRAINSHARE STARTS */
+    // Always show colorPicker since we have added props
+    // this.registerDisposer(
+    //   new ElementVisibilityFromTrackableBoolean(
+    //     makeCachedLazyDerivedWatchableValue(
+    //       (shader) => shader.match(/\bdefaultColor\b/) !== null,
+    //       displayState.shaderControls.processedFragmentMain,
+    //     ),
+    //     colorPicker.element,
+    //   ),
+    // );
+    /* BRAINSHARE ENDS */
     toolbox.appendChild(colorPicker.element);
     const { mutableControls } = this;
     const pointButton = makeIcon({
@@ -490,19 +485,19 @@ export class AnnotationLayerView extends Tab {
       text: annotationTypeHandlers[AnnotationType.POLYGON].icon,
       title: 'Annotate polygon',
       onClick: () => {
-        this.layer.tool.value = new PlacePolygonTool(this.layer, undefined);
+        this.layer.tool.value = new PlacePolygonTool(this.layer, {});
       },
     });
     mutableControls.appendChild(polygonButton);
-    // const volumeButton = makeIcon({
-    //   text: annotationTypeHandlers[AnnotationType.VOLUME].icon,
-    //   title: 'Annotate volume',
-    //   onClick: () => {
-    //     this.layer.tool.value = new PlaceVolumeTool(this.layer, {}, 
-    //       undefined, undefined, undefined, false);
-    //   },
-    // });
-    // mutableControls.appendChild(volumeButton);
+
+    const volumeButton = makeIcon({
+      text: annotationTypeHandlers[AnnotationType.VOLUME].icon,
+      title: 'Annotate volume',
+      onClick: () => {
+        this.layer.tool.value = new PlaceVolumeTool(this.layer, {});
+      },
+    });
+    mutableControls.appendChild(volumeButton);
     /* BRAINSHARE ENDS */
     toolbox.appendChild(mutableControls);
     this.element.appendChild(toolbox);
@@ -613,7 +608,6 @@ export class AnnotationLayerView extends Tab {
   );
 
   private updateSelectionView() {
-    // console.log("AnnotationLayerView > updatedSelectionView");
     const selectionState = this.selectedAnnotationState.value;
     const { previousSelectedState } = this;
     if (
@@ -641,7 +635,6 @@ export class AnnotationLayerView extends Tab {
   }
 
   private updateHoverView() {
-    // console.log("AnnotationLayerView > updatedHoverView");
     const selectedValue = this.displayState.hoverState.value;
     let newHoverId: string | undefined;
     let newAnnotationLayerState: AnnotationLayerState | undefined;
@@ -669,7 +662,6 @@ export class AnnotationLayerView extends Tab {
   }
 
   private render(index: number) {
-    // console.log("AnnotationLayerView > render");
     const { annotation, state } = this.listElements[index];
     return this.makeAnnotationListElement(annotation, state);
   }
@@ -690,7 +682,6 @@ export class AnnotationLayerView extends Tab {
   }
 
   private updateView() {
-    // console.log("AnnotationLayerView > updateView");
     if (!this.visible) {
       return;
     }
@@ -764,7 +755,45 @@ export class AnnotationLayerView extends Tab {
       if (!state.source.readonly) isMutable = true;
       if (state.chunkTransform.value.error !== undefined) continue;
       const { source } = state;
-      const annotations = Array.from(source);
+      /* BRAINSHARE STARTS */
+      // Get visible annotations
+      // const annotations = Array.from(source);
+      let annotations = Array.from(source);
+      annotations = annotations.filter(annotation => {
+        const parentId = annotation.parentAnnotationId;
+        if (parentId === undefined) return true;
+        const parent = source.getReference(parentId).value;
+        if (!parent) return true;
+        return parent.childrenVisible;
+      })
+      // Initialize idToLength
+      const { idToLength } = info;
+      idToLength.clear();
+      for (const annotation of annotations) {
+        let length = 1;
+        if (isTypeCollection(annotation)) {
+          if (
+            annotation.type === AnnotationType.POLYGON && 
+            annotation.childrenVisible
+          ) {
+            length = annotation.childAnnotationIds.length + 1;
+          }
+        }
+        idToLength.set(annotation.id, length);
+      }
+      for (const annotation of annotations) {
+        if (annotation.type === AnnotationType.VOLUME) {
+          let length = 1;
+          if (annotation.childrenVisible) {
+            for (const childId of annotation.childAnnotationIds) {
+              const childLength = idToLength.get(childId);
+              if (childLength !== undefined) length += childLength;
+            }
+          }
+          idToLength.set(annotation.id, length);
+        }
+      }
+      /* BRAINSHARE ENDS */
       info.annotations = annotations;
       const { idToIndex } = info;
       idToIndex.clear();
@@ -789,7 +818,6 @@ export class AnnotationLayerView extends Tab {
   }
 
   private updateListLength() {
-    // console.log("AnnotationLayerView > updateListLength");
     let length = 0;
     for (const info of this.attachedAnnotationStates.values()) {
       info.listOffset = length;
@@ -802,7 +830,6 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
-    // console.log("AnnotationLayerView > addAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -813,7 +840,36 @@ export class AnnotationLayerView extends Tab {
     }
     const info = this.attachedAnnotationStates.get(state);
     if (info !== undefined) {
-      const index = info.annotations.length;
+      /* BRAINSHARE STARTS */
+      // If annotation has a parent, calculate its index in annotation tab
+      // const index = info.annotations.length;
+      let index = info.annotations.length;
+      const parentId = annotation.parentAnnotationId;
+      if (parentId !== undefined) {
+        const parent = state.source.getReference(parentId).value;
+        if (!parent) return;
+        
+        // Do not add if parent is not visible
+        if (!parent.childrenVisible) return;
+
+        // Calculate the index
+        const parentIndex = info.idToIndex.get(parentId);
+        if (parentIndex === undefined) return;
+        const parentLength = info.idToLength.get(parentId);
+        if (parentLength === undefined) return;
+        index = parentIndex + parentLength;
+
+        // Update idToLength for all parents
+        info.idToLength.set(parentId, parentLength + 1);
+        if (parent.parentAnnotationId !== undefined) {
+          const ppLength = info.idToLength.get(parent.parentAnnotationId);
+          if (ppLength !== undefined) {
+            info.idToLength.set(parent.parentAnnotationId, ppLength + 1);
+          }
+        }
+      }
+      info.idToLength.set(annotation.id, 1);
+      /* BRAINSHARE ENDS */
       info.annotations.push(annotation);
       info.idToIndex.set(annotation.id, index);
       const spliceStart = info.listOffset + index;
@@ -830,7 +886,6 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
-    // console.log("AnnotationLayerView > updateAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -858,7 +913,6 @@ export class AnnotationLayerView extends Tab {
     annotationId: string,
     state: AnnotationLayerState,
   ) {
-    // console.log("AnnotationLayerView > deleteAnnotationElement");
     if (!this.visible) {
       this.updated = false;
       return;
@@ -889,6 +943,80 @@ export class AnnotationLayerView extends Tab {
     this.resetOnUpdate();
   }
 
+  /* BRAINSHARE STARTS */
+  private renderParent(
+    annotation: Annotation,
+    state: AnnotationLayerState,
+  ) {
+    if (!this.visible) {
+      this.updated = false;
+      return;
+    }
+    if (!this.updated) {
+      this.updateView();
+      return;
+    }
+    
+    const info = this.attachedAnnotationStates.get(state);
+    if (info === undefined) return;
+    const index = info.idToIndex.get(annotation.id);
+    if (index === undefined) return;
+
+    const getVisibleSubAnnotations = (
+      parent: Annotation, 
+      subAnnotations: Annotation[]
+    ) => {
+      subAnnotations.push(parent);
+
+      const childAnnotationIds = parent.childAnnotationIds;
+      if (parent.childrenVisible && childAnnotationIds !== undefined) {
+        for (const childId of childAnnotationIds) {
+          const child = state.source.getReference(childId).value;
+          if (child) getVisibleSubAnnotations(child, subAnnotations);
+        }
+      }
+    }
+    const subAnnotations: Annotation[] = [];
+    getVisibleSubAnnotations(annotation, subAnnotations);
+
+    const newLength = subAnnotations.length;
+    let oldLength = info.idToLength.get(annotation.id);
+    if (oldLength === undefined) oldLength = 1;
+    info.annotations.splice(
+      index, 
+      oldLength,
+      ...subAnnotations
+    );
+    for (let i = index, length = info.annotations.length; i < length; ++i) {
+      info.idToIndex.set(info.annotations[i].id, i);
+    }
+
+    const spliceStart = info.listOffset + index;
+    this.listElements.splice(
+      spliceStart, 
+      oldLength,
+      ...subAnnotations.map((annotation) => ({ state, annotation })),
+    );
+    this.updateListLength();
+    this.virtualListSource.changed!.dispatch([{ 
+      retainCount: spliceStart, 
+      deleteCount: oldLength,
+      insertCount: newLength, 
+    }]);
+    
+    info.idToLength.set(annotation.id, newLength);
+    if (annotation.parentAnnotationId) {
+      let oldParentLength = info.idToLength.get(annotation.parentAnnotationId);
+      if (!oldParentLength) oldParentLength = 1;
+      info.idToLength.set(
+        annotation.parentAnnotationId, 
+        oldParentLength + newLength  - oldLength
+      );
+    }
+    this.resetOnUpdate();
+  }
+  /* BRAINSHARE ENDS */
+
   private resetOnUpdate() {
     this.clearHoverClass();
     this.clearSelectionClass();
@@ -901,7 +1029,6 @@ export class AnnotationLayerView extends Tab {
     annotation: Annotation,
     state: AnnotationLayerState,
   ) {
-    // console.log("AnnotationLayerView > makeAnnotationListElement");
     const chunkTransform = state.chunkTransform
       .value as ChunkTransformParameters;
     const element = document.createElement("div");
@@ -1008,6 +1135,19 @@ export class AnnotationLayerView extends Tab {
     element.addEventListener("action:move-to-annotation", (event) => {
       event.stopPropagation();
       event.preventDefault();
+      /* BRAINSHARE STARTS */
+      // Toggle the visibility of the collection in the annotation tab
+      if (isTypeCollection(annotation)) {
+        const reference = state.source.getReference(annotation.id);
+        const newAnnotation = <Annotation> {
+          ...annotation, 
+          childrenVisible: !annotation.childrenVisible
+        };
+        state.source.update(reference, newAnnotation);
+        this.renderParent(newAnnotation, state);
+        return
+      }
+      /* BRAINSHARE ENDS */
       const { layerRank } = chunkTransform;
       const chunkPosition = new Float32Array(layerRank);
       const layerPosition = new Float32Array(layerRank);
@@ -1076,43 +1216,6 @@ function getSelectedAssociatedSegments(
 }
 
 /* BRAINSHARE STARTS */
-/**
- * AnnotationColorWidget creates an color HTML element for 
- * selecting the color while annotating.
- */
-export class AnnotationColorWidget extends RefCounted {
-  element = document.createElement('input');
-
-  constructor() {
-    super();
-    const {element} = this;
-    element.classList.add('neuroglancer-color-widget');
-    element.type = 'color';
-  }
-  /**
-   * Sets the color of the widget element
-   * @param color input color to be set
-   */
-  setColor(color: string) {
-    this.element.value = color;
-  }
-  /**
-   * 
-   * @returns returns the element color
-   */
-  getColor() {
-    return this.element.value;
-  }
-  /**
-   * Delets the element from the HTML element it was embedded in.
-   */
-  disposed() {
-    removeFromParent(this.element);
-    super.disposed();
-  }
-}
-/* BRAINSHARE ENDS */
-
 abstract class PlaceAnnotationTool extends LegacyTool {
   layer: UserLayerWithAnnotations;
   constructor(layer: UserLayerWithAnnotations, options: any) {
@@ -1128,10 +1231,10 @@ abstract class PlaceAnnotationTool extends LegacyTool {
   }
 
   /* BRAINSHARE STARTS */
-  setActive(_value: boolean): void {}
+  setActive(_value: boolean) {}
 
-  get annotationColorPicker(): AnnotationColorWidget | undefined {
-    return this.layer.annotationColorPicker;
+  get color() {
+    return this.layer.annotationDisplayState.color.value;
   }
   /* BRAINSHARE ENDS */
 }
@@ -1143,8 +1246,6 @@ const ANNOTATE_ELLIPSOID_TOOL_ID = "annotateSphere";
 /* BRAINSHARE STARTS */
 const ANNOTATE_POLYGON_TOOL_ID = 'annotatePolygon';
 const ANNOTATE_VOLUME_TOOL_ID = 'annotateVolume';
-// const ANNOTATE_CELL_TOOL_ID = 'annotateCell';
-// const ANNOTATE_COM_TOOL_ID = 'annotateCom';
 /* BRAINSHARE ENDS */
 
 export class PlacePointTool extends PlaceAnnotationTool {
@@ -1166,7 +1267,13 @@ export class PlacePointTool extends PlaceAnnotationTool {
         relatedSegments: getSelectedAssociatedSegments(annotationLayer),
         point,
         type: AnnotationType.POINT,
-        properties: annotationLayer.source.properties.map((x) => x.default),
+        /* BRAINSHARE STARTS */
+        // Set default color for points
+        // properties: annotationLayer.source.properties.map((x) => x.default),
+        properties: annotationLayer.source.properties.map(
+          (x) => x.identifier === "color" ? packColor(this.color) : x.default
+        ),
+        /* BRAINSHARE ENDS */
       };
       const reference = annotationLayer.source.add(
         annotation,
@@ -1231,12 +1338,8 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
 
   /* BRAINSHARE STARTS */
   // trigger(mouseState: MouseSelectionState) {
-  trigger(
-    mouseState: MouseSelectionState,
-    parentRef?: AnnotationReference
-  ) {
+  trigger(mouseState: MouseSelectionState, parentRef?: AnnotationReference) {
   /* BRAINSHARE ENDS */
-    // console.log("TwoStepAnnotationTool > trigger")
     const { annotationLayer, inProgressAnnotation } = this;
     if (annotationLayer === undefined) {
       // Not yet ready.
@@ -1267,14 +1370,15 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
 
       if (inProgressAnnotation.value === undefined) {
         /* BRAINSHARE STARTS */
+        // Inherit properties from parent annotation
         // const reference = annotationLayer.source.add(
         //   this.getInitialAnnotation(mouseState, annotationLayer),
         //   /*commit=*/ false,
         // );
+        // Inherit properties from parent
         const initAnn = this.getInitialAnnotation(mouseState, annotationLayer);
-        if (parentRef) {
-          initAnn.description = parentRef.value!.description;
-          initAnn.properties = Object.assign([], parentRef.value!.properties);
+        if (parentRef && parentRef.value) {
+          initAnn.properties = Object.assign([], parentRef.value.properties);
         }
         const reference = annotationLayer.source.add(
           initAnn, 
@@ -1337,7 +1441,13 @@ abstract class PlaceTwoCornerAnnotationTool extends TwoStepAnnotationTool {
       description: "",
       pointA: point,
       pointB: point,
-      properties: annotationLayer.source.properties.map((x) => x.default),
+      /* BRAINSHARE STARTS */
+      // Set default color for lines and rectangles
+      // properties: annotationLayer.source.properties.map((x) => x.default),
+      properties: annotationLayer.source.properties.map(
+        (x) => x.identifier === "color" ? packColor(this.color) : x.default
+      ),
+      /* BRAINSHARE ENDS */
     };
   }
 
@@ -1461,7 +1571,13 @@ class PlaceEllipsoidTool extends TwoStepAnnotationTool {
       segments: getSelectedAssociatedSegments(annotationLayer),
       center: point,
       radii: vec3.fromValues(0, 0, 0),
-      properties: annotationLayer.source.properties.map((x) => x.default),
+      /* BRAINSHARE STARTS */
+        // Set default color for ellipses
+      // properties: annotationLayer.source.properties.map((x) => x.default),
+      properties: annotationLayer.source.properties.map(
+        (x) => x.identifier === "color" ? packColor(this.color) : x.default
+      ),
+      /* BRAINSHARE ENDS */
     };
   }
 
@@ -1554,23 +1670,14 @@ abstract class PlaceCollectionAnnotationTool extends MultiStepAnnotationTool {
       mouseState, 
       annotationLayer
     );
-    const { annotationColorPicker } = this;
-
     return <Polygon | Volume> {
       id: '',
       type: this.annotationType,
       description: '',
       source: point,
-      properties: annotationLayer.source.properties.map(x => {
-        if (x.identifier !== 'color') 
-          return x.default;
-        if (x.identifier === 'color' && annotationColorPicker === undefined) 
-          return x.default;
-        const colorInNum = packColor(parseRGBColorSpecification(
-          annotationColorPicker!.getColor()
-        ));
-        return colorInNum;
-      }),
+      properties: annotationLayer.source.properties.map(
+        (x) => x.identifier === "color" ? packColor(this.color) : x.default
+      ),
       childAnnotationIds: [],
       childrenVisible: true,
     };
@@ -1597,56 +1704,17 @@ abstract class PlaceCollectionAnnotationTool extends MultiStepAnnotationTool {
   }
 }
 
-let volume_tool_used: boolean = false;
-let last_location = new Float32Array(3);
-let source_location = new Float32Array(3);
-let inProgressAnnotation = false;
-let global_sourceMouseState: MouseSelectionState;
-//@ts-ignore
-let global_childAnnotationIds: string[];
-//let global_annotation;
-//@ts-ignore
-let polygon_id;
-//@ts-ignore
-let global_mouseState;
-//@ts-ignore
-let global_parentRef;
-
-export function clearVolumeToolState() {
-  inProgressAnnotation = false;
-  global_childAnnotationIds = [];
-  polygon_id = undefined;
-}
-
-export function getInProgressAnnotation() {
-  return inProgressAnnotation;
-}
-
-export function setInProgressAnnotation(value: boolean) {
-  inProgressAnnotation = value;
-}
-
-export function getVolumeToolUsed() {
-  return volume_tool_used;
-}
-
-export function clearVolumeToolUsed() {
-  volume_tool_used = false;
-}
-
 /**
  * This class is used to draw polygon annotations.
  */
 export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
-  childTool: PlaceLineTool;
-  sourceMouseState: MouseSelectionState;
-  sourcePosition: Float32Array|undefined;
-  bindingsRef: RefCounted|undefined;
   active: boolean;
-  zCoordinate: number|undefined;
+  childTool: PlaceLineTool;
+  bindingsRef: RefCounted | undefined;
+  sourcePosition: Float32Array | undefined;
+  zCoordinate: number | undefined;
 
   constructor(public layer: UserLayerWithAnnotations, options: any) {
-    // console.log("PlacePolygonTool > constructor")
     super(layer, options);
     this.active = true;
     this.childTool = new PlaceLineTool(layer, {...options, parent: this});
@@ -1657,54 +1725,6 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
     );
   }
 
-  restore_multi_user_drawing() {
-    const {annotationLayer} = this;
-    if (annotationLayer === undefined) {
-      // Not yet ready.
-      return;
-    }
-
-    if(
-      inProgressAnnotation && 
-      // urlParams.multiUserMode && 
-      this.inProgressAnnotation === undefined
-    ) {
-      this.sourceMouseState = <MouseSelectionState>{...global_sourceMouseState};
-      this.sourcePosition = getMousePositionInAnnotationCoordinates(
-        this.sourceMouseState, 
-        annotationLayer
-      );
-
-      // Restore state of polygon tool
-      //@ts-ignore
-      this.zCoordinate = getZCoordinate(this.sourcePosition);
-      //@ts-ignore
-      let reference = annotationLayer.source.getReference(polygon_id);
-      this.layer.selectAnnotation(annotationLayer, reference.id, true);
-      //@ts-ignore
-      global_mouseState.unsnappedPosition = new Float32Array(last_location);
-      //@ts-ignore
-      reference.value!.childAnnotationIds = global_childAnnotationIds;
-      //@ts-ignore
-      reference.value!.childAnnotationIds.pop();
-      //@ts-ignore
-      this.childTool.trigger(global_mouseState, reference);
-
-      const disposer = () => {
-        reference.dispose();
-      };
-      this.inProgressAnnotation = {
-        //@ts-ignore
-        annotationLayer,
-        reference,
-        disposer,
-      };
-
-      //@ts-ignore
-      global_childAnnotationIds = this.inProgressAnnotation.reference.value.childAnnotationIds;
-    }
-  }
-
   /**
    * This function is called when the user tries to draw annotation
    * @param mouseState
@@ -1712,163 +1732,95 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
    * @returns void
    */
   trigger(mouseState: MouseSelectionState, parentRef?: AnnotationReference) {
-    // console.log("PlacePolygonTool > trigger")
-    volume_tool_used = true;
-    global_mouseState = mouseState;
-    const {annotationLayer} = this;
+    const { annotationLayer } = this;
     if (annotationLayer === undefined) {
       // Not yet ready.
       return;
     }
 
     if (mouseState.updateUnconditionally()) {
+      const point = getMousePositionInAnnotationCoordinates(
+        mouseState,
+        annotationLayer
+      );
+      if (point === undefined) return;
+
       if (this.inProgressAnnotation === undefined) {
+        // Check if a polygon already exists on the same section for the volume
         if (parentRef) {
-          const point = getMousePositionInAnnotationCoordinates(
-            mouseState, 
-            annotationLayer
-          );
-          if (point === undefined) return;
           this.zCoordinate = getZCoordinate(point);
           if (this.zCoordinate === undefined) return;
           if (!isSectionValid(annotationLayer, parentRef.id, this.zCoordinate)) {
             StatusMessage.showTemporaryMessage(
               "A polygon already exists in this section for the volume, \
-              only one polygon per section is allowed for a volume"
+              only one polygon per section is allowed for a volume."
             );
             return;
           }
         }
-
-        global_sourceMouseState = <MouseSelectionState>{...mouseState};
-        this.sourceMouseState = <MouseSelectionState>{...mouseState};
         
+        this.zCoordinate = getZCoordinate(point);
         this.sourcePosition = getMousePositionInAnnotationCoordinates(
           mouseState, 
           annotationLayer
         );
 
-        source_location = new Float32Array(mouseState.unsnappedPosition);
         const annotation = this.getInitialAnnotation(
           mouseState, 
           annotationLayer
         );
-        if (parentRef) {
-          //annotation.description = parentRef.value!.description;
-          annotation.properties = Object.assign([], parentRef.value!.properties);
+
+        // Copy the volume's description and properties to this polyon
+        if (parentRef && parentRef.value) {
+          annotation.properties = Object.assign(
+            [], 
+            parentRef.value.properties
+          );
+          annotation.childrenVisible = parentRef.value.childrenVisible;
         }
+
         const reference = annotationLayer.source.add(
           annotation, 
           /*commit=*/ false, 
           parentRef
         );
-        reference.value;
         this.layer.selectAnnotation(annotationLayer, reference.id, true);
-        polygon_id = reference.id;
-        last_location = new Float32Array(mouseState.unsnappedPosition);
         this.childTool.trigger(mouseState, reference);
-        const disposer = () => {
-          reference.dispose();
-        };
-        inProgressAnnotation = true;
-        //@ts-ignore
+
+        const disposer = () => reference.dispose();
         this.inProgressAnnotation = {
           annotationLayer,
           reference,
           disposer,
         };
-        //@ts-ignore
-        global_childAnnotationIds = this.inProgressAnnotation.reference.value.childAnnotationIds;
       } 
       else {
-        const point = getMousePositionInAnnotationCoordinates(
-          mouseState, 
-          annotationLayer
-        );
-
-        if (point === undefined) return;
         if(!isPointUniqueInPolygon(
           annotationLayer, 
           <Polygon>(this.inProgressAnnotation.reference.value!), point)
         ) {
           StatusMessage.showTemporaryMessage(
-            "All vertices of polygon must be unique"
+            "All vertices of polygon must be unique."
           );
           return;
         }
 
-        if (parentRef) {
-          const {zCoordinate} = this;
-          // const point = getMousePositionInAnnotationCoordinates(mouseState, annotationLayer);
-          // if (point === undefined) return;
-          const newZCoordinate = getZCoordinate(point);
-          if (zCoordinate === undefined || newZCoordinate === undefined) return;
-          if (zCoordinate !== newZCoordinate) {
-            StatusMessage.showTemporaryMessage(
-              "All vertices of polygon must be in same plane"
-            );
-            return;
-          }
-        }
-        last_location = new Float32Array(mouseState.unsnappedPosition);
-        this.childTool.trigger(mouseState, this.inProgressAnnotation.reference);
-        //start new annotation
-        this.childTool.trigger(mouseState, this.inProgressAnnotation.reference);
-        //@ts-ignore
-        global_childAnnotationIds = this.inProgressAnnotation.reference.value.childAnnotationIds;
-      }
-    }
-  }
-
-  /**
-   * Disposes the annotation tool.
-   */
-  dispose() {
-    if(this.bindingsRef) this.bindingsRef.dispose();
-    this.bindingsRef = undefined;
-    if (this.childTool) {
-      this.childTool.dispose();
-    }
-    // completely delete the annotation
-    this.disposeAnnotation();
-    super.dispose();
-  }
-
-  /**
-   * Activates the annotation tool if value is true.
-   * @param _value 
-   */
-  setActive(_value: boolean) {
-    if (this.active !== _value) {
-      this.active = _value;
-      if (this.active) {
-        if (this.bindingsRef) {
-          this.bindingsRef.dispose();
-          this.bindingsRef = undefined;
-        }
-        this.bindingsRef = new RefCounted();
-        if (this.bindingsRef) {
-          //@ts-ignore
-          setPolygonDrawModeInputEventBindings(
-            this.bindingsRef, 
-            (window as any)['viewer'].inputEventBindings
+        const newZCoordinate = getZCoordinate(point);
+        if (this.zCoordinate === undefined || newZCoordinate === undefined) 
+          return;
+        if (this.zCoordinate !== newZCoordinate) {
+          StatusMessage.showTemporaryMessage(
+            "All vertices of polygon must be in the same plane."
           );
-        } 
-      }
-      this.childTool.setActive(_value);
-      super.setActive(_value);
-    }
-  }
+          return;
+        }
 
-  /**
-   * Deactivates the annotation tool.
-   */
-  deactivate() {
-    this.active = false;
-    if (this.bindingsRef) this.bindingsRef.dispose();
-    this.bindingsRef = undefined;
-    this.childTool.deactivate();
-    super.deactivate();
+        // Finish the current line
+        this.childTool.trigger(mouseState, this.inProgressAnnotation.reference);
+        // Start a new line
+        this.childTool.trigger(mouseState, this.inProgressAnnotation.reference);
+      }
+    }
   }
 
   /**
@@ -1876,99 +1828,69 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
    * @returns true if the operation suceeded otherwise false.
    */
   complete(): boolean {
-    // console.log("PlacePolygonTool > complete")
-    volume_tool_used = true;
-    const {annotationLayer} = this;
-
-    if(
-      inProgressAnnotation && 
-      // urlParams.multiUserMode && 
-      this.inProgressAnnotation === undefined && 
-      annotationLayer != undefined
-    ) {
-      global_sourceMouseState.unsnappedPosition = source_location;
-      this.sourceMouseState = global_sourceMouseState;
-      this.sourcePosition = getMousePositionInAnnotationCoordinates(
-        this.sourceMouseState, 
-        annotationLayer
-      );
-      this.sourcePosition = source_location;
-
-      // Restore state of polygon tool
-      //@ts-ignore
-      this.zCoordinate = getZCoordinate(this.sourcePosition);
-      //@ts-ignore
-      let reference = annotationLayer.source.getReference(polygon_id);
-      this.layer.selectAnnotation(annotationLayer, reference.id, true);
-      //@ts-ignore
-      reference.value!.childAnnotationIds = global_childAnnotationIds;
-      //@ts-ignore
-      reference.value!.childAnnotationIds.pop();
-      //@ts-ignore
-      global_mouseState.unsnappedPosition = new Float32Array(last_location);
-      
-      //@ts-ignore
-      this.childTool.trigger(global_mouseState, reference);
-
-      const disposer = () => {
-        reference.dispose();
-      };
-      this.inProgressAnnotation = {
-        //@ts-ignore
-        annotationLayer,
-        reference,
-        disposer,
-      };
-
-      //@ts-ignore
-      global_childAnnotationIds = this.inProgressAnnotation.reference.value.childAnnotationIds;
-    }
-    this.sourcePosition = source_location;
-    inProgressAnnotation = false;
-    const state = this.inProgressAnnotation;
-    if(annotationLayer === undefined || state === undefined) {
+    const { annotationLayer } = this;
+    if (annotationLayer === undefined) {
+      // Not yet ready.
       return false;
     }
 
-    if(this.completeLastLine()) {
-      annotationLayer.source.commit(this.inProgressAnnotation!.reference);
-      this.layer.selectAnnotation(
-        annotationLayer, 
-        this.inProgressAnnotation!.
-        reference.id, 
-        true
+    const childInProgressAnn = this.childTool.inProgressAnnotation.value;
+    if (
+      childInProgressAnn === undefined ||
+      this.inProgressAnnotation === undefined
+    ) return false;
+
+    const annotation = <Polygon> this.inProgressAnnotation.reference.value;
+    
+    // There must be at least 3 lines in a polygon
+    if (annotation.childAnnotationIds.length < 3) {
+      StatusMessage.showTemporaryMessage(
+        "There must be at least 3 lines in a polygon"
       );
-      this.inProgressAnnotation!.disposer();
-      inProgressAnnotation = false;
-      this.inProgressAnnotation = undefined;
-      this.sourcePosition = undefined;
-      global_childAnnotationIds = [];
-      polygon_id = undefined;
-      return true;
+      return false;
     }
 
-    return false;
-  }
+    if (
+      childInProgressAnn.reference === undefined ||
+      childInProgressAnn.reference.value === undefined
+    ) return false;
 
-  /**
-   * Dispose current active annotation.
-   */
-  private disposeAnnotation() {
-    if (this.inProgressAnnotation && this.annotationLayer) {
-      this.annotationLayer.source.delete(this.inProgressAnnotation.reference);
-      this.inProgressAnnotation.disposer();
-      this.inProgressAnnotation = undefined;
-    }
+    // Add last line
+    const newChildAnn = <Annotation>{
+      ...childInProgressAnn.reference.value,
+      pointB: this.sourcePosition
+    };
+    annotationLayer.source.update(childInProgressAnn.reference, newChildAnn);
+    annotationLayer.source.commit(childInProgressAnn.reference);
+    this.layer.selectAnnotation(
+      annotationLayer, 
+      childInProgressAnn.reference.id, 
+      true
+    );
+    childInProgressAnn.disposer();
+    this.childTool.inProgressAnnotation.value = undefined;
+
+    // Update polygon
+    annotationLayer.source.commit(this.inProgressAnnotation.reference);
+    this.layer.selectAnnotation(
+      annotationLayer,
+      this.inProgressAnnotation.reference.id,
+      true
+    );
+    this.inProgressAnnotation.disposer();
+    this.inProgressAnnotation = undefined;
+    this.sourcePosition = undefined;
+    
+    return true;
   }
 
   /**
    * Undo the last drawn polygon line segment.
    */
   undo(mouseState: MouseSelectionState): boolean {
-    const {annotationLayer} = this;
+    const { annotationLayer } = this;
     const state = this.inProgressAnnotation;
-    
-    if(annotationLayer === undefined || state === undefined) {
+    if (annotationLayer === undefined || state === undefined) {
       return false;
     }
 
@@ -2000,8 +1922,8 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
         }
         state.annotationLayer.source.update(reference, newAnnotation);
         this.childTool.layer.selectAnnotation(
-          annotationLayer, 
-          reference.id, 
+          annotationLayer,
+          reference.id,
           true
         );
       };
@@ -2021,53 +1943,16 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
         reference,
         disposer,
       };
-    } else {
-      this.disposeAnnotation();
+    } 
+    else {
+      if (this.inProgressAnnotation) {
+        annotationLayer.source.delete(this.inProgressAnnotation.reference);
+        this.inProgressAnnotation.disposer();
+        this.inProgressAnnotation = undefined;
+      }
     }
 
     return true;
-  }
-
-  /**
-   * Completes the last line of the polygon.
-   * @returns true if last line was succesfully completed otherwise false.
-   */
-  private completeLastLine(): boolean {
-    const {annotationLayer} = this;
-    const {childTool} = this;
-    const childState = childTool.inProgressAnnotation.value;
-    const state = this.inProgressAnnotation;
-
-    if(
-      annotationLayer === undefined || 
-      childTool === undefined || 
-      childState === undefined || 
-      state === undefined
-    ) {
-      return false;
-    }
-
-    const annotation = <Polygon>state.reference.value;
-    if(annotation.childAnnotationIds.length < 3) return false; //min 3 sides in polygon
-
-    if (
-      childState.reference !== undefined && 
-      childState.reference.value !== undefined
-    ) {
-      const newAnnotation = <Annotation>{
-        ...childState.reference.value, 
-        pointB: this.sourcePosition
-      };
-      annotationLayer.source.update(childState.reference, newAnnotation);
-      this.layer.selectAnnotation(annotationLayer, childState.reference.id, true);
-      annotationLayer.source.commit(childState.reference);
-      this.childTool.inProgressAnnotation.value!.disposer();
-      this.childTool.inProgressAnnotation.value = undefined;
-
-      return true;
-    }
-
-    return false;
   }
 
   /**
@@ -2098,6 +1983,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
     const parentAnnotationRef = annotationLayer.source.getReference(
       parentAnnotationId
     );
+
     const point = getMousePositionInAnnotationCoordinates(
       mouseState, 
       annotationLayer
@@ -2126,8 +2012,13 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
       pointB: (<Line>annotationRef.value).pointB,
       properties: Object.assign([], parentAnnotationRef.value!.properties),
     };
-    let index = (<Polygon>parentAnnotationRef.value!).childAnnotationIds.indexOf(annotationRef.id);
-    if (index === -1) index = (<Polygon>parentAnnotationRef.value!).childAnnotationIds.length;
+
+    let index = (
+      <Polygon>parentAnnotationRef.value!
+    ).childAnnotationIds.indexOf(annotationRef.id);
+    if (index === -1) {
+      index = (<Polygon>parentAnnotationRef.value!).childAnnotationIds.length;
+    }
     const newAnnRef1 = annotationLayer.source.add(
       newAnn1, 
       false, 
@@ -2140,6 +2031,7 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
       parentAnnotationRef, 
       index + 1
     );
+
     annotationLayer.source.delete(annotationRef, true);
     annotationLayer.source.commit(newAnnRef1);
     annotationLayer.source.commit(newAnnRef2);
@@ -2189,8 +2081,10 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
 
     let annotationRef1 : AnnotationReference|undefined = undefined;
     let annotationRef2 : AnnotationReference|undefined = undefined;
-    const childAnnotationIds = (<Polygon>(parentAnnotationRef.value!)).childAnnotationIds;
-    if (childAnnotationIds.length <= 3) { // minimum 3 sides should be there
+    const childAnnotationIds = (
+      <Polygon> parentAnnotationRef.value!
+    ).childAnnotationIds;
+    if (childAnnotationIds.length <= 3) { 
       return;
     }
 
@@ -2222,8 +2116,11 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
       properties: Object.assign([], parentAnnotationRef.value!.properties),
     };
 
-    let index = (<Polygon>parentAnnotationRef.value!).childAnnotationIds.indexOf(annotationRef1.id);
-    if (index === -1) index = (<Polygon>parentAnnotationRef.value!).childAnnotationIds.length;
+    let index = (
+      <Polygon>parentAnnotationRef.value!
+    ).childAnnotationIds.indexOf(annotationRef1.id);
+    if (index === -1) 
+      index = (<Polygon>parentAnnotationRef.value!).childAnnotationIds.length;
     const newAnnRef = annotationLayer.source.add(
       newAnn, 
       false, 
@@ -2240,10 +2137,62 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
   }
 
   /**
+   * Disposes the annotation tool.
+   */
+  disposed() {
+    if (this.childTool) this.childTool.dispose();
+
+    if (this.inProgressAnnotation && this.annotationLayer) {
+      this.annotationLayer.source.delete(this.inProgressAnnotation.reference);
+      this.inProgressAnnotation.disposer();
+      this.inProgressAnnotation = undefined;
+    }
+
+    super.disposed();
+  }
+
+  /**
+   * Activates the annotation tool if value is true.
+   * @param _value 
+   */
+  setActive(_value: boolean) {
+    if (this.active !== _value) {
+      this.active = _value;
+      if (this.active) {
+        if (this.bindingsRef) {
+          this.bindingsRef.dispose();
+          this.bindingsRef = undefined;
+        }
+        this.bindingsRef = new RefCounted();
+        if (this.bindingsRef) {
+          //@ts-ignore
+          setPolygonDrawModeInputEventBindings(
+            this.bindingsRef, 
+            (window as any)['viewer'].inputEventBindings
+          );
+        } 
+      }
+      this.childTool.setActive(_value);
+      super.setActive(_value);
+    }
+  }
+
+  /**
+   * Deactivates the annotation tool.
+   */
+  deactivate() {
+    this.active = false;
+    if (this.bindingsRef) this.bindingsRef.dispose();
+    this.bindingsRef = undefined;
+    this.childTool.deactivate();
+    super.deactivate();
+  }
+
+  /**
    * Get polygon description to be shown in top corner of annotation tab.
    */
   get description() {
-    return `annotate polygon (draw mode)`;
+    return `annotate polygon`;
   }
 
   toJSON() {
@@ -2252,426 +2201,124 @@ export class PlacePolygonTool extends PlaceCollectionAnnotationTool {
 }
 PlacePolygonTool.prototype.annotationType = AnnotationType.POLYGON;
 
-export interface VolumeSession {
-  reference: AnnotationReference;
-}
-
-export interface COMSession {
-  label: string|undefined;
-  color: string|undefined;
-}
-
-export interface CellSession {
-  label: string|undefined;
-  color: string|undefined;
-  category: string|undefined;
-}
-
-let has_volume_tool: boolean = false;
-
-export function updateHasVolumeTool(value: boolean = true) {
-  has_volume_tool = value;
-}
-
-let volume_ref_id: string|undefined = undefined;
-
-export function updateVolumeRef(ref_id: string) {
-  volume_ref_id = ref_id;
-}
-
-export function getVolumeRef() {
-  return volume_ref_id;
-}
-
-/**
- * This class is used to create the Volume annotation tool.
- */
 export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
-  /** Volume tool utilises the polygon tool to draw annotations. */
-  childTool: PlacePolygonTool | undefined;
-  sourceMouseState: MouseSelectionState;
-  sourcePosition: any;
+  childTool: PlacePolygonTool;
   active: boolean;
-  session: WatchableValue<VolumeSession | undefined> = new WatchableValue(undefined);
-  sessionWidget: RefCounted | undefined;
-  sessionWidgetDiv: HTMLElement | undefined;
-  icon: WatchableValue<HTMLElement | undefined> = new WatchableValue(undefined);
 
   constructor(
     public layer: UserLayerWithAnnotations, 
-    options: any, 
-    session: VolumeSession | undefined = undefined,
-    sessionDiv: HTMLElement | undefined = undefined,
-    iconDiv: HTMLElement|undefined = undefined, 
-    restore_from_firebase: boolean = false) {
+    options: any,
+    reference?: AnnotationReference, 
+  ) {
     super(layer, options);
-    const func = this.displayVolumeSession.bind(this);
-    this.sessionWidgetDiv = sessionDiv;
-    this.session.changed.add(() => func());
-    this.session.value = session;
     this.active = true;
-
-    // if(urlParams.multiUserMode) {
-      // has_volume_tool = true;
-    // }
-
     this.childTool = new PlacePolygonTool(layer, {...options, parent: this});
-
-    this.icon.changed.add(this.setIconColor.bind(this));
-    this.icon.value = iconDiv;
-    this.registerDisposer(() => {
-      const iconDiv = this.icon.value;
-      if (iconDiv === undefined) return;
-      iconDiv.style.backgroundColor = '';
-      this.icon.value = undefined;
-    });
-
-    // if(this.session.value === undefined && urlParams.multiUserMode) {
-    //   // @ts-ignore
-    //   if(!this.annotationLayer || !this.annotationLayer.source || !this.annotationLayer.source.annotationMap) {
-    //     return
-    //   }
-
-    //   if(restore_from_firebase) {
-    //     volume_ref_id = getVolumeRef();
-    //   }
-
-    //   //@ts-ignore
-    //   let volume_annotation = this.annotationLayer.source.annotationMap.get(volume_ref_id);
-
-    //   if(volume_annotation) {
-    //     this.session.value = <VolumeSession>{reference: this.annotationLayer.source.getReference(volume_ref_id!)};
-    //     if(this.childTool) {
-    //       this.childTool.restore_multi_user_drawing();
-    //     }
-    //   }
-    // }
-
+    if (reference !== undefined) {
+      const { annotationLayer } = this;
+      if (annotationLayer === undefined) return;
+      const disposer = () => reference.dispose();
+      this.inProgressAnnotation = {
+        annotationLayer,
+        reference,
+        disposer,
+      };
+    }
   }
 
-  /** Sets the icon color of the volume tool based on the type of mode */
-  setIconColor() {
-    const iconDiv = this.icon.value;
-    if (iconDiv === undefined) return;
-    iconDiv.style.backgroundColor = 'green';
-  }
-  /**
-   * This function is called when the user tries to draw annotation
-   * @param mouseState
-   * @returns void
-   */
   trigger(mouseState: MouseSelectionState) {
-    // console.log("PlaceVolumeTool > trigger");
-    const {annotationLayer} = this;
-    const {session} = this;
-
-    // if (annotationLayer === undefined || session.value === undefined || this.childTool === undefined) {
-    //   // Not yet ready.
-    //   return;
-    // }
-    // if (!session.value.reference.value) return;
-    
-    // if (mouseState.updateUnconditionally()) {
-    //   this.childTool.trigger(mouseState, session.value.reference);
-    // }
-
-    if (this.childTool !== undefined) {
-      this.childTool.trigger(mouseState, undefined);
+    const { annotationLayer } = this;
+    if (annotationLayer === undefined) {
+      // Not yet ready.
+      return;
     }
-  }
 
-  /**
-   * Takes description and color and creates a new volume annotation.
-   * @param description 
-   * @param color 
-   * @returns 
-   */
-  createNewVolumeAnn(description: string|undefined, color: string|undefined) : AnnotationReference | undefined {
-    const {annotationLayer} = this;
-    if (annotationLayer === undefined) return undefined;
-    //@ts-ignore
-    const collection = <Collection>this.getInitialAnnotation(window['viewer'].mouseState, annotationLayer);
-    collection.childrenVisible = true;
-    if (description) collection.description = description;
-    if (color) {
-      for(let idx = 0; idx < annotationLayer.source.properties.length; idx++) {
-        if (annotationLayer.source.properties[idx].identifier === 'color' && collection.properties.length > idx) {
-          collection.properties[idx] = packColor(parseRGBColorSpecification(color));
-          break;
-        }
+    if (mouseState.updateUnconditionally()) {
+      if (this.inProgressAnnotation === undefined) {
+        const annotation = this.getInitialAnnotation(
+          mouseState, 
+          annotationLayer
+        );
+        const reference = annotationLayer.source.add(
+          annotation, 
+          /*commit=*/ false, 
+        );
+        const disposer = () => reference.dispose();
+        this.inProgressAnnotation = {
+          annotationLayer,
+          reference,
+          disposer,
+        };
+
+        this.childTool.trigger(mouseState, reference);
+        this.layer.selectAnnotation(annotationLayer, reference.id, true);
+      } 
+      else {
+        this.childTool.trigger(mouseState, this.inProgressAnnotation.reference);
       }
     }
-    // if(id) collection.id = id;
-    const reference = annotationLayer.source.add(<Annotation>collection, true, undefined, undefined);
-    this.layer.selectAnnotation(annotationLayer, reference.id, true);
-
-    return reference;
   }
 
-  /**
-   * Disposes the annotation tool.
-   */
-  dispose() {
-    // console.log("running volume tool disposer");
-    if (this.childTool) {
-      this.childTool.dispose();
-    }
-    // completely delete the session
-    this.disposeSession();
-    super.dispose();
-  }
-  
-  /**
-   * Activates the annotation tool if value is true.
-   * @param _value 
-   */
-  setActive(_value: boolean) {
-    if (this.active !== _value) {
-      this.active = _value;
-      if (this.childTool) {
-        this.childTool.setActive(_value);
-      }
-      super.setActive(_value);
-    }
-  }
-  
-  /**
-   * Deactivates the annotation tool.
-   */
-  deactivate() {
-    this.active = false;
-    if (this.childTool) this.childTool.deactivate();
-    super.deactivate();
-  }
-
-  /**
-   * Completes the last edge of polygon to be drawn.
-   * @returns true if the operation suceeded otherwise false.
-   */
   complete(): boolean {
-    // console.log("PlaceVolumeTool > complete")
-    const {annotationLayer} = this;
-    const {session} = this;
-
-    // if (annotationLayer === undefined || session.value === undefined) {
-      // return false;
-    // }
-    //
-    // if (!session.value.reference.value) return false;
-
-    // global_parentRef = session.value.reference;
-    if(this.childTool && this.childTool.complete()) {
-      //this.layer.selectAnnotation(annotationLayer, session.value.reference.id, true);
-      return true;
+    const { annotationLayer } = this;
+    if (annotationLayer === undefined) {
+      // Not yet ready.
+      return false;
+    }
+    const result = this.childTool.complete();
+    if (!result || !this.inProgressAnnotation) {
+      return false;
     }
 
-    return false;
-  }
+    annotationLayer.source.commit(this.inProgressAnnotation.reference);
+    this.layer.selectAnnotation(
+      annotationLayer,
+      this.inProgressAnnotation.reference.id,
+      true
+    );
 
-  /**
-   * Deletes the current active session
-   */
-  private disposeSession() {
-    const {session} = this;
-    if (session.value) session.value.reference.dispose();
-    this.session.value = undefined;
-    if (this.sessionWidget) this.sessionWidget.dispose();
-    this.sessionWidget = undefined;
-  }
-
-  /**
-   * Undo the last drawn polygon line segment.
-   */
-  undo(mouseState: MouseSelectionState): boolean {
-    const {session} = this;
-    if (session.value === undefined || !session.value.reference.value || this.childTool === undefined) return false;
-    
-    return this.childTool.undo(mouseState);
-  }
-
-  /**
-   * Adds a new vertex to the polygon in edit mode.
-   * @param mouseState 
-   * @returns 
-   */
-  addVertexPolygon(mouseState: MouseSelectionState) {
-    if (!this.validateSession(mouseState.pickedAnnotationId, mouseState.pickedAnnotationLayer)) return;
-    if (this.childTool) this.childTool.addVertexPolygon(mouseState);
-  }
-
-  /**
-   * Deletes a vertex of the polygon in edit mode.
-   * @param mouseState 
-   * @returns 
-   */
-  deleteVertexPolygon(mouseState: MouseSelectionState) {
-    if (!this.validateSession(mouseState.pickedAnnotationId, mouseState.pickedAnnotationLayer)) return;
-    if (this.childTool) this.childTool.deleteVertexPolygon(mouseState);
-  }
-
-  /**
-   * Valides the session, that is if the volume id edited is the current active session or not.
-   * @param annotationId 
-   * @param annotationLayer 
-   * @returns 
-   */
-  validateSession(annotationId: string|undefined, annotationLayer: AnnotationLayerState|undefined) : boolean {
-    if (this.session.value === undefined || annotationId === undefined || annotationLayer === undefined) return false;
-    if (this.session.value.reference === undefined || !this.session.value.reference.value) return false;
-    if (!this.active) return false;
-    const reference = annotationLayer.source.getTopMostAnnotationReference(annotationId);
-    if (!reference.value) return false;
-    const annotation = reference.value;
-    if (annotation.id !== this.session.value.reference.value.id) return false;
     return true;
   }
 
-  /**
-   * This function is used to display the Volume session data in the annotation tabs
-   * while the user is annotating.
-   */
-  displayVolumeSession() {
-    const {annotationLayer, session, sessionWidgetDiv} = this;
-    if (this.sessionWidget) this.sessionWidget.dispose();
-    this.sessionWidget = new RefCounted();
-    const {sessionWidget} = this; 
-    if (annotationLayer === undefined || session.value === undefined || sessionWidgetDiv === undefined) return;
+  undo(mouseState: MouseSelectionState): boolean {
+    return this.childTool.undo(mouseState);
+  }
 
-    const reference = session.value.reference;
-    sessionWidgetDiv.appendChild(
-      this.sessionWidget.registerDisposer(new DependentViewWidget(
-        this.sessionWidget.registerDisposer(
-                    new AggregateWatchableValue(() => ({
-                                                  annotation: reference,
-                                                  chunkTransform: annotationLayer.chunkTransform
-                                                }))),
-                                                //@ts-ignore
-                ({annotation, chunkTransform}, parent, context) => {
-                  if (annotation == null) {
-                    const statusMessage = document.createElement('div');
-                    statusMessage.classList.add('neuroglancer-selection-annotation-status');
-                    statusMessage.textContent =
-                        (annotation === null) ? 'Annotation not found' : 'Loading...';
-                    parent.appendChild(statusMessage);
-                    return;
-                  }
+  addVertexPolygon(mouseState: MouseSelectionState) {
+    return this.childTool.addVertexPolygon(mouseState);
+  }
 
-                  const sessionTitle = document.createElement('div');
-                  sessionTitle.classList.add('volume-session-display-title');
-                  sessionTitle.textContent = "Volume session";
+  deleteVertexPolygon(mouseState: MouseSelectionState) {
+    return this.childTool.deleteVertexPolygon(mouseState);
+  }
 
-                  const sessionBody = document.createElement('div');
-                  sessionBody.classList.add('volume-session-display-body');
+  disposed() {
+    if (this.childTool) this.childTool.dispose();
 
-                  const {properties} = annotationLayer.source;
+    super.dispose();
+  }
 
-                  for (let i = 0, count = properties.length; i < count; ++i) {
-                    const property = properties[i];
-                    if (property.identifier === 'visibility') {
-                      continue;
-                    }
-                    const label = document.createElement('label');
-                    label.classList.add('neuroglancer-annotation-property');
-                    const idElement = document.createElement('span');
-                    idElement.classList.add('neuroglancer-annotation-property-label');
-                    idElement.textContent = property.identifier;
-                    label.appendChild(idElement);
-                    const {description} = property;
-                    if (description !== undefined) {
-                      label.title = description;
-                    }
-                    let valueElement: HTMLSpanElement;
-                    let colorElement : HTMLInputElement;
-                    const value = annotation.properties[i];
-                    switch (property.type) {
-                      case 'float32':
-                        valueElement = document.createElement('span');
-                        valueElement.classList.add('neuroglancer-annotation-property-value');
-                        valueElement.textContent = value.toPrecision(6);
-                        label.appendChild(valueElement);
-                        break;
-                      case 'rgb': {
-                        colorElement = document.createElement('input');
-                        if (reference.value && reference.value.parentAnnotationId) {
-                          colorElement.disabled = true;
-                        };
-                        colorElement.type = 'color';
-                        const colorVec = unpackRGB(value);
-                        const hex = serializeColor(colorVec);
-                        colorElement.value = hex;
-                        colorElement.style.backgroundColor =
-                            useWhiteBackground(colorVec) ? 'white' : 'black';
-                        colorElement.disabled = true;
-                        // colorElement.addEventListener('change', () => {
-                        //   const colorInNum = packColor(parseRGBColorSpecification(colorElement.value));
-                          // annotationLayer.source.updateColor(reference, colorInNum);
-                        // });
-                        label.appendChild(colorElement);
-                        break;
-                      }
-                      case 'rgba': {
-                        valueElement = document.createElement('span');
-                        valueElement.classList.add('neuroglancer-annotation-property-value');
-                        const colorVec = unpackRGB(value >>> 8);
-                        valueElement.textContent = serializeColor(unpackRGBA(value));
-                        valueElement.style.backgroundColor =
-                            serializeColor(unpackRGB(value >>> 8));
-                        valueElement.style.color =
-                            useWhiteBackground(colorVec) ? 'white' : 'black';
-                        label.appendChild(valueElement);
-                        break;
-                      }
-                      default:
-                        valueElement = document.createElement('span');
-                        valueElement.classList.add('neuroglancer-annotation-property-value');
-                        valueElement.textContent = value.toString();
-                        label.appendChild(valueElement);
-                        break;
-                    }
-                    
-                    sessionBody.appendChild(label);
-                  }
+  setActive(_value: boolean) {
+    if (this.active !== _value) {
+      this.active = _value;
+      this.childTool.setActive(_value);
+      super.setActive(_value);
+    }
+  }
 
-                  if (annotation.description && annotation.description.length > 0) {
-                    // console.log('annotations.ts line=2504 desc=' + annotation.description);
-                    // console.log('annotations.ts line=2505 length=' + annotation.description.length);
-                    const label = document.createElement('label');
-                    label.classList.add('neuroglancer-annotation-property');
-                    const idElement = document.createElement('span');
-                    idElement.classList.add('neuroglancer-annotation-property-label');
-                    idElement.textContent = "Description";
-                    label.appendChild(idElement);
-                    const valueElement = document.createElement('span');
-                    valueElement.classList.add('neuroglancer-annotation-property-description');
-                    valueElement.textContent = annotation.description || '';
-                    label.appendChild(valueElement);
-                    sessionBody.appendChild(label);
-                  }
-                  parent.appendChild(sessionTitle);
-                  parent.appendChild(sessionBody);
-                  
-                  sessionWidget.registerDisposer(() => {
-                    try {
-                      sessionWidgetDiv.removeChild(parent);
-                    }
-                    catch (e) {
-                      //ignore errors
-                    }
-                  });
-                }))
-            .element);
-    return;
+  deactivate() {
+    this.active = false;
+    this.childTool.deactivate();
+    super.deactivate();
   }
 
   get description() {
-    return `volume session (draw mode)`;
+    return `annotate volume`;
   }
 
   toJSON() {
     return ANNOTATE_VOLUME_TOOL_ID;
   }
 }
-
 PlaceVolumeTool.prototype.annotationType = AnnotationType.VOLUME;
 /* BRAINSHARE ENDS */
 
@@ -2700,6 +2347,11 @@ registerLegacyTool(
   ANNOTATE_POLYGON_TOOL_ID,
   (layer, options) => 
     new PlacePolygonTool(<UserLayerWithAnnotations>layer, options)
+);
+registerLegacyTool(
+  ANNOTATE_VOLUME_TOOL_ID,
+  (layer, options) => 
+    new PlaceVolumeTool(<UserLayerWithAnnotations>layer, options)
 );
 /* BRAINSHARE ENDS */
 
@@ -2914,9 +2566,6 @@ export function UserLayerWithAnnotationsMixin<
     annotationCrossSectionRenderScaleTarget = trackableRenderScaleTarget(8);
     annotationProjectionRenderScaleHistogram = new RenderScaleHistogram();
     annotationProjectionRenderScaleTarget = trackableRenderScaleTarget(8);
-    /* BRAINSHARE STARTS */
-    annotationColorPicker : AnnotationColorWidget|undefined = undefined;
-    /* BRAINSHARE ENDS */
 
     constructor(...args: any[]) {
       super(...args);
@@ -2996,31 +2645,6 @@ export function UserLayerWithAnnotationsMixin<
         }),
       );
     }
-
-    /* BRAINSHARE STARTS */
-    /**
-     * Sets the annotation picker color based on the annotation property value.
-     */
-    setAnnotationColorPicker() {
-      for (const state of this.annotationStates.states) {
-        if (!state.source.readonly) {
-          const colorProperties = state.source.properties.filter(
-            x => x.identifier === 'color'
-          );
-          if (colorProperties.length === 0) continue;
-          const defaultColor = serializeColor(unpackRGB(
-            colorProperties[0].default
-          ));
-          this.annotationColorPicker = this.registerDisposer(
-            new AnnotationColorWidget()
-          );
-          this.annotationColorPicker.element.title = 'Pick color to draw annotation';
-          this.annotationColorPicker.setColor(defaultColor);
-          break;
-        }
-      }
-    }
-    /* BRAINSHARE ENDS */
 
     initializeAnnotationLayerViewTab(tab: AnnotationLayerView) {
       tab;
@@ -3141,7 +2765,17 @@ export function UserLayerWithAnnotationsMixin<
                 positionGrid.classList.add(
                   "neuroglancer-selected-annotation-details-position-grid",
                 );
-                positionGrid.style.gridTemplateColumns = `[icon] 0fr [copy] 0fr repeat(${layerRank}, [dim] 0fr [coord] 0fr) [move] 0fr [delete] 0fr`;
+                /* BRAINSHARE STARTS */
+                // Change the grid style for the edit button
+                // positionGrid.style.gridTemplateColumns = `[icon] 0fr [copy] 0fr repeat(${layerRank}, [dim] 0fr [coord] 0fr) [move] 0fr [delete] 0fr`;
+                positionGrid.style.gridTemplateColumns = `
+                  [icon] 0fr 
+                  [copy] 0fr repeat(${layerRank}, [dim] 0fr [coord] 0fr) 
+                  [move] 0fr 
+                  [delete] 0fr
+                  [edit] 0fr
+                `;
+                /* BRAINSHARE ENDS */
                 parent.appendChild(positionGrid);
 
                 const handler = annotationTypeHandlers[annotation.type];
@@ -3220,6 +2854,25 @@ export function UserLayerWithAnnotationsMixin<
                   positionGrid.appendChild(button);
                 }
 
+                /* BRAINSHARE STARTS */
+                // Add the edit button for volumes
+                if (
+                  reference.value && 
+                  reference.value.type === AnnotationType.VOLUME
+                ) {
+                  const editButton = makeAddButton({
+                    title: "Edit annotation",
+                    onClick: () => {
+                      this.tool.value = new PlaceVolumeTool(
+                        this, 
+                        {}, 
+                        reference
+                      );
+                    },
+                  });
+                  positionGrid.appendChild(editButton);
+                }
+                /* BRAINSHARE ENDS */
                 const { relationships, properties } = annotationLayer.source;
                 const sourceReadonly = annotationLayer.source.readonly;
 
@@ -3242,6 +2895,31 @@ export function UserLayerWithAnnotationsMixin<
                   valueElement.classList.add(
                     "neuroglancer-annotation-property-value",
                   );
+                  /* BRAINSHARE STARTS */
+                  // Create a color widget in annotation selection panel.
+                  // The button is hidden, but the widget is usable.
+                  if (property.identifier === "color") {
+                    const colorVec = unpackRGB(annotation.properties[i]);
+                    const colorInput = document.createElement("input");
+                    colorInput.type = 'color';
+                    if (reference.value && reference.value.parentAnnotationId) {
+                      colorInput.disabled = true;
+                    };                          
+                    colorInput.value = serializeColor(colorVec);
+                    colorInput.style.backgroundColor = serializeColor(colorVec);
+                    colorInput.style.width = "0";
+                    colorInput.style.height = "0";
+                    colorInput.style.border = "0";
+                    colorInput.style.padding = "0";
+                    colorInput.addEventListener('change', () => {
+                      const colorNum = packColor(
+                        parseRGBColorSpecification(colorInput.value)
+                      )
+                      annotationLayer.source.updateColor(reference, colorNum);
+                    });
+                    label.appendChild(colorInput);
+                  }
+                  /* BRAINSHARE ENDS */
                   switch (property.type) {
                     case "rgb": {
                       const colorVec = unpackRGB(value);

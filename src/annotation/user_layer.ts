@@ -442,6 +442,25 @@ export class AnnotationUserLayer extends Base {
       ANNOTATION_PROPERTIES_JSON_KEY,
       parseAnnotationPropertySpecs,
     );
+    /* BRAINSHARE STARTS */
+    // Add properties field for annotations
+    if (this.localAnnotationProperties === undefined) {
+      this.localAnnotationProperties = [
+        {
+          identifier: 'color',
+          type: 'rgb',
+          default: 65535,
+          description: undefined,
+        },
+        {
+          identifier: 'visibility',
+          type: 'float32',
+          default: 1.0,
+          description: undefined,
+        }
+      ];
+    }
+    /* BRAINSHARE ENDS */
     this.localAnnotationRelationships = verifyOptionalObjectProperty(
       specification,
       ANNOTATION_RELATIONSHIPS_JSON_KEY,

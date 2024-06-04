@@ -8,18 +8,18 @@ import { SidePanel, SidePanelManager } from "#/ui/side_panel";
 import { Tab, TabView } from "#/widget/tab_view";
 import { makeIcon } from "#/widget/icon";
 import { CachedWatchableValue, WatchableValue } from "#/trackable_value";
-import { RefCounted } from "#/util/disposable";
 import { 
   DEFAULT_SIDE_PANEL_LOCATION, 
   SidePanelLocation, 
   TrackableSidePanelLocation 
 } from "#/ui/side_panel_location";
-import { Signal } from "#/util/signal";
+import { NullarySignal, Signal } from "#/util/signal";
 import { MultiUsersTab } from "./multi_users_tab";
 import { Trackable } from "#/util/trackable";
 import { StateTab  } from "./state_tab";
 import { APIs } from "./service";
 import { StateAPI } from "./state_utils";
+import { emptyToUndefined } from "#/util/json";
 
 const DEFAULT_USER_SIDE_PANEL_LOCATION: SidePanelLocation = {
   ...DEFAULT_SIDE_PANEL_LOCATION,
@@ -28,7 +28,8 @@ const DEFAULT_USER_SIDE_PANEL_LOCATION: SidePanelLocation = {
   visible: true,
 }
 
-export class UserSidePanelState extends RefCounted {
+export class UserSidePanelState implements Trackable {
+  changed = new NullarySignal();
   location = new TrackableSidePanelLocation(DEFAULT_USER_SIDE_PANEL_LOCATION);
   tabsChanged = new Signal();
   selectedTab = new WatchableValue<string | undefined>(undefined);
@@ -36,19 +37,44 @@ export class UserSidePanelState extends RefCounted {
   tabs: string[];
 
   constructor() {
-    super()
     this.tabs = ['User', 'Multi-Users'];
     this.selectedTab.value = 'User';
 
     this.tabsChanged.add(() => {
+      this.changed.dispatch();
     });
     this.selectedTab.changed.add(() => {
+      this.changed.dispatch();
     });
 
     this.location.changed.add(() => {
+      this.changed.dispatch();
     });
     this.location.locationChanged.add(() => {
+      this.changed.dispatch();
     });
+  }
+
+  restoreState(obj: unknown) {
+    if (obj === undefined) return;
+    if (obj === null || typeof obj !== "object") return;
+    if ("tab" in obj && typeof obj["tab"] == "string") 
+      this.selectedTab.value = obj["tab"];
+    if ("location" in obj) 
+      this.location.restoreState(obj["location"]);
+  }
+
+  toJSON() {
+    const obj: any = {
+      "tab": this.selectedTab.value,
+      "location": this.location.toJSON(),
+    }
+    return emptyToUndefined(obj);
+  }
+
+  reset() {
+    this.selectedTab.value = "User";
+    this.location.reset();
   }
 }
 
@@ -152,11 +178,6 @@ export class UserSidePanel extends SidePanel {
       },
       this.visibility,
     );
-    this.tabView.element.style.flex = "1";
-    this.tabView.element.classList.add(
-      "neuroglancer-layer-side-panel-tab-view",
-    );
-    this.tabView.element.style.position = "relative";
     this.addBody(this.tabView.element);
   }
 

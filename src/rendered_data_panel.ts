@@ -819,13 +819,12 @@ export abstract class RenderedDataPanel extends RenderedPanel {
         }) does not have an active annotation tool.`);
         return;
       }
-      if (userLayer.tool.value instanceof PlaceVolumeTool) {
-        const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-        if (!volumeTool.validateSession( 
-          selectedAnnotationId, selectedAnnotationLayer
-        )) return;
-
-      }
+      // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+      //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+      //   if (!volumeTool.validateSession( 
+      //     selectedAnnotationId, selectedAnnotationLayer
+      //   )) return;
+      // }
 
       const numPolygons = 1;
       const stepSize = 1;
@@ -883,13 +882,13 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           }) does not have an active annotation tool.`);
           return;
         }
-        if (userLayer.tool.value instanceof PlaceVolumeTool) {
-          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-          if (!volumeTool.validateSession( 
-            selectedAnnotationId, 
-            selectedAnnotationLayer
-          )) return;
-        }
+        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+        //   if (!volumeTool.validateSession( 
+        //     selectedAnnotationId, 
+        //     selectedAnnotationLayer
+        //   )) return;
+        // }
 
         const reference = selectedAnnotationLayer
           .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -952,13 +951,13 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           }) does not have an active annotation tool.`);
           return;
         }
-        if (userLayer.tool.value instanceof PlaceVolumeTool) {
-          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-          if (!volumeTool.validateSession(
-            selectedAnnotationId, 
-            selectedAnnotationLayer
-          )) return;
-        }
+        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+        //   if (!volumeTool.validateSession(
+        //     selectedAnnotationId, 
+        //     selectedAnnotationLayer
+        //   )) return;
+        // }
 
         const reference = selectedAnnotationLayer
           .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -1023,13 +1022,13 @@ export abstract class RenderedDataPanel extends RenderedPanel {
             }) does not have an active annotation tool.`);
             return;
           }
-          if (userLayer.tool.value instanceof PlaceVolumeTool) {
-            const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-            if (!volumeTool.validateSession(
-              selectedAnnotationId, 
-              selectedAnnotationLayer
-            )) return;
-          }
+          // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+          //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+          //   if (!volumeTool.validateSession(
+          //     selectedAnnotationId, 
+          //     selectedAnnotationLayer
+          //   )) return;
+          // }
 
           const reference = selectedAnnotationLayer
             .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -1094,13 +1093,13 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           }) does not have an active annotation tool.`);
           return;
         }
-        if (userLayer.tool.value instanceof PlaceVolumeTool) {
-          const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-          if (!volumeTool.validateSession(
-            selectedAnnotationId, 
-            selectedAnnotationLayer
-          )) return;
-        }
+        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+        //   if (!volumeTool.validateSession(
+        //     selectedAnnotationId, 
+        //     selectedAnnotationLayer
+        //   )) return;
+        // }
 
         const reference = selectedAnnotationLayer
           .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -1135,11 +1134,11 @@ export abstract class RenderedDataPanel extends RenderedPanel {
         }) does not have an active annotation tool.`);
         return;
       }
-      if (userLayer.tool.value instanceof PlaceVolumeTool) {
-        const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-        if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
-          return;
-      }
+      // if (userLayer.tool.value instanceof PlaceVolumeTool) {
+      //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
+      //   if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
+      //     return;
+      // }
       if (
         annotationLayer !== undefined && 
         !annotationLayer.source.readonly && 
