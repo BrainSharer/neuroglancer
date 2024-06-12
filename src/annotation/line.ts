@@ -134,29 +134,34 @@ for (int i = 0; i < ${rank}; ++i) {
 ng_LineWidth = 1.0;
 /* BRAINSHARE STARTS */
 ng_Visibility = 1.0;
+/* BRAINSHARE ENDS */
 vLineOpacity = 1.0;
 vVisibility = 1.0;
 /* BRAINSHARE ENDS */
 vColor = vec4(0.0, 0.0, 0.0, 0.0);
 ${this.invokeUserMain}
 /* BRAINSHARE STARTS */
+/*
 emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
          uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
          ng_LineWidth);
-// if (ng_Visibility == 1.0) {
-//   emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
-//          uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
-//          ng_LineWidth);
-// }
+*/
+if (ng_Visibility == 1.0) {
+  emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
+         uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
+         ng_LineWidth);
+}
 /* BRAINSHARE ENDS */
 ${this.setPartIndex(builder)};
 `);
       builder.setFragmentMain(`
 float clipCoefficient = getSubspaceClipCoefficient(vModelPosition);
 /* BRAINSHARE STARTS */
-// emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
-//                                 ${this.getCrossSectionFadeFactor()} *
-//                                 clipCoefficient));
+/*
+emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
+                                ${this.getCrossSectionFadeFactor()} *
+                                clipCoefficient));
+*/
 if (vVisibility == 1.0) {
   emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
                                 ${this.getCrossSectionFadeFactor()} *
@@ -227,10 +232,12 @@ ng_markerDiameter = 5.0;
 ng_markerBorderWidth = 1.0;
 ${this.invokeUserMain}
 /* BRAINSHARE STARTS */
+/*
 emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
-// if (ng_endPointVisibility == 1.0) {
-//   emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
-// }
+*/
+if (ng_endPointVisibility == 1.0) {
+  emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
+}
 /* BRAINSHARE ENDS */
 ${this.setPartIndex(builder, "uint(getEndpointIndex()) + 1u")};
 `);
@@ -239,10 +246,12 @@ vec4 color = getCircleColor(vColor, vBorderColor);
 color.a *= vClipCoefficient;
 /* BRAINSHARE STARTS */
 color.a *= vEndpointOpacity;
+/*
 emitAnnotation(color);
-// if (vEndpointVisibility == 1.0) {
-//   emitAnnotation(color);
-// }
+*/
+if (vEndpointVisibility == 1.0) {
+  emitAnnotation(color);
+}
 /* BRAINSHARE ENDS */
 `);
     },

@@ -3,6 +3,7 @@
  */
 
 import {
+  AnnotationReference,
   AnnotationType,
   Polygon,
   Volume
@@ -75,4 +76,28 @@ export function isSectionValid(
     }
   }
   return true;
+}
+
+/**
+ * Takes a list of polygons as input and returns the centroid of middle polygon 
+ * in terms of the z-coordinate.
+ * @param annotationRefs List of polygon references
+ * @returns centroid in a float array format.
+ */
+export function getCentroidVolume(
+  annotationRefs: AnnotationReference[]
+): Float32Array {
+  const centroids = annotationRefs.map(
+    annotationRef => (<Polygon> annotationRef.value).centroid
+  );
+  centroids.sort((a, b) => {
+    const z0 = getZCoordinate(a);
+    const z1 = getZCoordinate(b);
+    if (z0 == undefined) return -1;
+    if (z1 == undefined) return 1;
+    return z1 - z0;
+  });
+  const centroid = centroids[Math.floor(centroids.length / 2)]
+
+  return centroid;
 }

@@ -307,6 +307,7 @@ function cloneAnnotation(
     type: AnnotationType.POLYGON,
     description: ann.description,
     source: cloneSource,
+    centroid: ann.centroid,
     properties: Object.assign([], ann.properties),
     childAnnotationIds: [],
     childrenVisible: false,
@@ -542,19 +543,18 @@ function getTransformedPointOnRotation(
  * @param childAnnotationRefs List of child annotation ids of a polygon.
  * @returns centroid in a float array format.
  */
-function getCentroidPolygon(
+export function getCentroidPolygon(
   childAnnotationRefs: AnnotationReference[]
 ): Float32Array {
   const rank = 3;
   const centroid = new Float32Array(rank);
   childAnnotationRefs.forEach((childAnnotationRef) => {
-    const line = <Line>childAnnotationRef.value;
+    const line = <Line> childAnnotationRef.value;
     for (let i = 0; i < rank; i++) {
       centroid[i] += line.pointA[i];
-      centroid[i] += line.pointB[i];
     }
   });
-  for (let i = 0; i < rank; i++) centroid[i] /= (2*childAnnotationRefs.length);
+  for (let i = 0; i < rank; i++) centroid[i] /= childAnnotationRefs.length;
 
   return centroid;
 }

@@ -52,7 +52,7 @@ import {
 import { getWheelZoomAmount } from "#/util/wheel_zoom";
 import { ViewerState } from "#/viewer_state";
 /* BRAINSHARE STARTS */
-import { PlaceVolumeTool, UserLayerWithAnnotations } from './ui/annotations';
+import { UserLayerWithAnnotations } from './ui/annotations';
 import { 
   cloneAnnotationSequence, 
   polygonRotateAngle, 
@@ -967,7 +967,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
         ) return;
 
         scalePolygon(
-          this.navigationState, 
           selectedAnnotationLayer, 
           reference, 
           scale
@@ -1109,7 +1108,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
         ) return;
 
         scalePolygon(
-          this.navigationState, 
           selectedAnnotationLayer, 
           reference, 
           scale
