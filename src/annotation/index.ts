@@ -92,8 +92,6 @@ export enum AnnotationType {
   POLYGON,
   VOLUME,
   CLOUD,
-  COM,
-  CELL,
   /* BRAINSHARE ENDS */
 }
 
@@ -105,8 +103,6 @@ export const annotationTypes = [
   /* BRAINSHARE STARTS */
   AnnotationType.POLYGON,
   AnnotationType.VOLUME,
-  AnnotationType.COM,
-  AnnotationType.CELL,
   /* BRAINSHARE ENDS */
 ];
 
@@ -520,8 +516,15 @@ export function formatNumericProperty(
   property: AnnotationNumericPropertySpec,
   value: number,
 ): string {
+  /* BRAINSHARE STARTS */
+  // Change format style for float32 numbers
+  /*
   const formattedValue =
     property.type === "float32" ? value.toPrecision(6) : value.toString();
+  */
+  const formattedValue =
+    property.type === "float32" ? value.toPrecision(3) : value.toString();
+  /* BRAINSHARE ENDS */
   const { enumValues, enumLabels } = property;
   if (enumValues !== undefined) {
     const enumIndex = enumValues.indexOf(value);
@@ -593,6 +596,11 @@ function parseAnnotationPropertySpec(obj: unknown): AnnotationPropertySpec {
   );
   let enumValues: number[] | undefined;
   let enumLabels: string[] | undefined;
+  /* BRAINSHARE STARTS */
+  let min: number | undefined;
+  let max: number | undefined;
+  let step: number | undefined;
+  /* BRAINSHARE ENDS */
   switch (type) {
     case "rgb":
     case "rgba":
@@ -617,6 +625,23 @@ function parseAnnotationPropertySpec(obj: unknown): AnnotationPropertySpec {
           ),
         );
       }
+      /* BRAINSHARE STARTS */
+      min = verifyOptionalObjectProperty(
+        obj,
+        "min",
+        (value) => verifyFiniteNonNegativeFloat(value),
+      )
+      max = verifyOptionalObjectProperty(
+        obj,
+        "max",
+        (value) => verifyFiniteNonNegativeFloat(value),
+      )
+      step = verifyOptionalObjectProperty(
+        obj,
+        "step",
+        (value) => verifyFiniteNonNegativeFloat(value),
+      )
+      /* BRAINSHARE ENDS */
     }
   }
   return {
@@ -626,6 +651,11 @@ function parseAnnotationPropertySpec(obj: unknown): AnnotationPropertySpec {
     default: defaultValue,
     enumValues,
     enumLabels,
+    /* BRAINSHARE STARTS */
+    min,
+    max,
+    step,
+    /* BRAINSHARE ENDS */
   } as AnnotationPropertySpec;
 }
 
@@ -639,6 +669,11 @@ function annotationPropertySpecToJson(spec: AnnotationPropertySpec) {
       defaultValue === 0
         ? undefined
         : annotationPropertyTypeHandlers[spec.type].serializeJson(defaultValue),
+    /* BRAINSHARE STARTS */
+    min: (<AnnotationNumericPropertySpec> spec).min,
+    max: (<AnnotationNumericPropertySpec> spec).max,
+    step: (<AnnotationNumericPropertySpec> spec).step,
+    /* BRAINSHARE ENDS */
   };
 }
 
@@ -701,7 +736,7 @@ export interface Ellipsoid extends AnnotationBase {
 /* BRAINSHARE STARTS */
 // export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid;
 export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid 
-  | Polygon | Volume | Com | Cell | Cloud;
+  | Polygon | Volume | Cloud;
 /* BRAINSHARE ENDS */
 
 export interface AnnotationTypeHandler<T extends Annotation = Annotation> {
@@ -844,14 +879,14 @@ export const annotationTypeHandlers: Record<
       return { type: AnnotationType.LINE, pointA, pointB, id, properties: [] };
     },
     visitGeometry(annotation: Line, callback) {
+      callback(annotation.pointA, false);
       /* BRAINSHARE STARTS */
       // Only show the end point if the line is part of a polygon
       /*
-      callback(annotation.pointA, false);
-      */
-      if (!annotation.parentAnnotationId) callback(annotation.pointA, false);
-      /* BRAINSHARE ENDS */
       callback(annotation.pointB, false);
+      */
+      if (!annotation.parentAnnotationId) callback(annotation.pointB, false);
+      /* BRAINSHARE ENDS */
     },
   },
   [AnnotationType.POINT]: {
@@ -1287,99 +1322,6 @@ export const annotationTypeHandlers: Record<
       callback(annotation.centroid, false);
     },
   },
-  [AnnotationType.COM]: {
-    icon: 'COM',
-    description: 'COM',
-    toJSON: (annotation: Com) => {
-      return {
-        point: Array.from(annotation.point),
-      };
-    },
-    restoreState: (annotation: Com, obj: any, rank: number) => {
-      annotation.point = verifyObjectProperty(
-        obj, 'point', x => parseFixedLengthArray(
-          new Float32Array(rank), x, verifyFiniteFloat
-        )
-      );
-    },
-    serializedBytes: rank => rank * 4,
-    serialize: (
-      buffer: DataView, 
-      offset: number, 
-      isLittleEndian: boolean, 
-      rank: number,
-      annotation: Com
-    ) => { 
-      serializeFloatVector(buffer, offset, isLittleEndian, rank, annotation.point); 
-    },
-    deserialize: (
-      buffer: DataView, 
-      offset: number, 
-      isLittleEndian: boolean, 
-      rank: number, 
-      id: string
-    ): Com => { 
-      const point = new Float32Array(rank); 
-      deserializeFloatVector(buffer, offset, isLittleEndian, rank, point); 
-      return {
-        type: AnnotationType.COM, 
-        point, 
-        id, 
-        properties: []
-      }; 
-    },
-    visitGeometry(annotation: Com, callback) {
-      callback(annotation.point, false);
-    },
-  },
-  [AnnotationType.CELL]: {
-    icon: 'CELL',
-    description: 'Cell',
-    toJSON: (annotation: Cell) => {
-      return {
-        point: Array.from(annotation.point),
-        category: annotation.category
-      };
-    },
-    restoreState: (annotation: Cell, obj: any, rank: number) => {
-      annotation.point = verifyObjectProperty(
-        obj, 'point', x => parseFixedLengthArray(
-          new Float32Array(rank), x, verifyFiniteFloat
-        )
-      );
-      annotation.category = verifyObjectProperty(
-        obj, 'category', verifyOptionalString
-      );
-    },
-    serializedBytes: rank => rank * 4,
-    serialize: (
-      buffer: DataView, 
-      offset: number, 
-      isLittleEndian: boolean, 
-      rank: number, 
-      annotation: Cell) => { 
-        serializeFloatVector(buffer, offset, isLittleEndian, rank, annotation.point); 
-      },
-    deserialize: (
-      buffer: DataView, 
-      offset: number, 
-      isLittleEndian: boolean, 
-      rank: number, 
-      id: string
-    ): Cell => { 
-      const point = new Float32Array(rank); 
-      deserializeFloatVector(buffer, offset, isLittleEndian, rank, point); 
-      return {
-        type: AnnotationType.CELL, 
-        point, 
-        id, 
-        properties: []
-      }; 
-    },
-    visitGeometry(annotation: Cell, callback) {
-      callback(annotation.point, false);
-    },
-  },
   /* BRAINSHARE ENDS */
 };
 
@@ -1729,18 +1671,6 @@ export class AnnotationSource
   /* BRAINSHARE STARTS */
   roundZCoordinateBasedOnAnnotation(ann: Annotation): Annotation {
     switch (ann.type) {
-      case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
-        return {
-          ...ann, 
-          pointA: this.roundZCoordinate(ann.pointA), 
-          pointB: this.roundZCoordinate(ann.pointB)
-        };
-      case AnnotationType.CELL:
-        return {...ann, point: this.roundZCoordinate(ann.point)};
-      case AnnotationType.COM:
-        return {...ann, point: this.roundZCoordinate(ann.point)};
-      case AnnotationType.ELLIPSOID:
-        return {...ann, center: this.roundZCoordinate(ann.center)};
       case AnnotationType.LINE:
         return {
           ...ann, 
@@ -1749,6 +1679,14 @@ export class AnnotationSource
         };
       case AnnotationType.POINT:
         return {...ann, point: this.roundZCoordinate(ann.point)};
+      case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
+        return {
+          ...ann, 
+          pointA: this.roundZCoordinate(ann.pointA), 
+          pointB: this.roundZCoordinate(ann.pointB)
+        };
+      case AnnotationType.ELLIPSOID:
+        return {...ann, center: this.roundZCoordinate(ann.center)};
       case AnnotationType.POLYGON:
         return {...ann, source: this.roundZCoordinate(ann.source)};
       case AnnotationType.VOLUME:
@@ -1841,7 +1779,7 @@ export class AnnotationSource
   }
 
   updateCollectionCentroid(annotation: Collection): void {
-    if (!annotation.childAnnotationIds) return;
+    if (annotation.childAnnotationIds.length === 0) return;
     const childRefs = annotation.childAnnotationIds.map(
       (childId) => this.getReference(childId)
     )
@@ -1953,6 +1891,32 @@ export class AnnotationSource
   }
 
   /**
+   * Takes a annotation reference and update a property of that annotation.
+   * @param reference 
+   * @param visibility 
+   * @returns void
+   */
+  updateProperty(reference: AnnotationReference, id: string, value: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const propertyIndex = this.properties.findIndex(
+      x => x.identifier === id
+    );
+    if (newAnn.properties.length <= propertyIndex) return;
+    newAnn.properties[propertyIndex] = value;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection> newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateProperty(childRef, id, value);
+        childRef.dispose();
+      }
+    }
+  }
+
+  /**
    * Takes a annotation id and finds the visibility of that annotation.
    * @param annotationId 
    * @returns void
@@ -1984,38 +1948,6 @@ export class AnnotationSource
     if (!reference.value) return;
     const newAnn = {...reference.value, description};
     this.update(reference, newAnn);
-  }
-
-  /**
-   * Takes an annotation and returns all descendants under that annotation
-   * @param annotationId 
-   * @returns an array of descendants of this annotation.
-   */
-  private getAllAnnsUnderRoot(annotationId: AnnotationId) : Annotation[] {
-    const reference = this.getReference(annotationId);
-    let annotationList : Annotation[] = [];
-    if (!reference.value) {
-      reference.dispose();
-      return annotationList;
-    }
-    let annotation : Annotation | undefined;
-    annotation = reference.value;
-    annotationList.push(annotation);
-    if (isTypeCollection(annotation)) {
-      const collection = <Collection>annotation;
-      for (
-        let i = 0; 
-        annotation && i < collection.childAnnotationIds!.length; 
-        i++
-      ) {
-        annotationList = [
-          ...annotationList, 
-          ...this.getAllAnnsUnderRoot(collection.childAnnotationIds[i])
-        ];
-      }
-    }
-    reference.dispose();
-    return annotationList;
   }
 
   /**
@@ -2084,49 +2016,6 @@ export class AnnotationSource
     }
     reference.dispose();
   }
-
-  /**
-   * Takes a color, description and category and updates all CELL annotations 
-   * with the color matching description and category.
-   * @param color New color for Cell annotations
-   * @param description Description of cells that need to be updated
-   * @param category Category of cells that need to be updated
-   * @returns void
-   */
-  updateCellColors(color: number, description: string, category: string): void {
-    for(const [id, ann] of this.annotationMap) {
-      if (
-        ann.type === AnnotationType.CELL && ann.description === description 
-        && ann.category === category
-      ) {
-        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
-        const newAnn = {...ann};
-        if (newAnn.properties.length <= colorIdx) return;
-        newAnn.properties[colorIdx] = color;
-        this.update(this.getReference(id), newAnn);
-      }
-    }
-  }
-
-  /**
-   * Takes a color, description and updates all COM annotations with the color 
-   * matching description.
-   * @param color New color for COM annotations
-   * @param description Description of COMs that need to be updated
-   * @returns void
-   */
-  updateCOMColors(color: number, description: string): void {
-    for(const [id, ann] of this.annotationMap) {
-      if (ann.type === AnnotationType.COM && ann.description === description) {
-        const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
-        const newAnn = {...ann};
-        if (newAnn.properties.length <= colorIdx) return;
-        newAnn.properties[colorIdx] = color;
-        this.update(this.getReference(id), newAnn);
-      }
-    }
-  }
-
   /* BRAINSHARE ENDS */
 }
 
@@ -2188,19 +2077,9 @@ export class LocalAnnotationSource extends AnnotationSource {
 
     for (const annotation of this.annotationMap.values()) {
       switch (annotation.type) {
-        /* BRAINSHARE STARTS */
-        case AnnotationType.CELL:
-        case AnnotationType.COM:
-        /* BRAINSHARE ENDS */
         case AnnotationType.POINT:
           annotation.point = mapVector(annotation.point);
           break;
-        /* BRAINSHARE STARTS */
-        case AnnotationType.VOLUME:
-        case AnnotationType.POLYGON:
-          annotation.source = mapVector(annotation.source);
-          break;
-        /* BRAINSHARE ENDS */
         case AnnotationType.LINE:
         case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
           annotation.pointA = mapVector(annotation.pointA);
@@ -2210,6 +2089,12 @@ export class LocalAnnotationSource extends AnnotationSource {
           annotation.center = mapVector(annotation.center);
           annotation.radii = mapVector(annotation.radii);
           break;
+        /* BRAINSHARE STARTS */
+        case AnnotationType.VOLUME:
+        case AnnotationType.POLYGON:
+          annotation.source = mapVector(annotation.source);
+          break;
+        /* BRAINSHARE ENDS */
       }
     }
     if (this.rank_ !== sourceRank) {
@@ -2328,8 +2213,6 @@ export class AnnotationSerializer {
     Polygon[], 
     Volume[], 
     Cloud[],
-    Com[], 
-    Cell[]
   ] = [
     [], 
     [], 
@@ -2338,8 +2221,6 @@ export class AnnotationSerializer {
     [], 
     [], 
     [],
-    [], 
-    []
   ];
   /* BRAINSHARE ENDS */
   constructor(public propertySerializers: AnnotationPropertySerializer[]) {}
@@ -2438,37 +2319,16 @@ export interface Cloud extends Collection {
   type: AnnotationType.CLOUD;
 }
 
-/**
- * An interface to indicate Centre of Mass annotation.
- */
-export interface Com extends AnnotationBase {
-  point: Float32Array;
-  type: AnnotationType.COM;
-}
-
-/**
- * An interface to indicate Cell annotation.
- */
-export interface Cell extends AnnotationBase {
-  point: Float32Array;
-  category?: string|undefined;
-  type: AnnotationType.CELL;
-}
-
 export function getSortPoint(ann: Annotation): Float32Array {
   switch (ann.type) {
-    case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
-      return ann.pointA;
-    case AnnotationType.CELL:
-      return ann.point;
-    case AnnotationType.COM:
-      return ann.point;
-    case AnnotationType.ELLIPSOID:
-      return ann.center;
     case AnnotationType.LINE:
       return ann.pointA;
     case AnnotationType.POINT:
       return ann.point;
+    case AnnotationType.AXIS_ALIGNED_BOUNDING_BOX:
+      return ann.pointA;
+    case AnnotationType.ELLIPSOID:
+      return ann.center;
     case AnnotationType.POLYGON:
       return ann.source;
     case AnnotationType.VOLUME:

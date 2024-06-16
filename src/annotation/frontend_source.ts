@@ -877,6 +877,26 @@ export class MultiscaleAnnotationSource
     const newAnn = {...reference.value, description};
     this.update(reference, newAnn);
   }
+
+  updateProperty(reference: AnnotationReference, id: string, value: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const propertyIndex = this.properties.findIndex(
+      x => x.identifier === id
+    );
+    if (newAnn.properties.length <= propertyIndex) return;
+    newAnn.properties[propertyIndex] = value;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection> newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateProperty(childRef, id, value);
+        childRef.dispose();
+      }
+    }
+  }
   /* BRAINSHARE ENDS */
 
   private forEachPossibleChunk(

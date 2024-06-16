@@ -126,11 +126,6 @@ import { RPC } from "#/worker_rpc";
 /* BRAINSHARE STARTS */
 import svg_people from "ikonate/icons/people.svg";
 import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
-import { 
-  MultiStepAnnotationTool, 
-  PlacePolygonTool, 
-  PlaceVolumeTool 
-} from '#/ui/annotations';
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
@@ -1119,122 +1114,6 @@ export class Viewer extends RefCounted implements ViewerState {
       userLayer.tool.value.trigger(this.mouseState);
     });
 
-    /* BRAINSHARE STARTS */
-    this.bindAction('add-vertex-polygon', () => {
-      const selectedLayer = this.selectedLayer.layer;
-      if (selectedLayer === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'The annotate command requires a layer to be selected.'
-        );
-        return;
-      }
-      const userLayer = selectedLayer.layer;
-      if (userLayer === null || userLayer.tool.value === undefined) {
-        StatusMessage.showTemporaryMessage(`The selected layer (${
-          JSON.stringify(selectedLayer.name)
-        }) does not have an active annotation tool.`);
-        return;
-      }
-
-      if (!(
-        userLayer.tool.value instanceof PlacePolygonTool || 
-        userLayer.tool.value instanceof PlaceVolumeTool
-      )) {
-        StatusMessage.showTemporaryMessage(
-          `Please select polygon tool in edit mode to perform this operation`
-        );
-        return;
-      }
-
-      roundViewerZPosition();
-      (<PlacePolygonTool> userLayer.tool.value).addVertexPolygon(
-        this.mouseState
-      );
-    });
-
-    this.bindAction('delete-vertex-polygon', () => {
-      const selectedLayer = this.selectedLayer.layer;
-      if (selectedLayer === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'The annotate command requires a layer to be selected.'
-        );
-        return;
-      }
-      const userLayer = selectedLayer.layer;
-      if (userLayer === null || userLayer.tool.value === undefined) {
-        StatusMessage.showTemporaryMessage(`The selected layer (${
-          JSON.stringify(selectedLayer.name)
-        }) does not have an active annotation tool.`);
-        return;
-      }
-
-      if (!(userLayer.tool.value instanceof PlacePolygonTool 
-        || userLayer.tool.value instanceof PlaceVolumeTool)) {
-        StatusMessage.showTemporaryMessage(
-          `Please select polygon tool in edit mode to perform this operation`);
-        return;
-      }
-
-      (<PlacePolygonTool> userLayer.tool.value).deleteVertexPolygon(
-        this.mouseState
-      );
-    });
-
-    this.bindAction('complete-annotation', () => {
-      const selectedLayer = this.selectedLayer.layer;
-      if (selectedLayer === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'The annotate command requires a layer to be selected.'
-        );
-        return;
-      }
-      const userLayer = selectedLayer.layer;
-      if (userLayer === null || userLayer.tool.value === undefined) {
-        StatusMessage.showTemporaryMessage(
-          `The selected layer (${ 
-            JSON.stringify(selectedLayer.name)
-          }) does not have an active annotation tool.`);
-        return;
-      }
-      if(!(userLayer.tool.value instanceof MultiStepAnnotationTool)) {
-        StatusMessage.showTemporaryMessage(
-          `The selected layer (${
-            JSON.stringify(selectedLayer.name)
-          }) does not have annotation tool with complete step.`);
-        return;
-      }
-
-      roundViewerZPosition();
-      (<MultiStepAnnotationTool>userLayer.tool.value).complete();
-    });
-
-    this.bindAction('undo-annotation', () => {
-      const selectedLayer = this.selectedLayer.layer;
-      if (selectedLayer === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'The annotate command requires a layer to be selected.'
-        );
-        return;
-      }
-      const userLayer = selectedLayer.layer;
-      if (userLayer === null || userLayer.tool.value === undefined) {
-        StatusMessage.showTemporaryMessage(`The selected layer (${
-          JSON.stringify(selectedLayer.name)
-        }) does not have an active annotation tool.`);
-        return;
-      }
-      if(!(userLayer.tool.value instanceof MultiStepAnnotationTool)) {
-        StatusMessage.showTemporaryMessage(
-          `The selected layer (${
-            JSON.stringify(selectedLayer.name)
-          }) does not have annotation tool with complete step.`
-        );
-        return;
-      }
-      (<MultiStepAnnotationTool>userLayer.tool.value).undo(this.mouseState);
-    });
-    /* BRAINSHARE ENDS */
-
     this.bindAction("toggle-axis-lines", () => this.showAxisLines.toggle());
     this.bindAction("toggle-scale-bar", () => this.showScaleBar.toggle());
     this.bindAction("toggle-default-annotations", () =>
@@ -1311,30 +1190,3 @@ export class Viewer extends RefCounted implements ViewerState {
     }
   }
 }
-
-/* BRAINSHARE STARTS */
-/**
- * Fetches the viewer and rounds the z-coordinate of viewer to integral value of z-coordinate + 0.5
- * This is required to make sure all annotations are drawn with z-values of integral + 0.5.
- */
-export function roundViewerZPosition() {
-  //@ts-ignore
-  const viewer = window['viewer'];
-  const newPoint = new Float32Array(viewer.position.value);
-  roundZCoordinate(newPoint);
-  viewer.position.value = newPoint;
-}
-
-/**
- * Takes a point and rounds the points z-value to integral value of z + 0.5
- * @param point Input (x,y,z) point to be rounded.
- */
-export function roundZCoordinate(point: Float32Array) {
-  if (point.length == 3) {
-    point[2] = Math.floor(point[2]) + 0.5;
-  } else if (point.length == 4) {
-    point[3] = Math.floor(point[3]) + 0.5;
-  }
-  return point;
-}
-/* BRAINSHARE ENDS */

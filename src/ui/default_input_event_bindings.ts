@@ -125,6 +125,16 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:touchhold1": "move-to-mouse-position",
         "at:touchtap1x2": "select",
         "at:touchtap2x3": "snap",
+        /* BRAINSHARE STARTS */
+        "at:enter": "complete-annotation",
+        "at:escape": "undo-annotation",
+        "at:control+shift+mousedown0": "add-vertex-polygon",
+        "at:control+shift+mousedown2": "delete-vertex-polygon",
+        "at:shift+keyr": "rotate-polygon-z+",
+        "at:shift+keye": "rotate-polygon-z-",
+        "at:shift+equal": "scale-polygon-enlarge",
+        "at:shift+minus": "scale-polygon-shrink",
+        /* BRAINSHARE ENDS */
       },
       {
         label: "All Data Panels",
@@ -208,30 +218,29 @@ export function getPolygonDrawModeBindings() {
   if (polygonDrawModeBindings === undefined) {
     polygonDrawModeBindings = EventActionMap.fromObject(
       {
-        'at:control+mousedown0': 'annotate',
-        'at:escape': 'complete-annotation',
-        'at:control+keyc': 'clone-polygon-annotation',
-        'at:control+keyz': 'undo-annotation',
-        'at:alt+mousedown0': 'move-polygon-annotation',
-        'at:shift+alt+mousedown0': 'move-polygon-vertex',
-        'at:shift+mousedown0': 'add-vertex-polygon',
-        'at:shift+mousedown2': 'delete-vertex-polygon',
-        'at:shift+keyr': 'rotate-polygon-z+',
-        'at:shift+keye': 'rotate-polygon-z-',
-        'at:shift+equal': 'scale-polygon-enlarge',
-        'at:shift+minus': 'scale-polygon-shrink',
+        // "at:control+mousedown0": "annotate",
+        // "at:enter": "complete-annotation",
+        // "at:escape": "undo-annotation",
+        // "at:alt+mousedown0": "move-polygon-annotation",
+        // "at:shift+alt+mousedown0": "move-polygon-vertex",
+        // "at:shift+mousedown0": "add-vertex-polygon",
+        // "at:shift+mousedown2": "delete-vertex-polygon",
+        // "at:shift+keyr": "rotate-polygon-z+",
+        // "at:shift+keye": "rotate-polygon-z-",
+        // "at:shift+equal": "scale-polygon-enlarge",
+        // "at:shift+minus": "scale-polygon-shrink",
 
-        // 'at:mousedown0': 'annotate',
-        // 'at:mousedown2': 'complete-annotation',
-        // 'at:keyz': 'undo-annotation',
-        // 'at:control+keyc': 'clone-polygon-annotation',
+        // "at:mousedown0": "annotate",
+        // "at:mousedown2": "complete-annotation",
+        // "at:keyz": "undo-annotation",
+        // "at:control+keyc": "clone-polygon-annotation",
 
-        // 'at:control+mousedown0': 'move-polygon-vertex',
-        // 'at:control+alt+mousedown0': 'add-vertex-polygon',
-        // 'at:control+alt+mousedown2': 'delete-vertex-polygon',
-        // 'at:shift+mousedown0': 'move-polygon-annotation',
-        // 'at:keyr': 'rotate-polygon-z+',
-        // 'at:keye': 'rotate-polygon-z-',
+        // "at:control+mousedown0": "move-polygon-vertex",
+        // "at:control+alt+mousedown0": "add-vertex-polygon",
+        // "at:control+alt+mousedown2": "delete-vertex-polygon",
+        // "at:shift+mousedown0": "move-polygon-annotation",
+        // "at:keyr": "rotate-polygon-z+",
+        // "at:keye": "rotate-polygon-z-",
       }
     );
   }
@@ -244,20 +253,20 @@ export function getPolygonEditModeBindings() {
   if (polygonEditModeBindings === undefined) {
     polygonEditModeBindings = EventActionMap.fromObject(
       {
-        'at:mousedown0': 'move-polygon-vertex',
-        'at:control+alt+mousedown0': 'add-vertex-polygon',
-        'at:control+alt+mousedown2': 'delete-vertex-polygon',
-        // 'at:control+shift+mousedown0': 'delete-polygon',
-        'at:shift+mousedown0': 'move-polygon-annotation',
-        'at:keyr': 'rotate-polygon-z+',
-        'at:keye': 'rotate-polygon-z-',
-        'control+equal': 'scale-polygon-enlarge',
-        'control+shift+equal': 'scale-polygon-enlarge',
-        'control+minus': 'scale-polygon-shrink',
-        'control+shift-minus': 'scale-polygon-shrink',
-        'at:touchrotate': 'rotate-polygon-via-touchrotate',
-        'at:touchpinch': 'zoom-polygon-via-touchpinch',
-        'at:control+keyc': 'clone-polygon-annotation',
+        "at:mousedown0": "move-polygon-vertex",
+        "at:control+alt+mousedown0": "add-vertex-polygon",
+        "at:control+alt+mousedown2": "delete-vertex-polygon",
+        // "at:control+shift+mousedown0": "delete-polygon",
+        "at:shift+mousedown0": "move-polygon-annotation",
+        "at:keyr": "rotate-polygon-z+",
+        "at:keye": "rotate-polygon-z-",
+        "control+equal": "scale-polygon-enlarge",
+        "control+shift+equal": "scale-polygon-enlarge",
+        "control+minus": "scale-polygon-shrink",
+        "control+shift-minus": "scale-polygon-shrink",
+        "at:touchrotate": "rotate-polygon-via-touchrotate",
+        "at:touchpinch": "zoom-polygon-via-touchpinch",
+        "at:control+keyc": "clone-polygon-annotation",
       }
     );
   }
@@ -269,8 +278,8 @@ export function getPointDrawModeBindings() {
   if (pointDrawModeBindings === undefined) {
     pointDrawModeBindings = EventActionMap.fromObject(
       {
-        'at:mousedown0': 'annotate',
-        'at:control+mousedown0': 'move-point-annotation',
+        "at:mousedown0": "annotate",
+        "at:control+mousedown0": "move-point-annotation",
       }
     );
   }
@@ -283,7 +292,7 @@ export function getPointEditModeBindings() {
   if (pointEditModeBindings === undefined) {
     pointEditModeBindings = EventActionMap.fromObject(
       {
-        'at:mousedown0': 'move-point-annotation',
+        "at:mousedown0": "move-point-annotation",
       }
     );
   }

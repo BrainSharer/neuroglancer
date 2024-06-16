@@ -642,12 +642,15 @@ export function isPointUniqueInPolygon(
     );
     if (childAnnRef.value) {
       const lineAnn = <Line>(childAnnRef.value);
-      if (i === ann.childAnnotationIds.length-1 && 
+      if (
+        i === ann.childAnnotationIds.length - 1 && 
         arraysEqual(lineAnn.pointA, point)) {
         return false;
       } 
-      else if (i !== ann.childAnnotationIds.length-1  && (
-        arraysEqual(lineAnn.pointA, point) || arraysEqual(lineAnn.pointB, point)
+      else if (
+        i !== ann.childAnnotationIds.length - 1  && (
+        arraysEqual(lineAnn.pointA, point) || 
+        arraysEqual(lineAnn.pointB, point)
       )) {
         return false;
       }

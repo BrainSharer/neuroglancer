@@ -447,17 +447,56 @@ export class AnnotationUserLayer extends Base {
     if (this.localAnnotationProperties === undefined) {
       this.localAnnotationProperties = [
         {
-          identifier: 'color',
-          type: 'rgb',
+          identifier: "color",
+          type: "rgb",
           default: 65535,
-          description: undefined,
+          description: "color",
         },
         {
-          identifier: 'visibility',
-          type: 'float32',
+          identifier: "visibility",
+          type: "float32",
           default: 1.0,
-          description: undefined,
-        }
+          description: "visibility",
+          min: 0,
+          max: 1,
+          step: 1,
+        },
+        {
+          identifier: "opacity",
+          type: "float32",
+          default: 1,
+          description: "opacity",
+          min: 0,
+          max: 1,
+          step: 0.01,
+        },
+        {
+          identifier: "point_size",
+          type: "float32",
+          default: 5,
+          description: "point marker size",
+          min: 0,
+          max: 10,
+          step: 0.01,
+        },
+        {
+          identifier: "point_border_width",
+          type: "float32",
+          default: 3,
+          description: "point marker border width",
+          min: 0,
+          max: 5,
+          step: 0.01,
+        },
+        {
+          identifier: "line_width",
+          type: "float32",
+          default: 1.0,
+          description: "line width",
+          min: 0,
+          max: 5,
+          step: 0.01,
+        },
       ];
     }
     /* BRAINSHARE ENDS */

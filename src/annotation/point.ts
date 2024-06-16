@@ -52,6 +52,10 @@ class RenderHelper extends AnnotationRenderHelper {
       rank,
     );
     builder.addVarying("highp vec4", "vBorderColor");
+    /* BRAINSHARE STARTS */
+    builder.addVarying(`highp float`, 'vVisibility');
+    builder.addVarying(`highp float`, 'vOpacity');
+    /* BRAINSHARE ENDS */
     builder.addVertexCode(`
 float ng_markerDiameter;
 float ng_markerBorderWidth;
@@ -67,6 +71,14 @@ void setPointMarkerColor(vec4 color) {
 void setPointMarkerBorderColor(vec4 color) {
   vBorderColor = color;
 }
+/* BRAINSHARE STARTS */
+void setPointOpacity(float opacity) {
+   vOpacity = opacity;
+}
+void setPointVisibility(float visibility) {
+  vVisibility = visibility;
+}
+/* BRAINSHARE ENDS */
 `);
     builder.addVertexMain(`
 ng_markerDiameter = 5.0;
@@ -92,12 +104,27 @@ ${this.setPartIndex(builder)};
       defineCircleShader(builder, /*crossSectionFade=*/ this.targetIsSliceView);
       this.defineShaderCommon(builder);
       builder.addVertexMain(`
+/* BRAINSHARE STARTS */
+/* 
 emitCircle(uModelViewProjection *
            vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
+*/
+if (vVisibility == 1.0) {
+  emitCircle(uModelViewProjection *
+           vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
+}
+/* BRAINSHARE ENDS */
 `);
       builder.setFragmentMain(`
 vec4 color = getCircleColor(vColor, vBorderColor);
+/* BRAINSHARE STARTS */
+/* 
 emitAnnotation(color);
+*/
+if (vVisibility == 1.0) {
+  emitAnnotation(vec4(color.rgb, color.a * vOpacity));
+}
+/* BRAINSHARE ENDS */
 `);
     },
   );
@@ -139,11 +166,25 @@ for (int i = 0; i < 3; ++i) {
 if (minZ > maxZ) minZ = maxZ = 0.0;
 subspacePositionA[${extraDim}] = minZ;
 subspacePositionB[${extraDim}] = maxZ;
+/* BRAINSHARE STARTS */
+/* 
 emitLine(uModelViewProjection, subspacePositionA, subspacePositionB, ng_markerDiameter, ng_markerBorderWidth);
+*/
+if (vVisibility == 1.0) {
+  emitLine(uModelViewProjection, subspacePositionA, subspacePositionB, ng_markerDiameter, ng_markerBorderWidth);
+}
+/* BRAINSHARE ENDS */
 `);
         builder.setFragmentMain(`
 vec4 color = getRoundedLineColor(vColor, vBorderColor);
+/* BRAINSHARE STARTS */
+/* 
 emitAnnotation(vec4(color.rgb, color.a * ${this.getCrossSectionFadeFactor()}));
+*/
+if (vVisibility == 1.0) {
+  emitAnnotation(vec4(color.rgb, color.a * ${this.getCrossSectionFadeFactor()} * vOpacity));
+}
+/* BRAINSHARE ENDS */
 `);
       },
     );
@@ -219,6 +260,10 @@ void setPointMarkerSize(float size) {}
 void setPointMarkerBorderWidth(float size) {}
 void setPointMarkerColor(vec4 color) {}
 void setPointMarkerBorderColor(vec4 color) {}
+/* BRAINSHARE STARTS */
+void setPointOpacity(float opacity) {}
+void setPointVisibility(float visibility) {}
+/* BRAINSHARE ENDS */
 `);
   },
   pickIdsPerInstance: 1,

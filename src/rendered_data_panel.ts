@@ -19,7 +19,12 @@ import "#/noselect.css";
 
 /* BRAINSHARE STARTS */
 // import { Annotation } from "#/annotation";
-import { Annotation, AnnotationType } from '#/annotation';
+import { 
+  Annotation, 
+  AnnotationReference, 
+  AnnotationType, 
+  Line 
+} from '#/annotation';
 /* BRAINSHARE ENDS */
 import { getAnnotationTypeRenderHandler } from "#/annotation/type_handler";
 import { DisplayContext, RenderedPanel } from "#/display_context";
@@ -28,6 +33,9 @@ import { PickIDManager } from "#/object_picking";
 import {
   displayToLayerCoordinates,
   layerToDisplayCoordinates,
+  /* BRAINSHARE STARTS */
+  getChunkPositionFromCombinedGlobalLocalPositions,
+  /* BRAINSHARE ENDS */
 } from "#/render_coordinate_transform";
 import { AutomaticallyFocusedElement } from "#/util/automatic_focus";
 import { Borrowed } from "#/util/disposable";
@@ -52,16 +60,20 @@ import {
 import { getWheelZoomAmount } from "#/util/wheel_zoom";
 import { ViewerState } from "#/viewer_state";
 /* BRAINSHARE STARTS */
-import { UserLayerWithAnnotations } from './ui/annotations';
 import { 
-  cloneAnnotationSequence, 
+  PlaceCollectionAnnotationTool, 
+  UserLayerWithAnnotations 
+} from './ui/annotations';
+import { 
+  isPointUniqueInPolygon,
   polygonRotateAngle, 
   polygonScalePercentage, 
-  polygonSectionOffset, 
   rotatePolygon, 
   scalePolygon 
 } from './annotation/polygon';
 import { StatusMessage } from './status';
+import { isCornerPicked } from "./annotation/line";
+import * as vector from "#/util/vector";
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_SHOW_OBJECT_SELECTION_TOOLTIP: boolean | undefined;
@@ -668,6 +680,73 @@ export abstract class RenderedDataPanel extends RenderedPanel {
               ann,
               mouseState.pickedOffset,
             );
+            /* BRAINSHARE STARTS */
+            const pickedAnnotations: { 
+              pickedAnnRef: AnnotationReference,
+              pickedRepPoint: Float32Array,
+              pickedPartIndex: number, 
+            }[] = [];
+            if (ann.parentAnnotationId === undefined) {
+              pickedAnnotations.push({
+                pickedAnnRef: annotationRef,
+                pickedRepPoint: repPoint,
+                pickedPartIndex: pickedOffset, 
+              });
+            }
+            else {
+              const parAnn = annotationLayer.source.getReference(
+                ann.parentAnnotationId
+              ).value;
+              if (parAnn) {
+                if (parAnn.type === AnnotationType.POLYGON) {
+                  const childAnnotationIds = parAnn.childAnnotationIds!;
+                  const length = childAnnotationIds.length;
+
+                  let pickedLineIndex = -1;
+                  let lineIndex1 = -1;
+                  let lineIndex2 = -1;
+                  if (isCornerPicked(pickedOffset)) {
+                    pickedLineIndex = childAnnotationIds.indexOf(ann.id);
+                    if (pickedOffset == 1) {
+                      lineIndex1 = pickedLineIndex - 1;
+                      lineIndex2 = pickedLineIndex;
+                      if (pickedLineIndex === 0) lineIndex1 = length - 1;
+                    }
+                    else if (pickedOffset == 2) {
+                      lineIndex1 = pickedLineIndex;
+                      lineIndex2 = pickedLineIndex + 1;
+                      if (pickedLineIndex === length - 1) lineIndex2 = 0;
+                    }
+                  }
+                  
+                  for (let i = 0; i < childAnnotationIds.length; i++) {
+                    let childPartIndex = -1;
+                    if (pickedLineIndex == -1) childPartIndex = 0;
+                    else if (i == lineIndex1) childPartIndex = 2;
+                    else if (i == lineIndex2) childPartIndex = 1;
+                    else continue;
+
+                    const childAnnRef = annotationLayer.source.getReference(
+                      childAnnotationIds[i],
+                    );
+                    const childAnn = childAnnRef.value!;
+
+                    const childRepPoint = new Float32Array(layerRank)
+                    handler.getRepresentativePoint(
+                      childRepPoint, 
+                      childAnn,
+                      childPartIndex,
+                    );
+                    pickedAnnotations.push({
+                      pickedAnnRef: childAnnRef,
+                      pickedRepPoint: childRepPoint,
+                      pickedPartIndex: childPartIndex,
+                    });
+                  }
+                }
+              }
+            }
+            /* BRAINSHARE ENDS */
             const totDeltaVec = vec2.set(vec2.create(), 0, 0);
             if (mouseState.updateUnconditionally()) {
               startRelativeMouseDrag(
@@ -711,12 +790,35 @@ export abstract class RenderedDataPanel extends RenderedPanel {
                     layerPoint,
                     layerRank,
                   );
+                  /* BRAINSHARE STARTS */
+                  /*
                   const newAnnotation = handler.updateViaRepresentativePoint(
                     ann,
                     newPoint,
                     pickedOffset,
                   );
                   annotationLayer.source.update(annotationRef, newAnnotation);
+                  */
+                  const diff = new Float32Array(layerRank);
+                  vector.subtract(diff, newPoint, repPoint);
+                  for (let i = 0; i < pickedAnnotations.length; i++) {
+                    const { 
+                      pickedAnnRef, 
+                      pickedRepPoint,
+                      pickedPartIndex,
+                    } = pickedAnnotations[i];
+                    const childAnn = pickedAnnRef.value!;
+
+                    const childNewPoint = new Float32Array(layerRank);
+                    vector.add(childNewPoint, pickedRepPoint, diff);
+                    const newAnnotation = handler.updateViaRepresentativePoint(
+                      childAnn,
+                      childNewPoint,
+                      pickedPartIndex,
+                    );
+                    annotationLayer.source.update(pickedAnnRef, newAnnotation);
+                  }
+                  /* BRAINSHARE ENDS */
                 },
                 (_event) => {
                   annotationLayer.source.commit(annotationRef);
@@ -761,83 +863,250 @@ export abstract class RenderedDataPanel extends RenderedPanel {
     );
 
     /* BRAINSHARE STARTS */
-    registerActionListener(element, 'clone-polygon-annotation', () => {
-      const selectionState = this.viewer.selectionDetailsState.value;
-      const selectedLayer = this.viewer.selectedLayer.layer;
-      if (!this.viewer.selectionDetailsState.pin.value) {
-        StatusMessage.showTemporaryMessage(
-          'Pin an annotation of an annotation layer to clone'
-        );
-        return;
-      }
-      if (selectionState === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'Pin an annotation of an annotation layer to clone'
-        );
-        return;
-      }
-      let selectedAnnotationId = undefined;
-      let selectedAnnotationLayer = undefined;
-      let userLayerWithAnnotations = undefined;
+    registerActionListener(
+      element,
+      "complete-annotation",
+      (e: ActionEvent<MouseEvent>) => {
+        const selectedLayer = this.viewer.selectedLayer.layer;
+        if (selectedLayer === undefined) {
+          StatusMessage.showTemporaryMessage(
+            'The annotate command requires a layer to be selected.'
+          );
+          return;
+        }
+        const userLayer = selectedLayer.layer;
+        if (userLayer === null || userLayer.tool.value === undefined) {
+          StatusMessage.showTemporaryMessage(
+            `The selected layer (${ 
+              JSON.stringify(selectedLayer.name)
+            }) does not have an active annotation tool.`);
+          return;
+        }
+        if(!(userLayer.tool.value instanceof PlaceCollectionAnnotationTool)) {
+          StatusMessage.showTemporaryMessage(
+            `The selected layer (${
+              JSON.stringify(selectedLayer.name)
+            }) does not have annotation tool with complete step.`);
+          return;
+        }
 
-      for (let layer of selectionState.layers) {
-        if (layer.state.annotationId === undefined) continue;
-        userLayerWithAnnotations = <UserLayerWithAnnotations>layer.layer;
-        const annotationLayer = userLayerWithAnnotations
-        .annotationStates.states.find( 
-          x => x.sourceIndex === layer.state.annotationSourceIndex && (
-            layer.state.annotationSubsource === undefined || 
-            x.subsourceId === layer.state.annotationSubsource
-          )
-        );
-        if (annotationLayer === undefined) continue;
+        e.stopPropagation();
+        const collectionAnnotationTool = userLayer.tool.value;
+        collectionAnnotationTool.complete();
+      },
+    );
 
-        selectedAnnotationId = layer.state.annotationId;
-        selectedAnnotationLayer = annotationLayer;
-        break;
-      }
-      if (
-        selectedAnnotationId === undefined || 
-        selectedAnnotationLayer === undefined || 
-        userLayerWithAnnotations === undefined
-      ) {
-        StatusMessage.showTemporaryMessage(
-          'Pin an annotation of an annotation layer to clone'
-        );
-        return;
-      }
-      if (selectedLayer === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'The annotate command requires a layer to be selected.'
-        );
-        return;
-      }
-      const userLayer = selectedLayer.layer;
-      if (userLayer === null || userLayer.tool.value === undefined) {
-        StatusMessage.showTemporaryMessage(`The selected layer (${ 
-          JSON.stringify(selectedLayer.name) 
-        }) does not have an active annotation tool.`);
-        return;
-      }
-      // if (userLayer.tool.value instanceof PlaceVolumeTool) {
-      //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-      //   if (!volumeTool.validateSession( 
-      //     selectedAnnotationId, selectedAnnotationLayer
-      //   )) return;
-      // }
+    registerActionListener(
+      element,
+      "undo-annotation",
+      (e: ActionEvent<MouseEvent>) => {
+        const selectedLayer = this.viewer.selectedLayer.layer;
+        if (selectedLayer === undefined) {
+          StatusMessage.showTemporaryMessage(
+            'The annotate command requires a layer to be selected.'
+          );
+          return;
+        }
+        const userLayer = selectedLayer.layer;
+        if (userLayer === null || userLayer.tool.value === undefined) {
+          StatusMessage.showTemporaryMessage(`The selected layer (${
+            JSON.stringify(selectedLayer.name)
+          }) does not have an active annotation tool.`);
+          return;
+        }
+        if(!(userLayer.tool.value instanceof PlaceCollectionAnnotationTool)) {
+          StatusMessage.showTemporaryMessage(
+            `The selected layer (${
+              JSON.stringify(selectedLayer.name)
+            }) does not have annotation tool with complete step.`);
+          return;
+        }
 
-      const numPolygons = 1;
-      const stepSize = 1;
-      cloneAnnotationSequence(
-        userLayerWithAnnotations, 
-        this.navigationState, 
-        selectedAnnotationLayer, 
-        selectedAnnotationId, 
-        polygonSectionOffset.value, 
-        numPolygons, 
-        stepSize
-      );
-    });
+        e.stopPropagation();
+        const collectionAnnotationTool = userLayer.tool.value;
+        collectionAnnotationTool.undo(this.viewer.mouseState); 
+      }
+    );
+    
+    registerActionListener(
+      element,
+      "add-vertex-polygon",
+      (e: ActionEvent<MouseEvent>) => {
+        const { mouseState } = this.viewer;
+        const selectedAnnotationId = mouseState.pickedAnnotationId;
+        const annotationLayer = mouseState.pickedAnnotationLayer;
+        if (annotationLayer !== undefined) {
+          if (selectedAnnotationId !== undefined) {
+            e.stopPropagation();
+            const annotationRef =
+              annotationLayer.source.getReference(selectedAnnotationId)!;
+            const ann = <Annotation>annotationRef.value;
+            const pickedOffset = mouseState.pickedOffset;
+
+            if (
+              ann.type === AnnotationType.LINE &&
+              ann.parentAnnotationId !== undefined
+            ) {
+              const parentAnnRef = annotationLayer.source.getReference(
+                ann.parentAnnotationId
+              );
+              const parentAnn = parentAnnRef.value;
+              if (!parentAnn || parentAnn.type !== AnnotationType.POLYGON) {
+                return;
+              }
+              const childAnnotationIds = parentAnn.childAnnotationIds!;
+              if (isCornerPicked(pickedOffset)) return;
+
+              const pickedLineIndex = childAnnotationIds.indexOf(ann.id);
+              const pickedLineRef = annotationLayer.source.getReference(
+                childAnnotationIds[pickedLineIndex],
+              );
+              const pickedLine = <Line>pickedLineRef.value;
+              if (!pickedLine) return;
+
+              const chunkTransform = annotationLayer.chunkTransform.value;
+              if (chunkTransform.error !== undefined) return undefined;
+              const newPoint = new Float32Array(
+                chunkTransform.modelTransform.unpaddedRank,
+              );
+              if (
+                !getChunkPositionFromCombinedGlobalLocalPositions(
+                  newPoint,
+                  mouseState.unsnappedPosition,
+                  annotationLayer.localPosition.value,
+                  chunkTransform.layerRank,
+                  chunkTransform.combinedGlobalLocalToChunkTransform,
+                )
+              ) {
+                return;
+              }
+              if (!isPointUniqueInPolygon(
+                annotationLayer, 
+                parentAnn, 
+                newPoint
+              )) {
+                StatusMessage.showTemporaryMessage(
+                  "All vertices of polygon must be unique."
+                )
+                return;
+              }
+              
+              const newLine1 = <Line>{
+                id: '',
+                type: AnnotationType.LINE,
+                description: parentAnn.description,
+                pointA: pickedLine.pointA,
+                pointB: newPoint,
+                properties: Object.assign([], parentAnn.properties),
+              };
+              const newLine2 = <Line>{
+                id: '',
+                type: AnnotationType.LINE,
+                description: parentAnn.description,
+                pointA: newPoint,
+                pointB: pickedLine.pointB,
+                properties: Object.assign([], parentAnn.properties),
+              };
+              annotationLayer.source.add(
+                newLine1, 
+                true,
+                parentAnnRef,
+                pickedLineIndex,
+              );
+              annotationLayer.source.add(
+                newLine2, 
+                true,
+                parentAnnRef,
+                pickedLineIndex + 1,
+              );
+              annotationLayer.source.delete(pickedLineRef);
+            }
+          }
+        }
+      },
+    );
+
+    registerActionListener(
+      element,
+      "delete-vertex-polygon",
+      (e: ActionEvent<MouseEvent>) => {
+        const { mouseState } = this.viewer;
+        const selectedAnnotationId = mouseState.pickedAnnotationId;
+        const annotationLayer = mouseState.pickedAnnotationLayer;
+        if (annotationLayer !== undefined) {
+          if (selectedAnnotationId !== undefined) {
+            e.stopPropagation();
+            const annotationRef =
+              annotationLayer.source.getReference(selectedAnnotationId)!;
+            const ann = <Annotation>annotationRef.value;
+            const pickedOffset = mouseState.pickedOffset;
+
+            if (
+              ann.type === AnnotationType.LINE &&
+              ann.parentAnnotationId !== undefined
+            ) {
+              const parentAnnRef = annotationLayer.source.getReference(
+                ann.parentAnnotationId
+              );
+              const parentAnn = parentAnnRef.value;
+              if (!parentAnn) return;
+
+              const childAnnotationIds = parentAnn.childAnnotationIds!;
+              if (childAnnotationIds.length <= 3) {
+                StatusMessage.showTemporaryMessage(
+                  "There must be at least 3 lines in a polygon"
+                );
+                return;
+              }
+              if (!isCornerPicked(pickedOffset)) return;
+
+              const pickedLineIndex = childAnnotationIds.indexOf(ann.id);
+              const length = childAnnotationIds.length;
+
+              let lineIndex1 = -1;
+              let lineIndex2 = -1;
+              if (pickedOffset == 1) {
+                lineIndex1 = pickedLineIndex - 1;
+                lineIndex2 = pickedLineIndex;
+                if (pickedLineIndex === 0) lineIndex1 = length - 1;
+              }
+              else if (pickedOffset == 2) {
+                lineIndex1 = pickedLineIndex;
+                lineIndex2 = pickedLineIndex + 1;
+                if (pickedLineIndex === length - 1) lineIndex2 = 0;
+              }
+
+              const lineRef1 = annotationLayer.source.getReference(
+                childAnnotationIds[lineIndex1],
+              );
+              const lineRef2 = annotationLayer.source.getReference(
+                childAnnotationIds[lineIndex2],
+              );
+              
+              const newPointA = (<Line>lineRef1.value!).pointA;
+              const newPointB = (<Line>lineRef2.value!).pointB;
+              const newLine = <Line>{
+                id: '',
+                type: AnnotationType.LINE,
+                description: parentAnn.description,
+                pointA: newPointA,
+                pointB: newPointB,
+                properties: Object.assign([], parentAnn.properties),
+              };
+
+              annotationLayer.source.add(
+                newLine, 
+                true,
+                parentAnnRef,
+                lineIndex1,
+              );
+              annotationLayer.source.delete(lineRef1);
+              annotationLayer.source.delete(lineRef2);
+            }
+          }
+        }
+      },
+    );
 
     for (const sign of [-1, +1]) {
       let signStr = (sign < 0) ? '-' : '+';
@@ -882,13 +1151,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           }) does not have an active annotation tool.`);
           return;
         }
-        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
-        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-        //   if (!volumeTool.validateSession( 
-        //     selectedAnnotationId, 
-        //     selectedAnnotationLayer
-        //   )) return;
-        // }
 
         const reference = selectedAnnotationLayer
           .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -951,13 +1213,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           }) does not have an active annotation tool.`);
           return;
         }
-        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
-        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-        //   if (!volumeTool.validateSession(
-        //     selectedAnnotationId, 
-        //     selectedAnnotationLayer
-        //   )) return;
-        // }
 
         const reference = selectedAnnotationLayer
           .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -1021,13 +1276,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
             }) does not have an active annotation tool.`);
             return;
           }
-          // if (userLayer.tool.value instanceof PlaceVolumeTool) {
-          //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-          //   if (!volumeTool.validateSession(
-          //     selectedAnnotationId, 
-          //     selectedAnnotationLayer
-          //   )) return;
-          // }
 
           const reference = selectedAnnotationLayer
             .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -1092,13 +1340,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           }) does not have an active annotation tool.`);
           return;
         }
-        // if (userLayer.tool.value instanceof PlaceVolumeTool) {
-        //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-        //   if (!volumeTool.validateSession(
-        //     selectedAnnotationId, 
-        //     selectedAnnotationLayer
-        //   )) return;
-        // }
 
         const reference = selectedAnnotationLayer
           .source.getNonDummyAnnotationReference(selectedAnnotationId);
@@ -1132,11 +1373,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
         }) does not have an active annotation tool.`);
         return;
       }
-      // if (userLayer.tool.value instanceof PlaceVolumeTool) {
-      //   const volumeTool = <PlaceVolumeTool>userLayer.tool.value;
-      //   if (!volumeTool.validateSession(selectedAnnotationId, annotationLayer)) 
-      //     return;
-      // }
+
       if (
         annotationLayer !== undefined && 
         !annotationLayer.source.readonly && 

@@ -67,7 +67,7 @@ void setLineWidth(float width) {}
 void setLineColor(vec4 startColor, vec4 endColor) {}
 /* BRAINSHARE STARTS */
 void setLineOpacity(float opacity) {}
-void setVisibility(float visibility) {}
+void setLineVisibility(float visibility) {}
 /* BRAINSHARE ENDS */
 `);
 }
@@ -99,7 +99,7 @@ class RenderHelper extends AnnotationRenderHelper {
       builder.addVarying(`highp float[${rank}]`, "vModelPosition");
       /* BRAINSHARE STARTS */
       builder.addVarying(`highp float`, 'vLineOpacity');
-      builder.addVarying(`highp float`, 'vVisibility');
+      builder.addVarying(`highp float`, 'vLineVisibility');
       /* BRAINSHARE ENDS */
       builder.addVertexCode(`
 float ng_LineWidth;
@@ -119,8 +119,8 @@ void setLineColor(vec4 startColor, vec4 endColor) {
 void setLineOpacity(float opacity) {
   vLineOpacity = opacity;
 }
-void setVisibility(float visibility) {
-  vVisibility = visibility;
+void setLineVisibility(float visibility) {
+  vLineVisibility = visibility;
   ng_Visibility = visibility;
 }
 /* BRAINSHARE ENDS */
@@ -136,7 +136,7 @@ ng_LineWidth = 1.0;
 ng_Visibility = 1.0;
 /* BRAINSHARE ENDS */
 vLineOpacity = 1.0;
-vVisibility = 1.0;
+vLineVisibility = 1.0;
 /* BRAINSHARE ENDS */
 vColor = vec4(0.0, 0.0, 0.0, 0.0);
 ${this.invokeUserMain}
@@ -162,7 +162,7 @@ emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
                                 ${this.getCrossSectionFadeFactor()} *
                                 clipCoefficient));
 */
-if (vVisibility == 1.0) {
+if (vLineVisibility == 1.0) {
   emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
                                 ${this.getCrossSectionFadeFactor()} *
                                 clipCoefficient * vLineOpacity));
