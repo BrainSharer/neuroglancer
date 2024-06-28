@@ -55,7 +55,15 @@ import {
   SpatiallyIndexedPerspectiveViewAnnotationLayer,
   SpatiallyIndexedSliceViewAnnotationLayer,
 } from "#/annotation/renderlayer";
+/* BRAINSHARE STARTS */
+/*
 import { CoordinateSpace } from "#/coordinate_transform";
+*/
+import {
+  CoordinateSpace,
+  CoordinateTransformSpecification,
+} from "#/coordinate_transform";
+/* BRAINSHARE ENDS */
 import { MouseSelectionState, UserLayer } from "#/layer";
 import { LoadedDataSubsource } from "#/layer_data_source";
 import {
@@ -73,11 +81,7 @@ import {
   SegmentationDisplayState,
   SegmentWidgetFactory,
 } from "#/segmentation_display_state/frontend";
-/* BRAINSHARE STARTS */
-/*
 import { ElementVisibilityFromTrackableBoolean } from "#/trackable_boolean";
-*/
-/* BRAINSHARE ENDS */
 import {
   AggregateWatchableValue,
   makeCachedLazyDerivedWatchableValue,
@@ -85,15 +89,7 @@ import {
   WatchableValue,
   WatchableValueInterface,
 } from "#/trackable_value";
-/* BRAINSHARE STARTS */
-/*
 import { getDefaultAnnotationListBindings } from "#/ui/default_input_event_bindings";
-*/
-import {
-  getDefaultAnnotationListBindings, 
-  setPolygonDrawModeInputEventBindings 
-} from "#/ui/default_input_event_bindings";
-/* BRAINSHARE ENDS */
 import { LegacyTool, registerLegacyTool } from "#/ui/tool";
 import { animationFrameDebounce } from "#/util/animation_frame_debounce";
 import { arraysEqual, ArraySpliceOp } from "#/util/array";
@@ -106,8 +102,8 @@ import {
   unpackRGBA,
   useWhiteBackground,
   */
-  packColor, 
-  parseRGBColorSpecification, 
+  packColor,
+  parseRGBColorSpecification,
   /* BRAINSHARE ENDS */
 } from "#/util/color";
 import { Borrowed, disposableOnce, RefCounted } from "#/util/disposable";
@@ -140,20 +136,29 @@ import { Tab } from "#/widget/tab_view";
 import { VirtualList, VirtualListSource } from "#/widget/virtual_list";
 /* BRAINSHARE STARTS */
 import { StatusMessage } from '#/status';
-import { 
-  getZCoordinate, 
-  isPointUniqueInPolygon, 
+import {
+  getZCoordinate,
+  isPointUniqueInPolygon,
 } from '#/annotation/polygon';
-import { isSectionValid } from '#/annotation/volume';
+import { getPolygonsByVolumeId, isSectionValid } from '#/annotation/volume';
+import {
+  AutocompleteTextInput,
+  Completer,
+  Completion,
+  CompletionResult,
+  CompletionWithDescription
+} from "#/widget/multiline_autocomplete";
+import { CancellationToken } from "#/util/cancellation";
+import { fetchOk } from "#/util/http_request";
 import svg_clipBoard from "ikonate/icons/clipboard.svg";
-import svg_eye_crossed from 'ikonate/icons/eye-crossed.svg';
-import svg_eye from 'ikonate/icons/eye.svg';
+import svg_upload from 'ikonate/icons/upload.svg';
+import { brainState, userState } from "src/brainshare/state_utils";
+import { APIs } from "src/brainshare/service";
 /* BRAINSHARE ENDS */
 
 export class MergedAnnotationStates
   extends RefCounted
-  implements WatchableValueInterface<readonly AnnotationLayerState[]>
-{
+  implements WatchableValueInterface<readonly AnnotationLayerState[]> {
   changed = new NullarySignal();
   isLoadingChanged = new NullarySignal();
   states: Borrowed<AnnotationLayerState>[] = [];
@@ -225,6 +230,7 @@ function getCenterPosition(center: Float32Array, annotation: Annotation) {
     /* BRAINSHARE STARTS */
     case AnnotationType.POLYGON:
     case AnnotationType.VOLUME:
+    case AnnotationType.CLOUD:
       center.set(annotation.centroid);
       break
     /* BRAINSHARE ENDS */
@@ -267,6 +273,196 @@ function visitTransformedAnnotationGeometry(
   );
 }
 
+/* BRAINSHARE STARTS */
+function pasteAnnotation(
+  text: string,
+  annotationSource: AnnotationSource | MultiscaleAnnotationSource,
+  transform: CoordinateTransformSpecification,
+  position: Float32Array,
+  parentRef?: AnnotationReference,
+): Annotation[] | undefined {
+  let { outputSpace, inputSpace } = transform;
+  if (inputSpace === undefined) inputSpace = outputSpace;
+
+  let annotations: Annotation[];
+  try {
+    const json = JSON.parse(text);
+    annotations = portableJsonToAnnotations(
+      json,
+      annotationSource,
+      inputSpace,
+    );
+  }
+  catch (e) {
+    StatusMessage.showTemporaryMessage(
+      "The annotation to paste is invalid."
+    );
+    return undefined;
+  }
+
+  if (parentRef && parentRef.value) {
+    if ((
+      parentRef.value.type === AnnotationType.VOLUME &&
+      annotations[0].type !== AnnotationType.POLYGON
+    ) || (
+        parentRef.value.type === AnnotationType.CLOUD &&
+        annotations[0].type !== AnnotationType.POINT
+      )) {
+      StatusMessage.showTemporaryMessage(
+        `The annotation to paste (${AnnotationType[annotations[0].type].toLowerCase()
+        }) can not be a child of the selected annotation (${AnnotationType[parentRef.value.type].toLowerCase()
+        }).`
+      );
+      return undefined;
+    }
+  }
+
+  const positionInputSpace = new Float64Array(position);
+  if (inputSpace !== outputSpace) {
+    vector.multiply(positionInputSpace, positionInputSpace, outputSpace.scales);
+    vector.divide(positionInputSpace, positionInputSpace, inputSpace.scales);
+  }
+  const center = new Float32Array(positionInputSpace.length);
+  const translations = new Float64Array(positionInputSpace.length);
+  getCenterPosition(center, annotations[0]);
+  vector.subtract(translations, positionInputSpace, center);
+
+  if (parentRef && parentRef.value) {
+    if (parentRef.value.type === AnnotationType.VOLUME) {
+      if (!isSectionValid(
+        annotationSource,
+        parentRef.id,
+        Math.floor(position[2]),
+      )) {
+        StatusMessage.showTemporaryMessage(
+          "A polygon already exists in this section for the volume, only one \
+          polygon per section is allowed for a volume."
+        );
+        return;
+      }
+    }
+  }
+
+  for (let i = 0; i < annotations.length; i++) {
+    const newAnnotation = translateAnnotationPoints(
+      annotations[i],
+      translations
+    );
+    annotationSource.add(
+      newAnnotation,
+      /*commit=*/ true,
+      i == 0 ? parentRef : undefined,
+    );
+  }
+
+  return annotations;
+}
+
+// The autocomplete search box for importing annotations
+const statusStrings = new Set(["", "No result", "Searching..."]);
+
+class AnnotationSearchBar extends AutocompleteTextInput {
+  private completions: Completion[] = [];
+  private _selectCompletion: (completion: Completion) => void;
+
+  constructor(
+    config: {
+      completer: Completer,
+      selectCompletion: (completion: Completion) => void,
+      placeHolder: string,
+    }
+  ) {
+    super({
+      completer: (value: string, _cancellationToken: CancellationToken) => {
+        this.setHintValue("Searching...");
+
+        const completerPromise = config.completer(value, _cancellationToken);
+        if (completerPromise === null) return null;
+
+        return completerPromise.then((completionResult: CompletionResult) => {
+          this.completions = completionResult.completions;
+          if (this.completions.length === 0) this.setHintValue("No result");
+          else this.setHintValue("");
+
+          return completionResult;
+        });
+      },
+      delay: 100,
+    });
+
+    this._selectCompletion = config.selectCompletion;
+    this.placeholder = config.placeHolder;
+
+    // Making the hint string right aligned
+    this.hintElement.style.position = "absolute";
+    this.hintElement.style.right = "0";
+
+    // Fix the bug that the dropdown menu is not always on top
+    this.element.style.zIndex = "1";
+  }
+
+  /**
+   * The hint string is repurposed to show the searching status.
+   * @param hintValue: string for searching status.
+   */
+  setHintValue(hintValue: string): void {
+    if (!statusStrings.has(hintValue)) return;
+
+    const { hintElement } = this;
+    removeChildren(hintElement);
+    const node = document.createTextNode(hintValue);
+    hintElement.appendChild(node);
+  }
+
+  selectCompletion(index: number): void {
+    const completion = this.completions[index];
+    this._selectCompletion(completion);
+  }
+
+  cancel() {
+    this.inputElement.textContent = "";
+    this.hideCompletions();
+    return true;
+  }
+}
+
+function makeAnnotationCompletionElement(
+  completion: CompletionWithDescription
+): HTMLElement {
+  const completionDiv = document.createElement("div");
+
+  const valueDiv = document.createElement("div");
+  valueDiv.textContent = `Id: ${completion.value}`;
+  completionDiv.appendChild(valueDiv);
+  const animalDiv = document.createElement("div");
+  animalDiv.textContent = `Description: ${completion.description}`;
+  completionDiv.appendChild(animalDiv);
+
+  return completionDiv;
+}
+
+export function binarySearchInsert<T>(
+  haystack: ArrayLike<T>,
+  needle: T,
+  compare: (a: T, b: T) => number,
+  low = 0,
+  high = haystack.length,
+) {
+  while (low < high) {
+    const mid = (low + high - 1) >> 1;
+    const compareResult = compare(needle, haystack[mid]);
+    if (compareResult > 0) {
+      low = mid + 1;
+    } else if (compareResult < 0) {
+      high = mid;
+    } else {
+      return mid;
+    }
+  }
+  return low;
+}
+/* BRAINSHARE ENDS */
+
 interface AnnotationLayerViewAttachedState {
   refCounted: RefCounted;
   annotations: Annotation[];
@@ -277,10 +473,10 @@ interface AnnotationLayerViewAttachedState {
 export class AnnotationLayerView extends Tab {
   private previousSelectedState:
     | {
-        annotationId: string;
-        annotationLayerState: AnnotationLayerState;
-        pin: boolean;
-      }
+      annotationId: string;
+      annotationLayerState: AnnotationLayerState;
+      pin: boolean;
+    }
     | undefined = undefined;
   private previousHoverId: string | undefined = undefined;
   private previousHoverAnnotationLayerState: AnnotationLayerState | undefined =
@@ -299,6 +495,9 @@ export class AnnotationLayerView extends Tab {
   private updated = false;
   private mutableControls = document.createElement("div");
   private headerRow = document.createElement("div");
+  /* BRAINSHARE STARTS */
+  private searchAnnotations: AnnotationSearchBar;
+  /* BRAINSHARE ENDS */
 
   get annotationStates() {
     return this.layer.annotationStates;
@@ -438,9 +637,24 @@ export class AnnotationLayerView extends Tab {
     toolbox.className = "neuroglancer-annotation-toolbox";
 
     layer.initializeAnnotationLayerViewTab(this);
+    const colorPicker = this.registerDisposer(
+      new ColorWidget(this.displayState.color),
+    );
+    colorPicker.element.title = "Change annotation display color";
+    this.registerDisposer(
+      new ElementVisibilityFromTrackableBoolean(
+        makeCachedLazyDerivedWatchableValue(
+          (shader) => shader.match(/\bdefaultColor\b/) !== null,
+          displayState.shaderControls.processedFragmentMain,
+        ),
+        colorPicker.element,
+      ),
+    );
+    toolbox.appendChild(colorPicker.element);
+    const { mutableControls } = this;
     /* BRAINSHARE STARTS */
     // Add paste annotation button
-    const pasteButton = makeIcon({ 
+    const pasteButton = makeIcon({
       svg: svg_clipBoard,
       title: "Paste annotation from the system's clipboard",
       onClick: () => {
@@ -451,70 +665,32 @@ export class AnnotationLayerView extends Tab {
             break;
           }
         }
-        const coordinateSpace = this.layer.manager.root.coordinateSpace.value;
-        const position = this.layer.manager.root.globalPosition.value;
+
+        const dataSource = this.layer.dataSources[0];
+        if (dataSource === undefined) return;
+        const transform = dataSource.spec.transform;
+        if (transform === undefined) return;
         navigator.clipboard.readText().then((text) => {
           if (annotationLayerState !== undefined) {
-            try {
-              const json = JSON.parse(text);
-              const annotations = portableJsonToAnnotations(
-                json,
-                annotationLayerState.source,
-                coordinateSpace,
-              );
-              const center = new Float32Array(position.length);
-              const translations = new Float64Array(position.length);
-              getCenterPosition(center, annotations[0]);
-              vector.subtract(translations, position, center);
-              for (const annotation of annotations) {
-                const translatedAnnotation = translateAnnotationPoints(
-                  annotation,
-                  translations
-                );
-                annotationLayerState.source.add(
-                  translatedAnnotation,
-                  /*commit=*/ true,
-                );
-              }
-              if (annotations[0] !== undefined) {
-                this.layer.selectAnnotation(
-                  annotationLayerState,
-                  annotations[0].id,
-                  true
-                );
-              }
-            }
-            catch (e) {
-              StatusMessage.showTemporaryMessage(
-                "The annotation to paste is invalid."
+            const annotations = pasteAnnotation(
+              text,
+              annotationLayerState.source,
+              transform,
+              this.layer.manager.root.globalPosition.value,
+            );
+            if (annotations !== undefined && annotations[0] !== undefined) {
+              this.layer.selectAnnotation(
+                annotationLayerState,
+                annotations[0].id,
+                true
               );
             }
           }
         });
       },
     });
-    toolbox.appendChild(pasteButton);
+    mutableControls.appendChild(pasteButton);
     /* BRAINSHARE ENDS */
-    const colorPicker = this.registerDisposer(
-      new ColorWidget(this.displayState.color),
-    );
-    colorPicker.element.title = "Change annotation display color";
-    /* BRAINSHARE STARTS */
-    // Always show colorPicker since we have added props
-    /*
-    this.registerDisposer(
-      new ElementVisibilityFromTrackableBoolean(
-        makeCachedLazyDerivedWatchableValue(
-          (shader) => shader.match(/\bdefaultColor\b/) !== null,
-          displayState.shaderControls.processedFragmentMain,
-        ),
-        colorPicker.element,
-      ),
-    );
-    */
-    /* BRAINSHARE ENDS */
-    toolbox.appendChild(colorPicker.element);
-    const { mutableControls } = this;
     const pointButton = makeIcon({
       text: annotationTypeHandlers[AnnotationType.POINT].icon,
       title: "Annotate point",
@@ -579,6 +755,69 @@ export class AnnotationLayerView extends Tab {
       },
     });
     mutableControls.appendChild(cloudButton);
+    
+    if (userState.value && userState.value.id !== 0) {
+      this.searchAnnotations = new AnnotationSearchBar({
+        completer: (value: string, _cancellationToken: CancellationToken) => {
+          const defaultCompletionResult = {
+            completions: [],
+            offset: 0,
+            showSingleResult: false,
+            selectSingleResult: false,
+            makeElement: makeAnnotationCompletionElement,
+          }
+          return fetchOk(
+            APIs.SEARCH_ANNOTATION + value,
+            { method: "GET" },
+          ).then(
+            response => response.json()
+          ).then(json => {
+            if (!Array.isArray(json)) throw new Error("JSON is not an array");
+
+            return {
+              ...defaultCompletionResult,
+              completions: json.slice(0, 30).map((annotation: any) => ({
+                value: annotation.id.toString(),
+                description: annotation.animal_abbreviation_username,
+              })),
+            };
+          }).catch(err => {
+            console.log(err);
+            StatusMessage.showTemporaryMessage(
+              "There is an error in searching annotations. \
+              Please see console for details."
+            );
+            return defaultCompletionResult;
+          })
+        },
+        selectCompletion: (completion) => {
+          const annotationId = completion.value;
+
+          StatusMessage.showTemporaryMessage(
+            "Copying the selected annotation to clipboard."
+          );
+          fetchOk(
+            APIs.GET_SET_ANNOTATION + annotationId,
+            { method: "GET" },
+          ).then(
+            response => response.json()
+          ).then(json => {
+            StatusMessage.showTemporaryMessage(
+              "Annotation copied to clipboard."
+            );
+            setClipboard(JSON.stringify(json.annotation));
+          }).catch(err => {
+            console.log(err);
+            StatusMessage.showTemporaryMessage(
+              "There is an error in downloading the selected annotation. \
+              Please see console for details."
+            );
+          })
+        },
+        placeHolder: "Search for annotations"
+      });
+      this.element.appendChild(this.searchAnnotations.element);
+    }
     /* BRAINSHARE ENDS */
 
     toolbox.appendChild(mutableControls);
@@ -698,7 +937,7 @@ export class AnnotationLayerView extends Tab {
         selectionState !== undefined &&
         previousSelectedState.annotationId === selectionState.annotationId &&
         previousSelectedState.annotationLayerState ===
-          selectionState.annotationLayerState &&
+        selectionState.annotationLayerState &&
         previousSelectedState.pin === selectionState.pin)
     ) {
       return;
@@ -866,6 +1105,11 @@ export class AnnotationLayerView extends Tab {
       },
     ]);
     this.mutableControls.style.display = isMutable ? "contents" : "none";
+    /* BRAINSHARE STARTS */
+    if (this.searchAnnotations) {
+      this.searchAnnotations.element.style.display = isMutable ? "block" : "none";
+    }
+    /* BRAINSHARE ENDS */
     this.resetOnUpdate();
   }
 
@@ -1192,7 +1436,7 @@ export class PlacePointTool extends PlaceAnnotationTool {
   trigger(mouseState: MouseSelectionState) {
   */
   trigger(mouseState: MouseSelectionState, parentRef?: AnnotationReference) {
-  /* BRAINSHARE ENDS */
+    /* BRAINSHARE ENDS */
     const { annotationLayer } = this;
     if (annotationLayer === undefined) {
       // Not yet ready.
@@ -1220,6 +1464,11 @@ export class PlacePointTool extends PlaceAnnotationTool {
         ),
         /* BRAINSHARE ENDS */
       };
+      /* BRAINSHARE STARTS */
+      if (parentRef && parentRef.value) {
+        annotation.properties = Object.assign([], parentRef.value.properties);
+      }
+      /* BRAINSHARE ENDS */
       const reference = annotationLayer.source.add(
         annotation,
         /*commit=*/ true,
@@ -1267,10 +1516,10 @@ function getMousePositionInAnnotationCoordinates(
 abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
   inProgressAnnotation: WatchableValue<
     | {
-        annotationLayer: AnnotationLayerState;
-        reference: AnnotationReference;
-        disposer: () => void;
-      }
+      annotationLayer: AnnotationLayerState;
+      reference: AnnotationReference;
+      disposer: () => void;
+    }
     | undefined
   > = new WatchableValue(undefined);
 
@@ -1287,7 +1536,7 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
   /* BRAINSHARE STARTS */
   // trigger(mouseState: MouseSelectionState) {
   trigger(mouseState: MouseSelectionState, parentRef?: AnnotationReference) {
-  /* BRAINSHARE ENDS */
+    /* BRAINSHARE ENDS */
     const { annotationLayer, inProgressAnnotation } = this;
     if (annotationLayer === undefined) {
       // Not yet ready.
@@ -1328,7 +1577,7 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
           initAnn.properties = Object.assign([], parentRef.value.properties);
         }
         const reference = annotationLayer.source.add(
-          initAnn, 
+          initAnn,
           /*commit=*/ false,
           parentRef
         );
@@ -1519,7 +1768,7 @@ class PlaceEllipsoidTool extends TwoStepAnnotationTool {
       center: point,
       radii: vec3.fromValues(0, 0, 0),
       /* BRAINSHARE STARTS */
-        // Set default color for ellipses
+      // Set default color for ellipses
       // properties: annotationLayer.source.properties.map((x) => x.default),
       properties: annotationLayer.source.properties.map(
         (x) => x.identifier === "color" ? packColor(this.color) : x.default
@@ -1564,13 +1813,13 @@ class PlaceEllipsoidTool extends TwoStepAnnotationTool {
 export abstract class PlaceCollectionAnnotationTool extends PlaceAnnotationTool {
   childTool: PlaceAnnotationTool;
   inProgressAnnotation: {
-    annotationLayer: AnnotationLayerState, 
-    reference: AnnotationReference, 
+    annotationLayer: AnnotationLayerState,
+    reference: AnnotationReference,
     disposer: () => void
   } | undefined;
-  
+
   abstract getInitialAnnotation(
-    mouseState: MouseSelectionState, 
+    mouseState: MouseSelectionState,
     annotationLayer: AnnotationLayerState
   ): Annotation;
   abstract complete(): boolean;
@@ -1588,13 +1837,13 @@ export abstract class PlaceCollectionAnnotationTool extends PlaceAnnotationTool 
 
 export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
   constructor(
-    public layer: UserLayerWithAnnotations, 
+    public layer: UserLayerWithAnnotations,
     options: any,
-    reference?: AnnotationReference, 
+    reference?: AnnotationReference,
   ) {
     super(layer, options);
 
-    this.childTool = new PlacePolygonTool(layer, {...options, parent: this});
+    this.childTool = new PlacePolygonTool(layer, { ...options, parent: this });
     if (reference !== undefined) {
       const { annotationLayer } = this;
       if (annotationLayer === undefined) return;
@@ -1608,14 +1857,14 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
   }
 
   getInitialAnnotation(
-    mouseState: MouseSelectionState, 
+    mouseState: MouseSelectionState,
     annotationLayer: AnnotationLayerState
   ): Annotation {
     const point = getMousePositionInAnnotationCoordinates(
-      mouseState, 
+      mouseState,
       annotationLayer
     );
-    return <Volume> {
+    return <Volume>{
       id: '',
       type: AnnotationType.VOLUME,
       description: '',
@@ -1636,16 +1885,16 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
       return;
     }
 
-    const childTool = <PlacePolygonTool> this.childTool;
+    const childTool = <PlacePolygonTool>this.childTool;
     if (mouseState.updateUnconditionally()) {
       if (this.inProgressAnnotation === undefined) {
         const annotation = this.getInitialAnnotation(
-          mouseState, 
+          mouseState,
           annotationLayer
         );
         const reference = annotationLayer.source.add(
-          annotation, 
-          /*commit=*/ false, 
+          annotation,
+          /*commit=*/ false,
         );
         const disposer = () => reference.dispose();
         this.inProgressAnnotation = {
@@ -1656,7 +1905,7 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
 
         childTool.trigger(mouseState, reference);
         this.layer.selectAnnotation(annotationLayer, reference.id, true);
-      } 
+      }
       else {
         const reference = this.inProgressAnnotation.reference;
         childTool.trigger(mouseState, reference);
@@ -1671,10 +1920,10 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
       return false;
     }
 
-    const childTool = <PlacePolygonTool> this.childTool;
+    const childTool = <PlacePolygonTool>this.childTool;
     const result = childTool.complete();
     if (!result) return false;
-    
+
     if (!this.inProgressAnnotation) return false;
     annotationLayer.source.commit(this.inProgressAnnotation.reference);
     this.layer.selectAnnotation(
@@ -1687,12 +1936,20 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
   }
 
   undo(mouseState: MouseSelectionState): boolean {
-    const childTool = <PlacePolygonTool> this.childTool;
+    const childTool = <PlacePolygonTool>this.childTool;
     return childTool.undo(mouseState);
   }
 
   get description() {
-    return `annotate volume`;
+    let description = `annotate volume ${this.inProgressAnnotation === undefined ? "(new)" : "(edit)"
+      }`;
+
+    const placePolygonTool = <PlacePolygonTool>this.childTool
+    if (placePolygonTool.inProgressAnnotation !== undefined) {
+      description += ` > ${placePolygonTool.description}`;
+    }
+
+    return description;
   }
 
   toJSON() {
@@ -1702,13 +1959,13 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
 
 export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
   constructor(
-    public layer: UserLayerWithAnnotations, 
+    public layer: UserLayerWithAnnotations,
     options: any,
-    reference?: AnnotationReference, 
+    reference?: AnnotationReference,
   ) {
     super(layer, options);
 
-    this.childTool = new PlacePointTool(layer, {...options, parent: this});
+    this.childTool = new PlacePointTool(layer, { ...options, parent: this });
     if (reference !== undefined) {
       const { annotationLayer } = this;
       if (annotationLayer === undefined) return;
@@ -1722,14 +1979,14 @@ export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
   }
 
   getInitialAnnotation(
-    mouseState: MouseSelectionState, 
+    mouseState: MouseSelectionState,
     annotationLayer: AnnotationLayerState
   ): Annotation {
     const point = getMousePositionInAnnotationCoordinates(
-      mouseState, 
+      mouseState,
       annotationLayer
     );
-    return <Cloud> {
+    return <Cloud>{
       id: '',
       type: AnnotationType.CLOUD,
       description: '',
@@ -1750,16 +2007,16 @@ export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
       return;
     }
 
-    const childTool = <PlacePointTool> this.childTool;
+    const childTool = <PlacePointTool>this.childTool;
     if (mouseState.updateUnconditionally()) {
       if (this.inProgressAnnotation === undefined) {
         const annotation = this.getInitialAnnotation(
-          mouseState, 
+          mouseState,
           annotationLayer
         );
         const reference = annotationLayer.source.add(
-          annotation, 
-          /*commit=*/ false, 
+          annotation,
+          /*commit=*/ false,
         );
         const disposer = () => reference.dispose();
         this.inProgressAnnotation = {
@@ -1770,11 +2027,12 @@ export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
 
         childTool.trigger(mouseState, reference);
         this.layer.selectAnnotation(annotationLayer, reference.id, true);
-      } 
+      }
       else {
         const reference = this.inProgressAnnotation.reference;
         childTool.trigger(mouseState, reference);
       }
+      this.complete();
     }
   }
 
@@ -1795,7 +2053,7 @@ export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
 
     return true;
   }
-  
+
   undo(): boolean {
     const { annotationLayer } = this;
     if (annotationLayer === undefined) {
@@ -1804,7 +2062,7 @@ export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
     }
 
     if (!this.inProgressAnnotation) return false;
-    const cloud = <Cloud> this.inProgressAnnotation.reference.value!
+    const cloud = <Cloud>this.inProgressAnnotation.reference.value!
     const childIds = cloud.childAnnotationIds;
     if (childIds.length > 0) {
       const lastChild = annotationLayer.source.getReference(
@@ -1817,7 +2075,8 @@ export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
   }
 
   get description() {
-    return `annotate cloud`;
+    return `annotate cloud ${this.inProgressAnnotation === undefined ? "(new)" : "(edit)"
+      }`;
   }
 
   toJSON() {
@@ -1837,16 +2096,9 @@ export abstract class MultiStepAnnotationTool extends PlaceCollectionAnnotationT
  * This class is used to draw polygon annotations.
  */
 export class PlacePolygonTool extends MultiStepAnnotationTool {
-  bindingsRef: RefCounted | undefined;
-
   constructor(public layer: UserLayerWithAnnotations, options: any) {
     super(layer, options);
-    this.childTool = new PlaceLineTool(layer, {...options, parent: this});
-    this.bindingsRef = new RefCounted();
-    setPolygonDrawModeInputEventBindings(
-      this.bindingsRef, 
-      (window as any)['viewer'].inputEventBindings
-    );
+    this.childTool = new PlaceLineTool(layer, { ...options, parent: this });
   }
 
   /**
@@ -1856,14 +2108,14 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
    * @returns newly created annotation.
    */
   getInitialAnnotation(
-    mouseState: MouseSelectionState, 
+    mouseState: MouseSelectionState,
     annotationLayer: AnnotationLayerState
   ): Annotation {
     const point = getMousePositionInAnnotationCoordinates(
-      mouseState, 
+      mouseState,
       annotationLayer
     );
-    return <Polygon> {
+    return <Polygon>{
       id: '',
       type: AnnotationType.POLYGON,
       description: '',
@@ -1897,39 +2149,52 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
       );
       if (point === undefined) return;
 
-      const childTool = <PlaceLineTool> this.childTool;
+      const childTool = <PlaceLineTool>this.childTool;
       if (this.inProgressAnnotation === undefined) {
-        // Check if a polygon already exists on the same section for the volume
-        if (parentRef) {
+        const annotation = this.getInitialAnnotation(
+          mouseState,
+          annotationLayer
+        );
+
+        let index = undefined;
+        if (parentRef && parentRef.value) {
+          // Check if a polygon already exists on the same section
           const zCoord = getZCoordinate(point);
           if (zCoord === undefined) return;
-          if (!isSectionValid(annotationLayer, parentRef.id, zCoord)) {
+          if (!isSectionValid(annotationLayer.source, parentRef.id, zCoord)) {
             StatusMessage.showTemporaryMessage(
               "A polygon already exists in this section for the volume, \
               only one polygon per section is allowed for a volume."
             );
             return;
           }
-        }
-        
-        const annotation = this.getInitialAnnotation(
-          mouseState, 
-          annotationLayer
-        );
-        
-        // Copy the volume's properties to this polyon
-        if (parentRef && parentRef.value) {
+
+          // Copy the properties
           annotation.properties = Object.assign(
-            [], 
+            [],
             parentRef.value.properties
           );
-          annotation.childrenVisible = parentRef.value.childrenVisible;
+
+          // Calculate the insertion index for in parent's child ID list
+          const polygons = getPolygonsByVolumeId(
+            annotationLayer.source,
+            parentRef.id
+          )
+          if (polygons) {
+            const polygonZCoods = polygons.map(
+              (polygon) => getZCoordinate(polygon.centroid)
+            ).map(
+              (zIndex) => zIndex === undefined ? -1 : zIndex
+            );
+            index = binarySearchInsert(polygonZCoods, zCoord, (a, b) => a - b)
+          }
         }
 
         const reference = annotationLayer.source.add(
-          annotation, 
-          /*commit=*/ false, 
-          parentRef
+          annotation,
+          /*commit=*/ false,
+          parentRef,
+          index,
         );
         this.layer.selectAnnotation(annotationLayer, reference.id, true);
         childTool.trigger(mouseState, reference);
@@ -1940,11 +2205,11 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           reference,
           disposer,
         };
-      } 
+      }
       else {
         const reference = this.inProgressAnnotation.reference;
-        const polygon = <Polygon> reference.value!;
-        if(!isPointUniqueInPolygon(annotationLayer, polygon, point)) {
+        const polygon = <Polygon>reference.value!;
+        if (!isPointUniqueInPolygon(annotationLayer, polygon, point)) {
           StatusMessage.showTemporaryMessage(
             "All vertices of polygon must be unique."
           );
@@ -1980,15 +2245,15 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
       return false;
     }
 
-    const childTool = <PlaceLineTool> this.childTool;
+    const childTool = <PlaceLineTool>this.childTool;
     const childInProgressAnn = childTool.inProgressAnnotation.value;
     if (
       childInProgressAnn === undefined ||
       this.inProgressAnnotation === undefined
     ) return false;
 
-    const annotation = <Polygon> this.inProgressAnnotation.reference.value;
-    
+    const annotation = <Polygon>this.inProgressAnnotation.reference.value;
+
     // There must be at least 3 lines in a polygon
     if (annotation.childAnnotationIds.length < 3) {
       StatusMessage.showTemporaryMessage(
@@ -2005,15 +2270,15 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
     }
 
     // Add last line
-    const newChildAnn = <Annotation> {
+    const newChildAnn = <Annotation>{
       ...childInProgressAnn.reference.value,
       pointB: annotation.source,
     };
     annotationLayer.source.update(childInProgressAnn.reference, newChildAnn);
     annotationLayer.source.commit(childInProgressAnn.reference);
     this.layer.selectAnnotation(
-      annotationLayer, 
-      childInProgressAnn.reference.id, 
+      annotationLayer,
+      childInProgressAnn.reference.id,
       true
     );
     childInProgressAnn.disposer();
@@ -2028,7 +2293,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
     );
     this.inProgressAnnotation.disposer();
     this.inProgressAnnotation = undefined;
-    
+
     return true;
   }
 
@@ -2042,8 +2307,8 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
       return false;
     }
 
-    const childTool = <PlaceLineTool> this.childTool;
-    const annotation = <Polygon> state.reference.value;
+    const childTool = <PlaceLineTool>this.childTool;
+    const annotation = <Polygon>state.reference.value;
     if (annotation.childAnnotationIds.length > 0) {
       const id = annotation.childAnnotationIds[
         annotation.childAnnotationIds.length - 1
@@ -2060,7 +2325,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
         const state = childTool.inProgressAnnotation.value!;
         const reference = state.reference;
         const newAnnotation = childTool.getUpdatedAnnotation(
-          <Line> reference.value!, mouseState, annotationLayer
+          <Line>reference.value!, mouseState, annotationLayer
         );
         if (JSON.stringify(annotationToJson(
           newAnnotation, annotationLayer.source
@@ -2092,7 +2357,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
         reference,
         disposer,
       };
-    } 
+    }
     else {
       if (this.inProgressAnnotation) {
         annotationLayer.source.delete(this.inProgressAnnotation.reference);
@@ -2113,8 +2378,6 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
       this.inProgressAnnotation.disposer();
       this.inProgressAnnotation = undefined;
     }
-    if (this.bindingsRef) this.bindingsRef.dispose();
-    this.bindingsRef = undefined;
   }
 
   get description() {
@@ -2150,17 +2413,17 @@ registerLegacyTool(
 /* BRAINSHARE STARTS */
 registerLegacyTool(
   ANNOTATE_POLYGON_TOOL_ID,
-  (layer, options) => 
+  (layer, options) =>
     new PlacePolygonTool(<UserLayerWithAnnotations>layer, options)
 );
 registerLegacyTool(
   ANNOTATE_VOLUME_TOOL_ID,
-  (layer, options) => 
+  (layer, options) =>
     new PlaceVolumeTool(<UserLayerWithAnnotations>layer, options)
 );
 registerLegacyTool(
   ANNOTATE_CLOUD_TOOL_ID,
-  (layer, options) => 
+  (layer, options) =>
     new PlaceCloudTool(<UserLayerWithAnnotations>layer, options)
 );
 /* BRAINSHARE ENDS */
@@ -2367,7 +2630,7 @@ function makeRelatedSegmentList(
 
 const ANNOTATION_COLOR_JSON_KEY = "annotationColor";
 export function UserLayerWithAnnotationsMixin<
-  TBase extends { new (...args: any[]): UserLayer },
+  TBase extends { new(...args: any[]): UserLayer },
 >(Base: TBase) {
   abstract class C extends Base implements UserLayerWithAnnotations {
     annotationStates = this.registerDisposer(new MergedAnnotationStates());
@@ -2420,7 +2683,7 @@ export function UserLayerWithAnnotationsMixin<
               const existingValue =
                 this.annotationDisplayState.hoverState.value;
               /* BRAINSHARE STARTS */
-              const reference = 
+              const reference =
                 pickedAnnotationLayer.source.getNonDummyAnnotationReference(
                   mouseState.pickedAnnotationId!
                 );
@@ -2544,8 +2807,8 @@ export function UserLayerWithAnnotationsMixin<
                   annotation = handler.deserialize(
                     dataView,
                     baseOffset +
-                      annotationPropertySerializer.propertyGroupBytes[0] *
-                        annotationIndex,
+                    annotationPropertySerializer.propertyGroupBytes[0] *
+                    annotationIndex,
                     isLittleEndian,
                     rank,
                     state.annotationId!,
@@ -2571,13 +2834,12 @@ export function UserLayerWithAnnotationsMixin<
                   chunkTransform.error === undefined
                     ? chunkTransform.layerRank
                     : 0;
+                /* BRAINSHARE STARTS */
+                /*
                 const positionGrid = document.createElement("div");
                 positionGrid.classList.add(
                   "neuroglancer-selected-annotation-details-position-grid",
                 );
-                /* BRAINSHARE STARTS */
-                // Rewrite annotation detail list
-                /*
                 positionGrid.style.gridTemplateColumns = `[icon] 0fr [copy] 0fr repeat(${layerRank}, [dim] 0fr [coord] 0fr) [move] 0fr [delete] 0fr`;
                 parent.appendChild(positionGrid);
 
@@ -2658,27 +2920,37 @@ export function UserLayerWithAnnotationsMixin<
                 }
                 */
 
-                positionGrid.style.gridTemplateColumns = `
-                  [icon] 0fr 
-                  [copy] 0fr 
-                  repeat(${layerRank}, [dim] 0fr [coord] 0fr) 
-                  [move] 0fr 
-                  [delete] 0fr
-                  [show] 0fr
-                `;
-                parent.appendChild(positionGrid);
+                // Rewrite annotation detail list
+                const addPositionGrid = () => {
+                  const positionGrid = document.createElement("div");
+                  positionGrid.classList.add(
+                    "neuroglancer-selected-annotation-details-position-grid",
+                  );
+                  positionGrid.style.gridTemplateColumns = `
+                    [icon] 0fr 
+                    [copy] 0fr 
+                    repeat(${layerRank}, [dim] 0fr [coord] 0fr) 
+                    [move] 0fr 
+                    [delete] 0fr
+                    [show] 0fr
+                  `;
+                  parent.appendChild(positionGrid);
+
+                  return positionGrid;
+                }
+
                 const addListEntry = (
-                  grid: HTMLDivElement, 
+                  div: HTMLDivElement,
                   annRef: AnnotationReference,
                 ) => {
                   const handler = annotationTypeHandlers[annRef.value!.type];
-                  const icon = makeIcon({ 
-                    text: handler.icon, 
+                  const icon = makeIcon({
+                    text: handler.icon,
                     title: "Select annotation",
                     onClick: () => {
                       this.selectAnnotation(
-                        annotationLayer, 
-                        annRef.value!.id, 
+                        annotationLayer,
+                        annRef.value!.id,
                         true
                       );
                     }
@@ -2686,7 +2958,7 @@ export function UserLayerWithAnnotationsMixin<
                   icon.classList.add(
                     "neuroglancer-selected-annotation-details-icon"
                   );
-                  grid.appendChild(icon);
+                  div.appendChild(icon);
 
                   if (layerRank !== 0) {
                     const { layerDimensionNames } = (
@@ -2699,25 +2971,33 @@ export function UserLayerWithAnnotationsMixin<
                       );
                       dimElement.textContent = layerDimensionNames[i];
                       dimElement.style.gridColumn = `dim ${i + 1}`;
-                      grid.appendChild(dimElement);
+                      div.appendChild(dimElement);
                     }
                     visitTransformedAnnotationGeometry(
                       annRef.value!,
                       chunkTransform as ChunkTransformParameters,
                       (layerPosition, isVector) => {
                         const copyButton = makeCopyButton({
-                          title: "Copy position",
+                          title: "Copy annotation",
                           onClick: () => {
+                            const dataSource = this.dataSources[0];
+                            if (dataSource === undefined) return;
+                            const transform = dataSource.spec.transform;
+                            if (transform === undefined) return;
+                            let inputCoordinateSpace = transform.inputSpace;
+                            if (inputCoordinateSpace === undefined) {
+                              inputCoordinateSpace = transform.outputSpace;
+                            }
                             const json = annotationToPortableJson(
-                              annRef.value!, 
+                              annRef.value!,
                               annotationLayer.source,
-                              this.manager.root.coordinateSpace.value,
+                              inputCoordinateSpace,
                             )
                             setClipboard(JSON.stringify(json));
                           },
                         });
                         copyButton.style.gridColumn = "copy";
-                        grid.appendChild(copyButton);
+                        div.appendChild(copyButton);
                         for (let i = 0; i < layerRank; ++i) {
                           const coordElement = document.createElement("div");
                           coordElement.classList.add(
@@ -2727,7 +3007,7 @@ export function UserLayerWithAnnotationsMixin<
                           coordElement.textContent = Math.floor(
                             layerPosition[i],
                           ).toString();
-                          grid.appendChild(coordElement);
+                          div.appendChild(coordElement);
                         }
                         if (!isVector) {
                           const moveButton = makeMoveToButton({
@@ -2741,161 +3021,147 @@ export function UserLayerWithAnnotationsMixin<
                             },
                           });
                           moveButton.style.gridColumn = "move";
-                          grid.appendChild(moveButton);
+                          div.appendChild(moveButton);
                         }
                       },
                     );
 
+                    const deleteButton = makeDeleteButton({
+                      title: "Delete annotation",
+                      onClick: () => {
+                        annotationLayer.source.delete(annRef);
+                      },
+                    });
+                    deleteButton.classList.add(
+                      "neuroglancer-selected-annotation-details-delete",
+                    );
+                    div.appendChild(deleteButton);
+
                     if (
-                      !annotationLayer.source.readonly && 
-                      !annRef.value!.parentAnnotationId
+                      !annotationLayer.source.readonly &&
+                      !annRef.value!.parentAnnotationId &&
+                      brainState.value && 
+                      userState.value 
                     ) {
-                      const deleteButton = makeDeleteButton({
-                        title: "Delete annotation",
+                      const uploadButton = makeIcon({
+                        svg: svg_upload,
+                        title: 'Upload annotation',
                         onClick: () => {
-                          annotationLayer.source.delete(annRef);
-                        },
-                      });
-                      deleteButton.classList.add(
-                        "neuroglancer-selected-annotation-details-delete",
-                      );
-                      positionGrid.appendChild(deleteButton);
-                      
-                      const isVisible = annotationLayer.source.getVisibility(
-                        annRef.value!.id,
-                      ) == 1.0;
-                      const hideButton = makeIcon({
-                        svg: svg_eye,
-                        title: 'Hide annotation',
-                        onClick: () => {
-                          annotationLayer.source.updateVisibility(annRef, 0.0);
-                          hideButton.style.display = 'none';
-                          hideButton.style.gridColumn = "";
-                          showButton.style.display = '';
-                          showButton.style.gridColumn = "visible";
+                          const dataSource = this.dataSources[0];
+                          if (dataSource === undefined) return;
+                          const transform = dataSource.spec.transform;
+                          if (transform === undefined) return;
+                          let inputCoordinateSpace = transform.inputSpace;
+                          if (inputCoordinateSpace === undefined) {
+                            inputCoordinateSpace = transform.outputSpace;
+                          }
+                          const ann = annRef.value!;
+                          const annJson = annotationToPortableJson(
+                            ann,
+                            annotationLayer.source,
+                            inputCoordinateSpace,
+                          )
+
+                          if (!brainState.value || !userState.value) return;
+
+                          const jsonBody = {
+                            id: Number(ann.sessionID),
+                            annotation: annJson,
+                            animal: brainState.value.animal,
+                            annotator: userState.value.id,
+                            label: ann.description || undefined,
+                          }
+                          console.log(jsonBody);
+                          fetchOk(
+                            APIs.GET_SET_ANNOTATION, { 
+                            method: "POST",
+                            credentials: 'omit',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(jsonBody, null, 0),
+                          }).then(
+                            response => response.json()
+                          ).then(json => {
+                            if (!json.id) throw new Error(
+                              "No session ID is returned!"
+                            );
+                            console.log(json.id);
+
+                            ann.sessionID = String(json.id);
+                            annotationLayer.source.update(reference, ann);
+                          }).catch(err => {
+                            console.log(err);
+                            StatusMessage.showTemporaryMessage(
+                              "There is an error in uploading the annotation."
+                            );
+                          })
                         }
                       });
-                      hideButton.style.display = isVisible ? '' : 'none';
-                      const showButton = makeIcon({
-                        svg: svg_eye_crossed,
-                        title: 'Show annotation',
-                        onClick: () => {
-                          annotationLayer.source.updateVisibility(annRef, 1.0);
-                          showButton.style.display = 'none';
-                          showButton.style.gridColumn = "";
-                          hideButton.style.display = '';
-                          hideButton.style.gridColumn = "visible";
-                        }
-                      });
-                      showButton.style.display = !isVisible ? '' : 'none';
-                      positionGrid.appendChild(showButton);
-                      positionGrid.appendChild(hideButton);
+                      div.appendChild(uploadButton);
                     }
                   }
                 }
-                
-                addListEntry(positionGrid, reference);
-                if (annotation.childAnnotationIds) {
-                  for (const childId of annotation.childAnnotationIds) {
-                    const childRef = annotationLayer.source.getReference(
-                      childId
-                    );
-                    addListEntry(positionGrid, childRef);
-                  }
-                }
+
+                const annotationGrid = addPositionGrid();
+                addListEntry(annotationGrid, reference);
 
                 if (
-                  reference.value && 
-                  reference.value.type === AnnotationType.VOLUME
+                  annotation.type === AnnotationType.VOLUME ||
+                  annotation.type === AnnotationType.CLOUD
                 ) {
                   const editButton = makeAddButton({
                     title: "Edit annotation",
                     onClick: () => {
-                      this.tool.value = new PlaceVolumeTool(
-                        this, 
-                        {}, 
-                        reference
-                      );
+                      if (!annotation) return;
+                      if (annotation.type === AnnotationType.VOLUME) {
+                        this.tool.value = new PlaceVolumeTool(
+                          this,
+                          {},
+                          reference
+                        );
+                      }
+                      else if (annotation.type === AnnotationType.CLOUD) {
+                        this.tool.value = new PlaceCloudTool(
+                          this,
+                          {},
+                          reference
+                        );
+                      }
                     },
                   });
                   editButton.style.gridColumn = "icon";
-                  positionGrid.appendChild(editButton);
+                  annotationGrid.appendChild(editButton);
 
-                  const pasteButton = makeIcon({ 
+                  const pasteButton = makeIcon({
                     svg: svg_clipBoard,
                     title: "Paste annotation from the system's clipboard",
                     onClick: () => {
-                      const coordinateSpace = this.manager.root.coordinateSpace
-                        .value;
-                      const position = this.manager.root.globalPosition.value;
+                      const dataSource = this.dataSources[0];
+                      if (dataSource === undefined) return;
+                      const transform = dataSource.spec.transform;
+                      if (transform === undefined) return;
                       navigator.clipboard.readText().then((text) => {
-                        let annotations: Annotation[];
-                        try {
-                          const json = JSON.parse(text);
-                          annotations = portableJsonToAnnotations(
-                            json,
-                            annotationLayer.source,
-                            coordinateSpace,
-                          );
-                        }
-                        catch (e) {
-                          StatusMessage.showTemporaryMessage(
-                            "The annotation to paste is invalid."
-                          );
-                          return;
-                        }
-
-                        if (annotations[0].type !== AnnotationType.POLYGON) {
-                          StatusMessage.showTemporaryMessage(
-                            "The annotation to paste is not a polygon."
-                          );
-                          return;
-                        }
-
-                        const center = new Float32Array(position.length);
-                        const translations = new Float64Array(position.length);
-                        getCenterPosition(center, annotations[0]);
-                        vector.subtract(translations, position, center);
-
-                        if (!isSectionValid(
-                          annotationLayer, 
-                          reference.id, 
-                          Math.floor(position[2]),
-                        )) {
-                          StatusMessage.showTemporaryMessage(
-                            "A polygon already exists in this section for the \
-                            volume, only one polygon per section is allowed \
-                            for a volume."
-                          );
-                          return;
-                        }
-
-                        for (let i = 0; i < annotations.length; i++) {
-                          const newAnnotation = translateAnnotationPoints(
-                            annotations[i],
-                            translations
-                          );
-                          annotationLayer.source.add(
-                            newAnnotation,
-                            /*commit=*/ true,
-                            i == 0 ? reference : undefined,
-                          );
-                        }
+                        pasteAnnotation(
+                          text,
+                          annotationLayer.source,
+                          transform,
+                          this.manager.root.globalPosition.value,
+                          reference,
+                        );
                       });
                     },
                   });
                   pasteButton.style.gridColumn = "copy";
-                  positionGrid.appendChild(pasteButton);
+                  annotationGrid.appendChild(pasteButton);
                 }
-                /* BRAINSHARE ENDS */
+
+                /*
                 const { relationships, properties } = annotationLayer.source;
                 const sourceReadonly = annotationLayer.source.readonly;
 
                 for (let i = 0, count = properties.length; i < count; ++i) {
                   const property = properties[i];
-                  /* BRAINSHARE STARTS */
-                  // Rewrite annotation property list
-                  /*
                   const label = document.createElement("label");
                   label.classList.add("neuroglancer-annotation-property");
                   const idElement = document.createElement("span");
@@ -2946,82 +3212,185 @@ export function UserLayerWithAnnotationsMixin<
                   }
                   label.appendChild(valueElement);
                   parent.appendChild(label);
-                  */
-                  const { identifier, description, type } = property;
-                  const propertyDiv = document.createElement("div");
-                  propertyDiv.classList.add(
-                    "neuroglancer-annotation-property"
+                }
+                */
+
+                // Annotation labels (description)
+                const labelsDiv = document.createElement("div");
+                labelsDiv.style.display = "flex";
+                labelsDiv.style.flexDirection = "column";
+                parent.appendChild(labelsDiv);
+
+                if (annotation.description) {
+                  const labels = annotation.description.split("\n").filter(
+                    x => x !== ""
                   );
+                  for (let i = 0; i < labels.length; i++) {
+                    const labelDiv = document.createElement("div");
+                    labelDiv.style.display = "flex";
+                    labelDiv.style.flexDirection = "row";
+                    labelDiv.style.justifyContent = "space-between";
+                    labelsDiv.appendChild(labelDiv);
 
-                  const idDiv = document.createElement("div");
-                  idDiv.textContent = identifier.replace(/_/g, " ");
-                  if (description !== undefined) idDiv.title = description;
-                  propertyDiv.appendChild(idDiv);
+                    const labelTextDiv = document.createElement("div");
+                    labelTextDiv.className =
+                      "neuroglancer-annotation-details-description";
+                    labelTextDiv.textContent = labels[i] || "";
+                    labelDiv.appendChild(labelTextDiv);
 
-                  let valueInput: HTMLInputElement;
-                  const value = annotation.properties[i];
-                  if (type === "rgb" || type === "rgba") {
-                    const colorVec = unpackRGB(annotation.properties[i]);
-                    valueInput = document.createElement("input");
-                    valueInput.classList.add(
-                      "neuroglancer-annotation-property-color-input"
-                    );
-                    valueInput.type = "color";
-                    valueInput.value = serializeColor(colorVec);
-                    valueInput.style.color = serializeColor(colorVec);
-                    valueInput.style.backgroundColor = serializeColor(colorVec);
-                    valueInput.addEventListener("change", () => {
-                      const colorNum = packColor(
-                        parseRGBColorSpecification(valueInput.value)
-                      )
-                      annotationLayer.source.updateColor(reference, colorNum);
-                    });
+                    const labelDeleteButton = makeDeleteButton({
+                      title: "Delete annotation label",
+                      onClick: () => {
+                        labels.splice(i, 1);
+                        const description = labels.join("\n");
+                        annotationLayer.source.update(reference, {
+                          ...annotation!,
+                          description: description ? description : undefined,
+                        });
+                      },
+                    })
+                    labelDiv.appendChild(labelDeleteButton);
                   }
-                  else {
-                    const { min, max, step } = (
-                      <AnnotationNumericPropertySpec> property
-                    )
-                    valueInput = document.createElement("input");
-                    valueInput.classList.add(
-                      "neuroglancer-annotation-property-value-input"
-                    );
-                    valueInput.type = "number";
-                    valueInput.value = formatNumericProperty(
-                      <AnnotationNumericPropertySpec>property, 
-                      value,
-                    );
-                    if (min !== undefined) valueInput.min = min.toString();
-                    if (max !== undefined) valueInput.max = max.toString();
-                    if (step !== undefined) valueInput.step = step.toString();
+                }
 
-                    valueInput.addEventListener("change", () => {
-                      let newValue = parseFloat(valueInput.value);
-                      if (Number.isNaN(newValue)) newValue = value
-                      if (min !== undefined && newValue < min) newValue = min;
-                      if (max !== undefined && newValue > max) newValue = max;
-                      
-                      if (step !== undefined) {
-                        newValue = Math.floor(newValue / step) * step;
+                const addLabelToDescription = (label: string) => {
+                  if (!annotation) return;
+                  const newDescription = (
+                    annotation.description || ""
+                  ) + "\n" + label;
+                  annotationLayer.source.update(reference, {
+                    ...annotation!,
+                    description: newDescription ? newDescription : undefined,
+                  });
+                }
+                
+                if (userState.value && userState.value.id !== 0) {
+                  const searchAnnotationLabels = new AnnotationSearchBar({
+                    completer: (
+                      value: string,
+                      _cancellationToken: CancellationToken
+                    ) => {
+                      const defaultCompletionResult = {
+                        completions: [],
+                        offset: 0,
+                        showSingleResult: false,
+                        selectSingleResult: false,
+                        makeElement: makeAnnotationCompletionElement,
                       }
+                      return fetchOk(
+                        APIs.GET_ANNOTATION_LABELS + value,
+                        { method: "GET" },
+                      ).then(
+                        response => response.json()
+                      ).then(json => {
+                        if (!Array.isArray(json)) throw new Error(
+                          "JSON is not an array"
+                        );
 
-                      annotationLayer.source.updateProperty(
-                        reference, 
-                        identifier,
-                        newValue,
+                        return {
+                          ...defaultCompletionResult,
+                          completions: json.map((label: any) => ({
+                            value: label.label,
+                            description: label.label_type,
+                          })),
+                        };
+                      }).catch(err => {
+                        console.log(err);
+                        StatusMessage.showTemporaryMessage(
+                          "There is an error in searching annotations labels."
+                        );
+                        return defaultCompletionResult;
+                      })
+                    },
+                    selectCompletion: (completion) => {
+                      addLabelToDescription(completion.value);
+                    },
+                    placeHolder: "Add annotation labels"
+                  });
+                  labelsDiv.appendChild(searchAnnotationLabels.element);
+                }
+
+                // Rewrite annotation property list
+                const { relationships, properties } = annotationLayer.source;
+                const sourceReadonly = annotationLayer.source.readonly;
+                if (!annotation.parentAnnotationId) {
+                  for (let i = 0, count = properties.length; i < count; ++i) {
+                    const property = properties[i];
+                    const { identifier, description, type } = property;
+                    const propertyDiv = document.createElement("div");
+                    propertyDiv.classList.add(
+                      "neuroglancer-annotation-property"
+                    );
+
+                    const idDiv = document.createElement("div");
+                    idDiv.textContent = identifier.replace(/_/g, " ");
+                    if (description !== undefined) idDiv.title = description;
+                    propertyDiv.appendChild(idDiv);
+
+                    let valueInput: HTMLInputElement;
+                    const value = annotation.properties[i];
+                    if (type === "rgb" || type === "rgba") {
+                      const colorVec = unpackRGB(annotation.properties[i]);
+                      valueInput = document.createElement("input");
+                      valueInput.classList.add(
+                        "neuroglancer-annotation-property-color-input"
                       );
+                      valueInput.type = "color";
+                      valueInput.value = serializeColor(colorVec);
+                      valueInput.style.color = serializeColor(colorVec);
+                      valueInput.style.backgroundColor = serializeColor(colorVec);
+                      valueInput.addEventListener("change", () => {
+                        const colorNum = packColor(
+                          parseRGBColorSpecification(valueInput.value)
+                        )
+                        annotationLayer.source.updateColor(reference, colorNum);
+                      });
+                    }
+                    else {
+                      const { min, max, step } = (
+                        <AnnotationNumericPropertySpec>property
+                      )
+                      valueInput = document.createElement("input");
+                      valueInput.classList.add(
+                        "neuroglancer-annotation-property-value-input"
+                      );
+                      valueInput.type = "number";
                       valueInput.value = formatNumericProperty(
-                        <AnnotationNumericPropertySpec>property, 
+                        <AnnotationNumericPropertySpec>property,
                         value,
                       );
-                    });
-                  }
+                      if (min !== undefined) valueInput.min = min.toString();
+                      if (max !== undefined) valueInput.max = max.toString();
+                      if (step !== undefined) valueInput.step = step.toString();
 
-                  if (reference.value && reference.value.parentAnnotationId) {
-                    valueInput.disabled = true;
-                  };                          
-                  propertyDiv.appendChild(valueInput);
-                  parent.appendChild(propertyDiv);
-                  /* BRAINSHARE ENDS */
+                      valueInput.addEventListener("change", () => {
+                        let newValue = parseFloat(valueInput.value);
+                        if (Number.isNaN(newValue)) newValue = value
+                        if (min !== undefined && newValue < min) newValue = min;
+                        if (max !== undefined && newValue > max) newValue = max;
+
+                        if (step !== undefined) {
+                          newValue = Math.floor(newValue / step) * step;
+                        }
+
+                        annotationLayer.source.updateProperty(
+                          reference,
+                          identifier,
+                          newValue,
+                        );
+                        valueInput.value = formatNumericProperty(
+                          <AnnotationNumericPropertySpec>property,
+                          value,
+                        );
+                      });
+                    }
+
+                    if (reference.value && reference.value.parentAnnotationId) {
+                      valueInput.disabled = true;
+                    };
+                    propertyDiv.appendChild(valueInput);
+                    parent.appendChild(propertyDiv);
+                  }
                 }
 
                 const { relatedSegments } = annotation;
@@ -3042,35 +3411,37 @@ export function UserLayerWithAnnotationsMixin<
                         sourceReadonly
                           ? undefined
                           : (newIds) => {
-                              const annotation = reference.value;
-                              if (annotation == null) {
-                                return;
-                              }
-                              let { relatedSegments } = annotation;
-                              if (relatedSegments === undefined) {
-                                relatedSegments =
-                                  annotationLayer.source.relationships.map(
-                                    () => [],
-                                  );
-                              } else {
-                                relatedSegments = relatedSegments.slice();
-                              }
-                              relatedSegments[relationshipIndex] = newIds;
-                              const newAnnotation = {
-                                ...annotation,
-                                relatedSegments,
-                              };
-                              annotationLayer.source.update(
-                                reference,
-                                newAnnotation,
-                              );
-                              annotationLayer.source.commit(reference);
-                            },
+                            const annotation = reference.value;
+                            if (annotation == null) {
+                              return;
+                            }
+                            let { relatedSegments } = annotation;
+                            if (relatedSegments === undefined) {
+                              relatedSegments =
+                                annotationLayer.source.relationships.map(
+                                  () => [],
+                                );
+                            } else {
+                              relatedSegments = relatedSegments.slice();
+                            }
+                            relatedSegments[relationshipIndex] = newIds;
+                            const newAnnotation = {
+                              ...annotation,
+                              relatedSegments,
+                            };
+                            annotationLayer.source.update(
+                              reference,
+                              newAnnotation,
+                            );
+                            annotationLayer.source.commit(reference);
+                          },
                       ),
                     ).element,
                   );
                 }
 
+                // Remove description input
+                /*
                 if (
                   !annotationLayer.source.readonly ||
                   annotation.description
@@ -3099,6 +3470,42 @@ export function UserLayerWithAnnotationsMixin<
                     parent.appendChild(description);
                   }
                 }
+                */
+
+                // Add parent annotation 
+                if (annotation.parentAnnotationId) {
+                  const parentAnnotationTitleDiv = document.createElement("div");
+                  parentAnnotationTitleDiv.classList.add(
+                    "neuroglancer-selection-details-layer-title"
+                  );
+                  parentAnnotationTitleDiv.textContent = "parent annotation";
+                  parent.appendChild(parentAnnotationTitleDiv);
+
+                  const parentGrid = addPositionGrid();
+                  const parentRef = annotationLayer.source.getReference(
+                    annotation.parentAnnotationId
+                  );
+                  addListEntry(parentGrid, parentRef);
+                }
+
+                // Add child annotation section
+                if (annotation.childAnnotationIds) {
+                  const childAnnotationTitleDiv = document.createElement("div");
+                  childAnnotationTitleDiv.classList.add(
+                    "neuroglancer-selection-details-layer-title"
+                  );
+                  childAnnotationTitleDiv.textContent = "child annotations";
+                  parent.appendChild(childAnnotationTitleDiv);
+
+                  const childrenGrid = addPositionGrid();
+                  for (const childId of annotation.childAnnotationIds) {
+                    const childRef = annotationLayer.source.getReference(
+                      childId
+                    );
+                    addListEntry(childrenGrid, childRef);
+                  }
+                }
+                /* BRAINSHARE ENDS */
               }
               if (statusText !== undefined) {
                 const statusMessage = document.createElement("div");

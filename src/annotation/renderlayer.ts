@@ -21,8 +21,7 @@ import "#/annotation/ellipsoid";
 /* BRAINSHARE STARTS */
 import "#/annotation/polygon";
 import "#/annotation/volume";
-import "#/annotation/cell";
-import "#/annotation/com";
+import "#/annotation/cloud";
 /* BRAINSHARE ENDS */
 
 import {

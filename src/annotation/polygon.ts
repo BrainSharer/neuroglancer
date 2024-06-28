@@ -286,7 +286,7 @@ function cloneAnnotation(
   if (ann.parentAnnotationId) {
     const zCoordinate = getZCoordinate(cloneSource);
     if (zCoordinate !== undefined && !isSectionValid(
-      annotationLayer, 
+      annotationLayer.source, 
       ann.parentAnnotationId, 
       zCoordinate
     )) {

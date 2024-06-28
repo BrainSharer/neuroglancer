@@ -4,6 +4,7 @@
 
 import {
   AnnotationReference,
+  AnnotationSource,
   AnnotationType,
   Polygon,
   Volume
@@ -13,7 +14,7 @@ import {
   AnnotationRenderHelper,
   registerAnnotationTypeRenderHandler
 } from '#/annotation/type_handler';
-import { AnnotationLayerState } from './annotation_layer_state';
+import { MultiscaleAnnotationSource } from './frontend_source';
 import { getZCoordinate } from './polygon';
 
 /**
@@ -46,31 +47,51 @@ registerAnnotationTypeRenderHandler<Volume>(AnnotationType.VOLUME, {
 });
 
 /**
+ * This function takes a volume id as input and returns child polygons
+ * @param annotationSource The annotation source object of the volume
+ * @param id volume id
+ * @returns If success, returns he array of child polygons. 
+ */
+export function getPolygonsByVolumeId(
+  annotationSource: AnnotationSource | MultiscaleAnnotationSource,
+  id: string, 
+): Polygon[] | undefined {
+  const reference = annotationSource.getReference(id);
+  if (!reference.value || reference.value.type !== AnnotationType.VOLUME) {
+    return undefined;
+  }
+  const childIds = reference.value.childAnnotationIds;
+
+  const polygons: Polygon[] = [];
+  for (let i = 0; i < childIds.length; i++) {
+    const childId = childIds[i];
+    const childRef = annotationSource.getReference(childId);
+    if (!childRef.value) continue;
+    polygons.push(<Polygon>(childRef.value));
+  }
+
+  return polygons;
+}
+
+/**
  * This function takes a volume id as input and finds if there is a polygon 
  * already present at the input zCoordiante, if the polygon is present returns 
  * false
- * @param annotationLayer The annotation layer state object of the layer in 
- * which polygon is drawn.
+ * @param annotationSource The annotation source object of the volume
  * @param id volume id
  * @param zCoordinate z coordinate input.
  * @returns True, if polygon is not present otherwise false.
  */
 export function isSectionValid(
-  annotationLayer: AnnotationLayerState, 
+  annotationSource: AnnotationSource | MultiscaleAnnotationSource,
   id: string, 
   zCoordinate: number
 ): boolean {
-  const reference = annotationLayer.source.getReference(id);
-  if (!reference.value || reference.value.type !== AnnotationType.VOLUME) {
-    return false;
-  }
-  const childIds = reference.value.childAnnotationIds;
+  const polygons = getPolygonsByVolumeId(annotationSource, id);
+  if (!polygons) return true;
 
-  for (let idx = 0; idx < childIds.length; idx++) {
-    const childId = childIds[idx];
-    const childRef = annotationLayer.source.getReference(childId);
-    if (!childRef.value) continue;
-    const polygon = <Polygon>(childRef.value);
+  for (let i = 0; i < polygons.length; i++) {
+    const polygon = polygons[i];
     if (getZCoordinate(polygon.source) === zCoordinate) {
       return false;
     }

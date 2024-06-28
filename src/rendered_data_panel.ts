@@ -18,7 +18,9 @@ import "#/rendered_data_panel.css";
 import "#/noselect.css";
 
 /* BRAINSHARE STARTS */
-// import { Annotation } from "#/annotation";
+/*
+import { Annotation } from "#/annotation";
+*/
 import { 
   Annotation, 
   AnnotationReference, 
@@ -744,6 +746,13 @@ export abstract class RenderedDataPanel extends RenderedPanel {
                     });
                   }
                 }
+                else if (parAnn.type === AnnotationType.CLOUD) {
+                  pickedAnnotations.push({
+                    pickedAnnRef: annotationRef,
+                    pickedRepPoint: repPoint,
+                    pickedPartIndex: pickedOffset, 
+                  });
+                }
               }
             }
             /* BRAINSHARE ENDS */
@@ -1123,10 +1132,10 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           if (layer.state.annotationId === undefined) continue;
           const userLayerWithAnnotations = <UserLayerWithAnnotations>layer.layer;
           const annotationLayer = userLayerWithAnnotations
-          .annotationStates.states.find(
-            x => x.sourceIndex === layer.state.annotationSourceIndex && (
-              layer.state.annotationSubsource === undefined || 
-              x.subsourceId === layer.state.annotationSubsource
+            .annotationStates.states.find(
+              x => x.sourceIndex === layer.state.annotationSourceIndex && (
+                layer.state.annotationSubsource === undefined || 
+                x.subsourceId === layer.state.annotationSubsource
             ));
           if (annotationLayer === undefined) continue;
 
@@ -1152,8 +1161,9 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           return;
         }
 
-        const reference = selectedAnnotationLayer
-          .source.getNonDummyAnnotationReference(selectedAnnotationId);
+        const reference = selectedAnnotationLayer.source.getReference(
+          selectedAnnotationId
+        );
         if (
           !reference.value || 
           reference.value!.type != AnnotationType.POLYGON

@@ -16,9 +16,6 @@
 
 import { EventActionMap } from "#/util/event_action_map";
 import { InputEventBindings } from "#/viewer";
-/* BRAINSHARE STARTS */
-import { RefCounted } from "#/util/disposable";
-/* BRAINSHARE ENDS */
 
 let defaultGlobalBindings: EventActionMap | undefined;
 
@@ -114,7 +111,7 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:wheel": { action: "z+1-via-wheel", preventDefault: true },
         "at:shift+wheel": { action: "z+10-via-wheel", preventDefault: true },
         "at:dblclick0": "select",
-        "at:shift+dblclick0": "star",
+        // "at:shift+dblclick0": "star",
         "at:control+mousedown0": "annotate",
         "at:mousedown2": "move-to-mouse-position",
         "at:alt+mousedown0": "move-annotation",
@@ -128,8 +125,8 @@ export function getDefaultRenderedDataPanelBindings() {
         /* BRAINSHARE STARTS */
         "at:enter": "complete-annotation",
         "at:escape": "undo-annotation",
-        "at:control+shift+mousedown0": "add-vertex-polygon",
-        "at:control+shift+mousedown2": "delete-vertex-polygon",
+        "at:shift+dblclick0": "add-vertex-polygon",
+        "at:shift+mousedown2": "delete-vertex-polygon",
         "at:shift+keyr": "rotate-polygon-z+",
         "at:shift+keye": "rotate-polygon-z-",
         "at:shift+equal": "scale-polygon-enlarge",
@@ -211,163 +208,3 @@ export function setDefaultInputEventBindings(
     Number.NEGATIVE_INFINITY,
   );
 }
-
-/* BRAINSHARE STARTS */
-export let polygonDrawModeBindings: EventActionMap|undefined;
-export function getPolygonDrawModeBindings() {
-  if (polygonDrawModeBindings === undefined) {
-    polygonDrawModeBindings = EventActionMap.fromObject(
-      {
-        // "at:control+mousedown0": "annotate",
-        // "at:enter": "complete-annotation",
-        // "at:escape": "undo-annotation",
-        // "at:alt+mousedown0": "move-polygon-annotation",
-        // "at:shift+alt+mousedown0": "move-polygon-vertex",
-        // "at:shift+mousedown0": "add-vertex-polygon",
-        // "at:shift+mousedown2": "delete-vertex-polygon",
-        // "at:shift+keyr": "rotate-polygon-z+",
-        // "at:shift+keye": "rotate-polygon-z-",
-        // "at:shift+equal": "scale-polygon-enlarge",
-        // "at:shift+minus": "scale-polygon-shrink",
-
-        // "at:mousedown0": "annotate",
-        // "at:mousedown2": "complete-annotation",
-        // "at:keyz": "undo-annotation",
-        // "at:control+keyc": "clone-polygon-annotation",
-
-        // "at:control+mousedown0": "move-polygon-vertex",
-        // "at:control+alt+mousedown0": "add-vertex-polygon",
-        // "at:control+alt+mousedown2": "delete-vertex-polygon",
-        // "at:shift+mousedown0": "move-polygon-annotation",
-        // "at:keyr": "rotate-polygon-z+",
-        // "at:keye": "rotate-polygon-z-",
-      }
-    );
-  }
-  return polygonDrawModeBindings;
-}
-
-
-export let polygonEditModeBindings: EventActionMap|undefined;
-export function getPolygonEditModeBindings() {
-  if (polygonEditModeBindings === undefined) {
-    polygonEditModeBindings = EventActionMap.fromObject(
-      {
-        "at:mousedown0": "move-polygon-vertex",
-        "at:control+alt+mousedown0": "add-vertex-polygon",
-        "at:control+alt+mousedown2": "delete-vertex-polygon",
-        // "at:control+shift+mousedown0": "delete-polygon",
-        "at:shift+mousedown0": "move-polygon-annotation",
-        "at:keyr": "rotate-polygon-z+",
-        "at:keye": "rotate-polygon-z-",
-        "control+equal": "scale-polygon-enlarge",
-        "control+shift+equal": "scale-polygon-enlarge",
-        "control+minus": "scale-polygon-shrink",
-        "control+shift-minus": "scale-polygon-shrink",
-        "at:touchrotate": "rotate-polygon-via-touchrotate",
-        "at:touchpinch": "zoom-polygon-via-touchpinch",
-        "at:control+keyc": "clone-polygon-annotation",
-      }
-    );
-  }
-  return polygonEditModeBindings;
-}
-
-export let pointDrawModeBindings: EventActionMap|undefined;
-export function getPointDrawModeBindings() {
-  if (pointDrawModeBindings === undefined) {
-    pointDrawModeBindings = EventActionMap.fromObject(
-      {
-        "at:mousedown0": "annotate",
-        "at:control+mousedown0": "move-point-annotation",
-      }
-    );
-  }
-  return pointDrawModeBindings;
-}
-
-
-export let pointEditModeBindings: EventActionMap|undefined;
-export function getPointEditModeBindings() {
-  if (pointEditModeBindings === undefined) {
-    pointEditModeBindings = EventActionMap.fromObject(
-      {
-        "at:mousedown0": "move-point-annotation",
-      }
-    );
-  }
-  return pointEditModeBindings;
-}
-
-export function setPolygonDrawModeInputEventBindings<T extends RefCounted> (
-  bindingsRef: T, 
-  inputEventBindings: InputEventBindings
-) {
-  bindingsRef.registerDisposer(
-    inputEventBindings.sliceView.addParent(
-      getPolygonDrawModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-  bindingsRef.registerDisposer(
-    inputEventBindings.perspectiveView.addParent(
-      getPolygonDrawModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-}
-
-export function setPolygonEditModeInputEventBindings<T extends RefCounted> (
-  bindingsRef: T,
-  inputEventBindings: InputEventBindings
-) {
-  bindingsRef.registerDisposer(
-    inputEventBindings.sliceView.addParent(
-      getPolygonEditModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-  bindingsRef.registerDisposer(
-    inputEventBindings.perspectiveView.addParent(
-      getPolygonEditModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-}
-
-export function setPointDrawModeInputEventBindings<T extends RefCounted> (
-  bindingsRef: T, 
-  inputEventBindings: InputEventBindings
-) {
-  bindingsRef.registerDisposer(
-    inputEventBindings.sliceView.addParent(
-      getPointDrawModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-  bindingsRef.registerDisposer(
-    inputEventBindings.perspectiveView.addParent(
-      getPointDrawModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-}
-
-export function setPointEditModeInputEventBindings<T extends RefCounted> (
-  bindingsRef: T,
-  inputEventBindings: InputEventBindings
-) {
-  bindingsRef.registerDisposer(
-    inputEventBindings.sliceView.addParent(
-      getPointEditModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-  bindingsRef.registerDisposer(
-    inputEventBindings.perspectiveView.addParent(
-      getPointEditModeBindings(), 
-      Number.NEGATIVE_INFINITY + 1
-    )
-  );
-}
-/* BRAINSHARE ENDS */

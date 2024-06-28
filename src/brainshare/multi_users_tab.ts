@@ -9,7 +9,7 @@ import { getCachedJson, Trackable } from "#/util/trackable";
 import { makeIcon } from "#/widget/icon";
 import { Tab } from "#/widget/tab_view";
 import { WatchableValue } from "#/trackable_value";
-import { StateAPI } from "./state_utils";
+import { brainState, userState } from "./state_utils";
 import { db } from "./firestore";
 import { verifyObject } from "src/util/json";
 
@@ -86,16 +86,15 @@ export class MultiUsersTab extends Tab {
 
   constructor(
     private viewerState: Trackable,
-    private stateAPI: StateAPI,
   ) {
     super();
 
     this.init_ui();
 
-    this.stateAPI.userState.changed.add(() => {
+    userState.changed.add(() => {
       this.stateUpdated();
     });
-    this.stateAPI.brainState.changed.add(() => {
+    brainState.changed.add(() => {
       this.stateUpdated();
     });
     this.multiUsersState.changed.add(() => {
@@ -129,19 +128,17 @@ export class MultiUsersTab extends Tab {
   }
 
   private stateUpdated() {
-    if (this.stateAPI.userState.value !== null) {
-      const userState = this.stateAPI.userState.value;
-      if (userState.id === 0) {
+    if (userState.value !== null) {
+      if (userState.value.id === 0) {
         // Detach user change listener
         if (this.usersListenerDetach !== undefined) {
           this.usersListenerDetach();
         }
       }
       else {
-        const brainState = this.stateAPI.brainState.value;
-        if (brainState !== null) {
-          const username = String(userState.username);
-          const state_id = String(brainState.id);
+        if (brainState.value !== null) {
+          const username = String(userState.value.username);
+          const state_id = String(brainState.value.id);
 
           this.throttledUpdateStateToFirebase = debounce(() => {
             const cacheState = getCachedJson(this.viewerState);

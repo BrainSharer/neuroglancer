@@ -49,10 +49,7 @@ import {
   parseShaderUiControls,
   ShaderControlState,
 } from "#/webgl/shader_ui_controls";
-/* BRAINSHARE STARTS */
-// import { DataType } from "../util/data_type";
-import { DataType } from "#/util/data_type";
-/* BRAINSHARE ENDS */
+import { DataType } from "../util/data_type";
 
 export class AnnotationHoverState extends WatchableValue<
   | {
@@ -126,23 +123,14 @@ export class WatchableAnnotationRelationshipStates extends WatchableMap<
 }
 
 /* BRAINSHARE STARTS */
-// const DEFAULT_FRAGMENT_MAIN = `
-// void main() {
-//   setColor(defaultColor());
-// }
-// `;
+/*
 const DEFAULT_FRAGMENT_MAIN = `
-// #uicontrol float cell_vertex_size slider(min=0, max=10, default=1)
-// #uicontrol float cell_vertex_border_width slider(min=0, max=5, default=1)
-// #uicontrol float cell_opacity slider(min=0, max=1, default=1)
-// #uicontrol float com_vertex_size slider(min=0, max=10, default=1)
-// #uicontrol float com_vertex_border_width slider(min=0, max=5, default=1)
-// #uicontrol float com_opacity slider(min=0, max=1, default=1)
-// #uicontrol float polygon_vertex_size slider(min=0, max=10, default=7)
-// #uicontrol float polygon_vertex_border_width slider(min=0, max=5, default=3)
-// #uicontrol float polygon_opacity slider(min=0, max=1, default=1)
-// #uicontrol float polygon_line_width slider(min=0, max=5, default=1)
-
+void main() {
+  setColor(defaultColor());
+}
+`;
+*/
+const DEFAULT_FRAGMENT_MAIN = `
 void main() {
   setColor(prop_color());
 
@@ -159,21 +147,6 @@ void main() {
   setEndpointMarkerSize(prop_point_size());
   setEndpointMarkerBorderWidth(prop_point_border_width());
   setLineWidth(prop_line_width());
-  
-  // setComVisibility(prop_visibility());
-  // setCellVisibility(prop_visibility());
-  
-  // setCellMarkerSize(cell_vertex_size);
-  // setCellMarkerBorderWidth(cell_vertex_border_width);
-  // setCellOpacity(cell_opacity);
-  // setComMarkerSize(com_vertex_size);
-  // setComMarkerBorderWidth(com_vertex_border_width);
-  // setComOpacity(com_opacity);
-  // setEndpointMarkerSize(polygon_vertex_size);
-  // setEndpointMarkerBorderWidth(polygon_vertex_border_width);
-  // setEndpointOpacity(polygon_opacity);
-  // setLineOpacity(polygon_opacity);
-  // setLineWidth(polygon_line_width);
 }
 `;
 /* BRAINSHARE ENDS */

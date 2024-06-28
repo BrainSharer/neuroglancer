@@ -1,9 +1,5 @@
 import "#/ui/layer_side_panel.css";
 
-import svg_exit from "ikonate/icons/exit.svg";
-import svg_entrance from "ikonate/icons/entrance.svg";
-import svg_controls from "ikonate/icons/controls.svg";
-
 import { SidePanel, SidePanelManager } from "#/ui/side_panel";
 import { Tab, TabView } from "#/widget/tab_view";
 import { makeIcon } from "#/widget/icon";
@@ -18,8 +14,12 @@ import { MultiUsersTab } from "./multi_users_tab";
 import { Trackable } from "#/util/trackable";
 import { StateTab  } from "./state_tab";
 import { APIs } from "./service";
-import { StateAPI } from "./state_utils";
 import { emptyToUndefined } from "#/util/json";
+import svg_exit from "ikonate/icons/exit.svg";
+import svg_entrance from "ikonate/icons/entrance.svg";
+import svg_language from "ikonate/icons/language.svg";
+import { userState } from "./state_utils";
+
 
 const DEFAULT_USER_SIDE_PANEL_LOCATION: SidePanelLocation = {
   ...DEFAULT_SIDE_PANEL_LOCATION,
@@ -90,15 +90,13 @@ export class UserSidePanel extends SidePanel {
     title: "logout",
   });
   portalButton = makeIcon({
-    svg: svg_controls,
+    svg: svg_language,
     title: "admin portal",
   });
 
   tabView: TabView;
   stateTab: StateTab;
   multiUsersTab: MultiUsersTab;
-
-  stateAPI: StateAPI;
 
   constructor(
     sidePanelManager: SidePanelManager,
@@ -107,11 +105,9 @@ export class UserSidePanel extends SidePanel {
   ) {
     super(sidePanelManager, panelState.location);
 
-    this.stateAPI = new StateAPI(`${APIs.API_ENDPOINT}/neuroglancer`);
-
     this.init_ui();
 
-    this.stateAPI.userState.changed.add(() => {
+    userState.changed.add(() => {
       this.stateUpdated();
     });
 
@@ -147,8 +143,8 @@ export class UserSidePanel extends SidePanel {
     this.titleBar.appendChild(this.portalButton);
 
     // TabView
-    this.stateTab = new StateTab(this.viewerState, this.stateAPI);
-    this.multiUsersTab = new MultiUsersTab(this.viewerState, this.stateAPI);
+    this.stateTab = new StateTab(this.viewerState);
+    this.multiUsersTab = new MultiUsersTab(this.viewerState);
     this.tabView = new TabView(
       {
         makeTab: (id) => {
@@ -182,9 +178,8 @@ export class UserSidePanel extends SidePanel {
   }
 
   private stateUpdated() {
-    const userState = this.stateAPI.userState.value;
-    if (userState !== null) {
-      if (userState.id === 0) {
+    if (userState.value !== null) {
+      if (userState.value.id === 0) {
         if (this.titleElement !== undefined) {
           this.titleElement.textContent = "Please log in";
         }
@@ -194,7 +189,7 @@ export class UserSidePanel extends SidePanel {
       }
       else {
         if (this.titleElement !== undefined) {
-          this.titleElement.textContent = userState.username;
+          this.titleElement.textContent = userState.value.username;
         }
         this.loginButton.style.display = "none";
         this.logoutButton.style.display = "block";
