@@ -176,10 +176,15 @@ export function getDefaultSliceViewPanelBindings() {
           action: "translate-via-mouse-drag",
           stopPropagation: true,
         },
+        /* BRAINSHARE STARTS */
+        // Remove it for misusing
+        /*
         "at:shift+mousedown0": {
           action: "rotate-via-mouse-drag",
           stopPropagation: true,
         },
+        */
+        /* BRAINSHARE ENDS */
         "at:touchtranslate1": "translate-z-via-touchtranslate",
       },
       {

@@ -3,37 +3,49 @@
 SERVICE_PATH="./src/brainshare/service.ts"
 SERVICE_PRODUCTION=$(cat <<'EOF'
 export const APIs = {
-  IMAGESERVER_API_ENDPOINT: 'https://imageserv.dk.ucsd.edu/brainsharer',
-  API_ENDPOINT: 'https://www.brainsharer.org/brainsharer',
-  GOOGLE_LOGIN: 'https://www.brainsharer.org/brainsharer/accounts/google/login/?next=',
-  LOCAL_LOGIN: 'https://www.brainsharer.org/brainsharer/admin/login/?next=',
-  LOGOUT: 'https://www.brainsharer.org/brainsharer/local/logout/',
-  ADMIN_PORTAL: 'https://www.brainsharer.org/brainsharer/admin/',
-  REFRESH_TOKEN: 'https://www.brainsharer.org/brainsharer/api-token-refresh/',
+  IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
+  API_ENDPOINT: "https://brainsharer.org/brainsharer",
+  GOOGLE_LOGIN: "https://brainsharer.org/brainsharer/accounts/google/login/?next=",
+  LOCAL_LOGIN: "https://brainsharer.org/brainsharer/admin/login/?next=",
+  LOGOUT: "https://brainsharer.org/brainsharer/local/logout/",
+  ADMIN_PORTAL: "https://brainsharer.org/brainsharer/admin/",
+  REFRESH_TOKEN: "https://brainsharer.org/brainsharer/api-token-refresh/",
+  GET_SET_STATE: "https://brainsharer.org/brainsharer/neuroglancer/",
+  GET_SET_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/",
+  SEARCH_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/search/",
+  GET_ANNOTATION_LABELS: "https://brainsharer.org/brainsharer/annotations/labels/",
 };
 EOF
 )
 SERVICE_DEMO=$(cat <<'EOF'
 export const APIs = {
-  IMAGESERVER_API_ENDPOINT: 'https://imageserv.dk.ucsd.edu/brainsharer',
-  API_ENDPOINT: 'https://demo.brainsharer.org/brainsharer',
-  GOOGLE_LOGIN: 'https://demo.brainsharer.org/brainsharer/accounts/google/login/?next=',
-  LOCAL_LOGIN: 'https://demo.brainsharer.org/brainsharer/admin/login/?next=',
-  LOGOUT: 'https://demo.brainsharer.org/local/logout',
-  ADMIN_PORTAL: 'https://demo.brainsharer.org/brainsharer/admin/',
-  REFRESH_TOKEN: 'https://demo.brainsharer.org/brainsharer/api-token-refresh/',
+  IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
+  API_ENDPOINT: "https://demo.brainsharer.org/brainsharer",
+  GOOGLE_LOGIN: "https://demo.brainsharer.org/brainsharer/accounts/google/login/?next=",
+  LOCAL_LOGIN: "https://demo.brainsharer.org/brainsharer/admin/login/?next=",
+  LOGOUT: "https://demo.brainsharer.org/local/logout",
+  ADMIN_PORTAL: "https://demo.brainsharer.org/brainsharer/admin/",
+  REFRESH_TOKEN: "https://demo.brainsharer.org/brainsharer/api-token-refresh/",
+  GET_SET_STATE: "https://demo.brainsharer.org/brainsharer/neuroglancer/",
+  GET_SET_ANNOTATION: "https://demo.brainsharer.org/brainsharer/annotations/",
+  SEARCH_ANNOTATION: "https://demo.brainsharer.org/brainsharer/annotations/search/",
+  GET_ANNOTATION_LABELS: "https://demo.brainsharer.org/brainsharer/annotations/labels/",
 };
 EOF
 )
 SERVICE_LOCAL=$(cat <<'EOF'
 export const APIs = {
-  IMAGESERVER_API_ENDPOINT: 'https://imageserv.dk.ucsd.edu/brainsharer',
-  API_ENDPOINT: 'http://localhost:8000',
-  GOOGLE_LOGIN: 'http://localhost:8000/google/',
-  LOCAL_LOGIN: 'http://localhost:8000/local/login',
-  LOGOUT: 'http://localhost:8000/local/logout',
-  ADMIN_PORTAL: 'https://localhost:8000/admin/',
-  REFRESH_TOKEN: 'http://localhost:8000/api-token-refresh/',
+  IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
+  API_ENDPOINT: "http://localhost:8000",
+  GOOGLE_LOGIN: "http://localhost:8000/google/",
+  LOCAL_LOGIN: "http://localhost:8000/local/login",
+  LOGOUT: "http://localhost:8000/local/logout",
+  ADMIN_PORTAL: "https://localhost:8000/admin/",
+  REFRESH_TOKEN: "http://localhost:8000/api-token-refresh/",
+  GET_SET_STATE: "http://localhost:8000/neuroglancer/",
+  GET_SET_ANNOTATION: "http://localhost:8000/annotations/",
+  SEARCH_ANNOTATION: "http://localhost:8000/annotations/search/",
+  GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
 };
 EOF
 )

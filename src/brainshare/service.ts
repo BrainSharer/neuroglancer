@@ -6,6 +6,7 @@ export const APIs = {
   LOGOUT: "http://localhost:8000/local/logout",
   ADMIN_PORTAL: "https://localhost:8000/admin/",
   REFRESH_TOKEN: "http://localhost:8000/api-token-refresh/",
+  GET_SET_STATE: "http://localhost:8000/neuroglancer/",
   GET_SET_ANNOTATION: "http://localhost:8000/annotations/",
   SEARCH_ANNOTATION: "http://localhost:8000/annotations/search/",
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",

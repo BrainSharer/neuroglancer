@@ -67,6 +67,7 @@ import {
   UserLayerWithAnnotations 
 } from './ui/annotations';
 import { 
+  getZCoordinate,
   isPointUniqueInPolygon,
   polygonRotateAngle, 
   polygonScalePercentage, 
@@ -76,6 +77,7 @@ import {
 import { StatusMessage } from './status';
 import { isCornerPicked } from "./annotation/line";
 import * as vector from "#/util/vector";
+import { getPolygonByZIndex } from "./annotation/volume";
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_SHOW_OBJECT_SELECTION_TOOLTIP: boolean | undefined;
@@ -1121,13 +1123,11 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       let signStr = (sign < 0) ? '-' : '+';
       registerActionListener(element, `rotate-polygon-z${signStr}`, () => {
         const selectionState = this.viewer.selectionDetailsState.value;
-        const selectedLayer = this.viewer.selectedLayer.layer;
         if (!this.viewer.selectionDetailsState.pin.value) return;
-        const signVal = sign;
         if (selectionState === undefined) return;
+
         let selectedAnnotationId = undefined;
         let selectedAnnotationLayer = undefined;
-
         for (let layer of selectionState.layers) {
           if (layer.state.annotationId === undefined) continue;
           const userLayerWithAnnotations = <UserLayerWithAnnotations>layer.layer;
@@ -1147,29 +1147,38 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           selectedAnnotationId === undefined || 
           selectedAnnotationLayer === undefined
         ) return;
-        if (selectedLayer === undefined) {
-          StatusMessage.showTemporaryMessage( 
-            'The annotate command requires a layer to be selected.'
+
+        let reference = selectedAnnotationLayer.source.getReference(
+          selectedAnnotationId
+        );
+        if (!reference.value) return;
+        if (
+          reference.value.type != AnnotationType.POLYGON &&
+          reference.value.type != AnnotationType.VOLUME
+        ) {
+          StatusMessage.showTemporaryMessage(
+            "You must select a polygon or a volume"
           );
           return;
         }
-        const userLayer = selectedLayer.layer;
-        if (userLayer === null || userLayer.tool.value === undefined) {
-          StatusMessage.showTemporaryMessage(`The selected layer (${ 
-            JSON.stringify(selectedLayer.name) 
-          }) does not have an active annotation tool.`);
-          return;
+
+        if (reference.value.type === AnnotationType.VOLUME) {
+          const selectedLayer = this.viewer.selectedLayer.layer;
+          if (!selectedLayer) return;
+          const position = selectedLayer.manager.root.globalPosition.value;
+          const zIndex = getZCoordinate(position);
+          if (zIndex === undefined) return;
+
+          const polygon = getPolygonByZIndex(
+            selectedAnnotationLayer.source, 
+            reference.value.id, 
+            zIndex,
+          );
+          if (!polygon) return;
+          reference = selectedAnnotationLayer.source.getReference(polygon.id);
         }
 
-        const reference = selectedAnnotationLayer.source.getReference(
-          selectedAnnotationId
-        );
-        if (
-          !reference.value || 
-          reference.value!.type != AnnotationType.POLYGON
-        ) return;
-
-        const angle = signVal*Math.PI*polygonRotateAngle.value/180.0;
+        const angle = sign * Math.PI * polygonRotateAngle.value / 180.0;
         rotatePolygon(
           this.navigationState, 
           selectedAnnotationLayer, 
@@ -1183,23 +1192,20 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       let signStr = (sign < 0) ? 'shrink' : 'enlarge';
       registerActionListener(element, `scale-polygon-${signStr}`, () => {
         const selectionState = this.viewer.selectionDetailsState.value;
-        const selectedLayer = this.viewer.selectedLayer.layer;
         if (!this.viewer.selectionDetailsState.pin.value) return;
-        const scale = (sign < 0) ? 1 - polygonScalePercentage.value/100.0 
-          : 1 + polygonScalePercentage.value/100.0;
         if (selectionState === undefined) return;
+
         let selectedAnnotationId = undefined;
         let selectedAnnotationLayer = undefined;
-
         for (let layer of selectionState.layers) {
           if (layer.state.annotationId === undefined) continue;
           const userLayerWithAnnotations = <UserLayerWithAnnotations>layer.layer;
           const annotationLayer = userLayerWithAnnotations
-            .annotationStates.states.find( 
+            .annotationStates.states.find(
               x => x.sourceIndex === layer.state.annotationSourceIndex && (
-                layer.state.annotationSubsource === undefined ||
+                layer.state.annotationSubsource === undefined || 
                 x.subsourceId === layer.state.annotationSubsource
-              ));
+            ));
           if (annotationLayer === undefined) continue;
 
           selectedAnnotationId = layer.state.annotationId;
@@ -1210,27 +1216,39 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           selectedAnnotationId === undefined || 
           selectedAnnotationLayer === undefined
         ) return;
-        if (selectedLayer === undefined) {
+
+        let reference = selectedAnnotationLayer.source.getReference(
+          selectedAnnotationId
+        );
+        if (!reference.value) return;
+        if (
+          reference.value.type != AnnotationType.POLYGON &&
+          reference.value.type != AnnotationType.VOLUME
+        ) {
           StatusMessage.showTemporaryMessage(
-            'The annotate command requires a layer to be selected.'
+            "You must select a polygon or a volume"
           );
           return;
         }
-        const userLayer = selectedLayer.layer;
-        if (userLayer === null || userLayer.tool.value === undefined) {
-          StatusMessage.showTemporaryMessage(`The selected layer (${ 
-            JSON.stringify(selectedLayer.name)
-          }) does not have an active annotation tool.`);
-          return;
+
+        if (reference.value.type === AnnotationType.VOLUME) {
+          const selectedLayer = this.viewer.selectedLayer.layer;
+          if (!selectedLayer) return;
+          const position = selectedLayer.manager.root.globalPosition.value;
+          const zIndex = getZCoordinate(position);
+          if (zIndex === undefined) return;
+
+          const polygon = getPolygonByZIndex(
+            selectedAnnotationLayer.source, 
+            reference.value.id, 
+            zIndex,
+          );
+          if (!polygon) return;
+          reference = selectedAnnotationLayer.source.getReference(polygon.id);
         }
 
-        const reference = selectedAnnotationLayer
-          .source.getNonDummyAnnotationReference(selectedAnnotationId);
-        if (
-          !reference.value || 
-          reference.value!.type != AnnotationType.POLYGON
-        ) return;
-
+        const percentage = polygonScalePercentage.value / 100.0;
+        const scale = (sign < 0) ? 1 - percentage : 1 + percentage;
         scalePolygon(
           selectedAnnotationLayer, 
           reference, 
@@ -1364,59 +1382,6 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           scale
         );
       });
-
-    registerActionListener(element, 'delete-polygon', () => {
-      const {mouseState} = this.viewer;
-      const selectedLayer = this.viewer.selectedLayer.layer;
-      const selectedAnnotationId = mouseState.pickedAnnotationId;
-      const annotationLayer = mouseState.pickedAnnotationLayer;
-      if (selectedLayer === undefined) {
-        StatusMessage.showTemporaryMessage(
-          'The annotate command requires a layer to be selected.'
-        );
-        return;
-      }
-      const userLayer = selectedLayer.layer;
-      if (userLayer === null || userLayer.tool.value === undefined) {
-        StatusMessage.showTemporaryMessage(`The selected layer (${ 
-          JSON.stringify(selectedLayer.name)
-        }) does not have an active annotation tool.`);
-        return;
-      }
-
-      if (
-        annotationLayer !== undefined && 
-        !annotationLayer.source.readonly && 
-        selectedAnnotationId !== undefined
-      ) {
-        const ref = annotationLayer.source.getNonDummyAnnotationReference(
-          selectedAnnotationId
-        );
-        try {
-          annotationLayer.source.delete(ref);
-        } finally {
-          ref.dispose();
-        }
-      }
-    });
-
-    for (let axis = 0; axis < 3; ++axis) {
-      let axisName = AXES_NAMES[axis];
-      let amounts = [50, 50, 5];
-      for (let sign of [-1, +1]) {
-        let signStr = (sign < 0) ? '-' : '+';
-        let tempOffset = vec3.create();
-        registerActionListener(element, `pan-${axisName}${signStr}`, () => {
-          let {navigationState} = this;
-          let offset = tempOffset;
-          offset[0] = 0;
-          offset[1] = 0;
-          offset[2] = 0;
-          offset[axis] = sign*amounts[axis];
-          navigationState.pose.translateVoxelsRelative(offset);
-        });
-      }
-    }
     /* BRAINSHARE ENDS */
   }
 

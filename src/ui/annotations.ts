@@ -766,6 +766,7 @@ export class AnnotationLayerView extends Tab {
             selectSingleResult: false,
             makeElement: makeAnnotationCompletionElement,
           }
+
           return fetchOk(
             APIs.SEARCH_ANNOTATION + value,
             { method: "GET" },
@@ -3041,7 +3042,8 @@ export function UserLayerWithAnnotationsMixin<
                       !annotationLayer.source.readonly &&
                       !annRef.value!.parentAnnotationId &&
                       brainState.value && 
-                      userState.value 
+                      userState.value  &&
+                      annRef.value!.description
                     ) {
                       const uploadButton = makeIcon({
                         svg: svg_upload,
@@ -3062,16 +3064,25 @@ export function UserLayerWithAnnotationsMixin<
                             inputCoordinateSpace,
                           )
 
-                          if (!brainState.value || !userState.value) return;
+                          if (
+                            !brainState.value || 
+                            !userState.value ||
+                            !annRef.value!.description
+                          ) {
+                            return;
+                          }
+
+                          const labels = annRef.value!.description.split("\n");
+                          if (!labels[0]) return;
 
                           const jsonBody = {
-                            id: Number(ann.sessionID),
+                            id: ann.sessionID,
                             annotation: annJson,
                             animal: brainState.value.animal,
                             annotator: userState.value.id,
-                            label: ann.description || undefined,
+                            label: labels[0],
                           }
-                          console.log(jsonBody);
+
                           fetchOk(
                             APIs.GET_SET_ANNOTATION, { 
                             method: "POST",
@@ -3255,12 +3266,14 @@ export function UserLayerWithAnnotationsMixin<
 
                 const addLabelToDescription = (label: string) => {
                   if (!annotation) return;
-                  const newDescription = (
-                    annotation.description || ""
-                  ) + "\n" + label;
+                  
+                  let newDescription = annotation.description;
+                  if (newDescription) newDescription += "\n" + label;
+                  else newDescription = label;
+
                   annotationLayer.source.update(reference, {
                     ...annotation!,
-                    description: newDescription ? newDescription : undefined,
+                    description: newDescription,
                   });
                 }
                 
@@ -3277,6 +3290,7 @@ export function UserLayerWithAnnotationsMixin<
                         selectSingleResult: false,
                         makeElement: makeAnnotationCompletionElement,
                       }
+
                       return fetchOk(
                         APIs.GET_ANNOTATION_LABELS + value,
                         { method: "GET" },

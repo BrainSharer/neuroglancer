@@ -76,7 +76,7 @@ export function getUser() {
 export function getState(stateID: number | string | undefined) {
   if (stateID === undefined) return;
 
-  fetchOk(`${stateUrl}/${stateID}`, { method: 'GET' }).then(
+  fetchOk(APIs.GET_SET_STATE + stateID, { method: 'GET' }).then(
     response => response.json()
   ).then(json => {
     brainState.value = json;
@@ -109,7 +109,7 @@ export function getState(stateID: number | string | undefined) {
 export function newState(state: Object) {
   const json_body = { ...brainState.value, ...state }
 
-  fetchOk(stateUrl, {
+  fetchOk("http://localhost:8000/neuroglancer", {
     method: 'POST',
     credentials: 'omit',
     headers: {
@@ -136,7 +136,7 @@ export function newState(state: Object) {
 export function saveState(stateID: number | string, state: Object) {
   const json_body = { ...brainState.value, ...state }
 
-  fetchOk(`${stateUrl}/${stateID}`, {
+  fetchOk(APIs.GET_SET_STATE + stateID, {
     method: 'PUT',
     credentials: 'omit',
     headers: {
@@ -150,7 +150,3 @@ export function saveState(stateID: number | string, state: Object) {
 
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);
-const stateUrl = `${APIs.API_ENDPOINT}/neuroglancer`
-
-getUser();
-getState(getUrlParams().stateID); 

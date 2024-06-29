@@ -126,6 +126,7 @@ import { RPC } from "#/worker_rpc";
 /* BRAINSHARE STARTS */
 import svg_people from "ikonate/icons/people.svg";
 import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
+import { getState, getUrlParams, getUser } from "./brainshare/state_utils";
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
@@ -670,6 +671,12 @@ export class Viewer extends RefCounted implements ViewerState {
     this.registerDisposer(
       new PlaybackManager(this.display, this.position, this.velocity),
     );
+    
+    /* BRAINSHARE STARTS */
+    getUser();
+    const stateID = getUrlParams().stateID;
+    if (stateID) getState(stateID); 
+    /* BRAINSHARE ENDS */
   }
 
   private updateShowBorders() {

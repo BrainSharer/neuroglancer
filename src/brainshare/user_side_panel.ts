@@ -14,11 +14,11 @@ import { MultiUsersTab } from "./multi_users_tab";
 import { Trackable } from "#/util/trackable";
 import { StateTab  } from "./state_tab";
 import { APIs } from "./service";
+import { userState } from "./state_utils";
 import { emptyToUndefined } from "#/util/json";
 import svg_exit from "ikonate/icons/exit.svg";
 import svg_entrance from "ikonate/icons/entrance.svg";
 import svg_language from "ikonate/icons/language.svg";
-import { userState } from "./state_utils";
 
 
 const DEFAULT_USER_SIDE_PANEL_LOCATION: SidePanelLocation = {

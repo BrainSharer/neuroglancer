@@ -122,3 +122,20 @@ export function getCentroidVolume(
 
   return centroid;
 }
+
+export function getPolygonByZIndex(
+  annotationSource: AnnotationSource | MultiscaleAnnotationSource,
+  id: string,
+  zIndex: number,
+): Polygon | undefined {
+  const polygons = getPolygonsByVolumeId(annotationSource, id);
+  if (!polygons) return undefined;
+  
+  for (let i = 0; i < polygons.length; i++) {
+    if (getZCoordinate(polygons[i].centroid) == zIndex) {
+      return polygons[i];
+    }
+  }
+  
+  return undefined;
+}
