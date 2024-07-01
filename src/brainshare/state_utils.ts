@@ -109,7 +109,7 @@ export function getState(stateID: number | string | undefined) {
 export function newState(state: Object) {
   const json_body = { ...brainState.value, ...state }
 
-  fetchOk("http://localhost:8000/neuroglancer", {
+  fetchOk(APIs.GET_SET_STATE, {
     method: 'POST',
     credentials: 'omit',
     headers: {

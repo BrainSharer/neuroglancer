@@ -55,6 +55,7 @@ import {
   /* BRAINSHARE STARTS */
   verifyBoolean,
   verifyStringArray,
+  verifyOptionalInt,
   /* BRAINSHARE ENDS */
 } from "#/util/json";
 import { parseDataTypeValue } from "#/util/lerp";
@@ -707,7 +708,7 @@ export interface AnnotationBase {
   parentAnnotationId?: string;
   childrenVisible?: boolean;
   childAnnotationIds?: string[];
-  sessionID?: string;
+  sessionID?: number;
   /* BRAINSHARE ENDS */
 }
 
@@ -1414,7 +1415,7 @@ function restoreAnnotation(
       "parentAnnotationId", 
       verifyOptionalString,
     ),
-    sessionID: verifyObjectProperty(obj, "sessionID", verifyOptionalString),
+    sessionID: verifyObjectProperty(obj, "sessionID", verifyOptionalInt),
     /* BRAINSHARE ENDS */
   } as Annotation;
   annotationTypeHandlers[type].restoreState(result, obj, schema.rank);

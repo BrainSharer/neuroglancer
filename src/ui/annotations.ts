@@ -294,8 +294,10 @@ function pasteAnnotation(
     );
   }
   catch (e) {
+    console.log(e);
     StatusMessage.showTemporaryMessage(
-      "The annotation to paste is invalid."
+      "The annotation to paste is invalid. Please see console for details.",
+      5000,
     );
     return undefined;
   }
@@ -309,9 +311,12 @@ function pasteAnnotation(
         annotations[0].type !== AnnotationType.POINT
       )) {
       StatusMessage.showTemporaryMessage(
-        `The annotation to paste (${AnnotationType[annotations[0].type].toLowerCase()
-        }) can not be a child of the selected annotation (${AnnotationType[parentRef.value.type].toLowerCase()
-        }).`
+        `The annotation to paste (${
+          AnnotationType[annotations[0].type].toLowerCase()
+        }) can not be a child of the selected annotation (${
+          AnnotationType[parentRef.value.type].toLowerCase()
+        }).`,
+        5000,
       );
       return undefined;
     }
@@ -336,7 +341,8 @@ function pasteAnnotation(
       )) {
         StatusMessage.showTemporaryMessage(
           "A polygon already exists in this section for the volume, only one \
-          polygon per section is allowed for a volume."
+          polygon per section is allowed for a volume.",
+          5000,
         );
         return;
       }
@@ -777,7 +783,7 @@ export class AnnotationLayerView extends Tab {
 
             return {
               ...defaultCompletionResult,
-              completions: json.slice(0, 30).map((annotation: any) => ({
+              completions: json.map((annotation: any) => ({
                 value: annotation.id.toString(),
                 description: annotation.animal_abbreviation_username,
               })),
@@ -786,7 +792,8 @@ export class AnnotationLayerView extends Tab {
             console.log(err);
             StatusMessage.showTemporaryMessage(
               "There is an error in searching annotations. \
-              Please see console for details."
+              Please see console for details.",
+              5000,
             );
             return defaultCompletionResult;
           })
@@ -795,7 +802,8 @@ export class AnnotationLayerView extends Tab {
           const annotationId = completion.value;
 
           StatusMessage.showTemporaryMessage(
-            "Copying the selected annotation to clipboard."
+            "Downloading the selected annotation to clipboard...",
+            5000,
           );
           fetchOk(
             APIs.GET_SET_ANNOTATION + annotationId,
@@ -804,14 +812,22 @@ export class AnnotationLayerView extends Tab {
             response => response.json()
           ).then(json => {
             StatusMessage.showTemporaryMessage(
-              "Annotation copied to clipboard."
+              "Annotation copied to clipboard.",
+              5000,
             );
-            setClipboard(JSON.stringify(json.annotation));
+            const annotation = json.annotation;
+            if (!annotation) throw new Error(
+              "JSON does not have an annotation"
+            );
+
+            annotation["sessionID"] = json.id;
+            setClipboard(JSON.stringify(annotation));
           }).catch(err => {
             console.log(err);
             StatusMessage.showTemporaryMessage(
               "There is an error in downloading the selected annotation. \
-              Please see console for details."
+              Please see console for details.",
+              5000,
             );
           })
         },
@@ -2165,7 +2181,8 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           if (!isSectionValid(annotationLayer.source, parentRef.id, zCoord)) {
             StatusMessage.showTemporaryMessage(
               "A polygon already exists in this section for the volume, \
-              only one polygon per section is allowed for a volume."
+              only one polygon per section is allowed for a volume.",
+              5000,
             );
             return;
           }
@@ -2212,7 +2229,8 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
         const polygon = <Polygon>reference.value!;
         if (!isPointUniqueInPolygon(annotationLayer, polygon, point)) {
           StatusMessage.showTemporaryMessage(
-            "All vertices of polygon must be unique."
+            "All vertices of polygon must be unique.",
+            5000,
           );
           return;
         }
@@ -2222,7 +2240,8 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
         if (curZCood === undefined || newZCoord === undefined) return;
         if (curZCood !== newZCoord) {
           StatusMessage.showTemporaryMessage(
-            "All vertices of polygon must be in the same plane."
+            "All vertices of polygon must be in the same plane.",
+            5000,
           );
           return;
         }
@@ -2258,7 +2277,8 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
     // There must be at least 3 lines in a polygon
     if (annotation.childAnnotationIds.length < 3) {
       StatusMessage.showTemporaryMessage(
-        "There must be at least 3 lines in a polygon"
+        "There must be at least 3 lines in a polygon",
+        5000,
       );
       return false;
     }
@@ -2995,6 +3015,10 @@ export function UserLayerWithAnnotationsMixin<
                               inputCoordinateSpace,
                             )
                             setClipboard(JSON.stringify(json));
+                            StatusMessage.showTemporaryMessage(
+                              "Annotation copied to clipboard.",
+                              5000,
+                            );
                           },
                         });
                         copyButton.style.gridColumn = "copy";
@@ -3083,6 +3107,10 @@ export function UserLayerWithAnnotationsMixin<
                             label: labels[0],
                           }
 
+                          StatusMessage.showTemporaryMessage(
+                            "Uploading annotation...",
+                            5000,
+                          );
                           fetchOk(
                             APIs.GET_SET_ANNOTATION, { 
                             method: "POST",
@@ -3097,14 +3125,23 @@ export function UserLayerWithAnnotationsMixin<
                             if (!json.id) throw new Error(
                               "No session ID is returned!"
                             );
-                            console.log(json.id);
 
-                            ann.sessionID = String(json.id);
+                            StatusMessage.showTemporaryMessage(
+                              json.id !== ann.sessionID ? 
+                              `A new annotation is created with id ${json.id}.` 
+                              :
+                              `The annotation with id ${json.id} is updated.`,
+                              5000,
+                            );
+
+                            ann.sessionID = json.id;
                             annotationLayer.source.update(reference, ann);
                           }).catch(err => {
                             console.log(err);
                             StatusMessage.showTemporaryMessage(
-                              "There is an error in uploading the annotation."
+                              "There is an error in uploading the annotation.\
+                              Please see console for details.",
+                              5000,
                             );
                           })
                         }
@@ -3311,7 +3348,9 @@ export function UserLayerWithAnnotationsMixin<
                       }).catch(err => {
                         console.log(err);
                         StatusMessage.showTemporaryMessage(
-                          "There is an error in searching annotations labels."
+                          "There is an error in searching annotations labels.\
+                          Please see console for details.",
+                          5000,
                         );
                         return defaultCompletionResult;
                       })
