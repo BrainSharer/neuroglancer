@@ -65,7 +65,7 @@ import {
 } from "#/coordinate_transform";
 /* BRAINSHARE ENDS */
 import { MouseSelectionState, UserLayer } from "#/layer";
-import { LoadedDataSubsource } from "#/layer_data_source";
+import { LayerDataSource, LoadedDataSubsource } from "#/layer_data_source";
 import {
   ChunkTransformParameters,
   getChunkPositionFromCombinedGlobalLocalPositions,
@@ -150,10 +150,9 @@ import {
 } from "#/widget/multiline_autocomplete";
 import { CancellationToken } from "#/util/cancellation";
 import { fetchOk } from "#/util/http_request";
-import svg_clipBoard from "ikonate/icons/clipboard.svg";
-import svg_upload from 'ikonate/icons/upload.svg';
 import { brainState, userState } from "src/brainshare/state_utils";
 import { APIs } from "src/brainshare/service";
+import svg_clipBoard from "ikonate/icons/clipboard.svg";
 /* BRAINSHARE ENDS */
 
 export class MergedAnnotationStates
@@ -466,6 +465,78 @@ export function binarySearchInsert<T>(
     }
   }
   return low;
+}
+
+export function uploadAnnotation(
+  annRef: AnnotationReference,
+  dataSource: LayerDataSource,
+  annotationLayer: AnnotationLayerState,
+  save: Boolean,
+): Promise<void> | undefined {
+  const transform = dataSource.spec.transform;
+  if (transform === undefined) return;
+  let inputCoordinateSpace = transform.inputSpace;
+  if (inputCoordinateSpace === undefined) {
+    inputCoordinateSpace = transform.outputSpace;
+  }
+  const ann = annRef.value!;
+  const annJson = annotationToPortableJson(
+    ann,
+    annotationLayer.source,
+    inputCoordinateSpace,
+  )
+
+  if (
+    !brainState.value || 
+    !userState.value ||
+    !annRef.value!.description
+  ) {
+    return;
+  }
+
+  const labels = annRef.value!.description.split("\n");
+  if (!labels[0]) return;
+
+  const jsonBody = {
+    id: save ? ann.sessionID : undefined,
+    annotation: annJson,
+    animal: brainState.value.animal,
+    annotator: userState.value.id,
+    label: labels[0],
+  }
+
+  StatusMessage.showTemporaryMessage("Uploading annotation...", 5000);
+  return fetchOk(
+    `${APIs.GET_SET_ANNOTATION}${save ? ann.sessionID : ""}`, { 
+    method: save ? "PUT" : "POST",
+    credentials: 'omit',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(jsonBody, null, 0),
+  }).then(
+    response => response.json()
+  ).then(json => {
+    if (!json.id) throw new Error("No session ID is returned!");
+
+    StatusMessage.showTemporaryMessage(
+      json.id !== ann.sessionID ? 
+      `A new annotation is created with id ${json.id}.` 
+      :
+      `The annotation with id ${json.id} is updated.`,
+      5000,
+    );
+
+    ann.sessionID = json.id;
+    annotationLayer.source.update(annRef, ann);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage(
+      "There is an error in uploading the annotation.\
+      Please see console for details.",
+      5000,
+    );
+  })
 }
 /* BRAINSHARE ENDS */
 
@@ -3061,93 +3132,6 @@ export function UserLayerWithAnnotationsMixin<
                       "neuroglancer-selected-annotation-details-delete",
                     );
                     div.appendChild(deleteButton);
-
-                    if (
-                      !annotationLayer.source.readonly &&
-                      !annRef.value!.parentAnnotationId &&
-                      brainState.value && 
-                      userState.value  &&
-                      annRef.value!.description
-                    ) {
-                      const uploadButton = makeIcon({
-                        svg: svg_upload,
-                        title: 'Upload annotation',
-                        onClick: () => {
-                          const dataSource = this.dataSources[0];
-                          if (dataSource === undefined) return;
-                          const transform = dataSource.spec.transform;
-                          if (transform === undefined) return;
-                          let inputCoordinateSpace = transform.inputSpace;
-                          if (inputCoordinateSpace === undefined) {
-                            inputCoordinateSpace = transform.outputSpace;
-                          }
-                          const ann = annRef.value!;
-                          const annJson = annotationToPortableJson(
-                            ann,
-                            annotationLayer.source,
-                            inputCoordinateSpace,
-                          )
-
-                          if (
-                            !brainState.value || 
-                            !userState.value ||
-                            !annRef.value!.description
-                          ) {
-                            return;
-                          }
-
-                          const labels = annRef.value!.description.split("\n");
-                          if (!labels[0]) return;
-
-                          const jsonBody = {
-                            id: ann.sessionID,
-                            annotation: annJson,
-                            animal: brainState.value.animal,
-                            annotator: userState.value.id,
-                            label: labels[0],
-                          }
-
-                          StatusMessage.showTemporaryMessage(
-                            "Uploading annotation...",
-                            5000,
-                          );
-                          fetchOk(
-                            APIs.GET_SET_ANNOTATION, { 
-                            method: "POST",
-                            credentials: 'omit',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(jsonBody, null, 0),
-                          }).then(
-                            response => response.json()
-                          ).then(json => {
-                            if (!json.id) throw new Error(
-                              "No session ID is returned!"
-                            );
-
-                            StatusMessage.showTemporaryMessage(
-                              json.id !== ann.sessionID ? 
-                              `A new annotation is created with id ${json.id}.` 
-                              :
-                              `The annotation with id ${json.id} is updated.`,
-                              5000,
-                            );
-
-                            ann.sessionID = json.id;
-                            annotationLayer.source.update(reference, ann);
-                          }).catch(err => {
-                            console.log(err);
-                            StatusMessage.showTemporaryMessage(
-                              "There is an error in uploading the annotation.\
-                              Please see console for details.",
-                              5000,
-                            );
-                          })
-                        }
-                      });
-                      div.appendChild(uploadButton);
-                    }
                   }
                 }
 
@@ -3155,53 +3139,55 @@ export function UserLayerWithAnnotationsMixin<
                 addListEntry(annotationGrid, reference);
 
                 if (
-                  annotation.type === AnnotationType.VOLUME ||
-                  annotation.type === AnnotationType.CLOUD
+                  !annotationLayer.source.readonly &&
+                  !reference.value!.parentAnnotationId &&
+                  brainState.value && 
+                  userState.value  &&
+                  userState.value.id  &&
+                  reference.value!.description
                 ) {
-                  const editButton = makeAddButton({
-                    title: "Edit annotation",
-                    onClick: () => {
-                      if (!annotation) return;
-                      if (annotation.type === AnnotationType.VOLUME) {
-                        this.tool.value = new PlaceVolumeTool(
-                          this,
-                          {},
-                          reference
-                        );
-                      }
-                      else if (annotation.type === AnnotationType.CLOUD) {
-                        this.tool.value = new PlaceCloudTool(
-                          this,
-                          {},
-                          reference
-                        );
-                      }
-                    },
-                  });
-                  editButton.style.gridColumn = "icon";
-                  annotationGrid.appendChild(editButton);
+                  const sessionIdDiv = document.createElement("div");
+                  sessionIdDiv.classList.add(
+                    "neuroglancer-annotation-session-id"
+                  );
+                  parent.appendChild(sessionIdDiv);
+                  const idTextDiv = document.createElement("div");
+                  const sessionID = reference.value!.sessionID;
+                  idTextDiv.textContent = !sessionID ? "No annotation ID" : 
+                    `Annotation ID: ${sessionID}`;
+                  sessionIdDiv.appendChild(idTextDiv);
+                  const saveNewDiv = document.createElement("div");
+                  sessionIdDiv.appendChild(saveNewDiv);
 
-                  const pasteButton = makeIcon({
-                    svg: svg_clipBoard,
-                    title: "Paste annotation from the system's clipboard",
+                  const newButton = makeIcon({
+                    text: "new",
+                    title: "Create a new annotation in database",
                     onClick: () => {
-                      const dataSource = this.dataSources[0];
-                      if (dataSource === undefined) return;
-                      const transform = dataSource.spec.transform;
-                      if (transform === undefined) return;
-                      navigator.clipboard.readText().then((text) => {
-                        pasteAnnotation(
-                          text,
-                          annotationLayer.source,
-                          transform,
-                          this.manager.root.globalPosition.value,
-                          reference,
-                        );
-                      });
+                      uploadAnnotation(
+                        reference, 
+                        this.dataSources[0], 
+                        annotationLayer,
+                        false,
+                      );
                     },
                   });
-                  pasteButton.style.gridColumn = "copy";
-                  annotationGrid.appendChild(pasteButton);
+                  saveNewDiv.appendChild(newButton);
+
+                  if (sessionID) {
+                    const saveButton = makeIcon({
+                      text: "save",
+                      title: "Save the annotation in database",
+                      onClick: () => {
+                      uploadAnnotation(
+                        reference, 
+                        this.dataSources[0], 
+                        annotationLayer,
+                        true,
+                      );
+                      },
+                    });
+                    saveNewDiv.appendChild(saveButton);
+                  }
                 }
 
                 /*
@@ -3557,6 +3543,57 @@ export function UserLayerWithAnnotationsMixin<
                     );
                     addListEntry(childrenGrid, childRef);
                   }
+
+                if (
+                  annotation.type === AnnotationType.VOLUME ||
+                  annotation.type === AnnotationType.CLOUD
+                ) {
+                  const editButton = makeAddButton({
+                    title: "Edit annotation",
+                    onClick: () => {
+                      if (!annotation) return;
+                      if (annotation.type === AnnotationType.VOLUME) {
+                        this.tool.value = new PlaceVolumeTool(
+                          this,
+                          {},
+                          reference
+                        );
+                      }
+                      else if (annotation.type === AnnotationType.CLOUD) {
+                        this.tool.value = new PlaceCloudTool(
+                          this,
+                          {},
+                          reference
+                        );
+                      }
+                    },
+                  });
+                  editButton.style.gridColumn = "icon";
+                  childrenGrid.appendChild(editButton);
+
+                  const pasteButton = makeIcon({
+                    svg: svg_clipBoard,
+                    title: "Paste annotation from the system's clipboard",
+                    onClick: () => {
+                      const dataSource = this.dataSources[0];
+                      if (dataSource === undefined) return;
+                      const transform = dataSource.spec.transform;
+                      if (transform === undefined) return;
+                      navigator.clipboard.readText().then((text) => {
+                        pasteAnnotation(
+                          text,
+                          annotationLayer.source,
+                          transform,
+                          this.manager.root.globalPosition.value,
+                          reference,
+                        );
+                      });
+                    },
+                  });
+                  pasteButton.style.gridColumn = "copy";
+                  childrenGrid.appendChild(pasteButton);
+                }
+
                 }
                 /* BRAINSHARE ENDS */
               }

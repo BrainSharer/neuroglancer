@@ -7,7 +7,9 @@ export const APIs = {
   ADMIN_PORTAL: "https://localhost:8000/admin/",
   REFRESH_TOKEN: "http://localhost:8000/api-token-refresh/",
   GET_SET_STATE: "http://localhost:8000/neuroglancer/",
-  GET_SET_ANNOTATION: "http://localhost:8000/annotations/",
+  GET_SET_ANNOTATION: "http://localhost:8000/annotations/api/",
+  NEW_ANNOTATION: "http://localhost:8000/annotations/new/",
+  SAVE_ANNOTATION: "http://localhost:8000/annotations/save/",
   SEARCH_ANNOTATION: "http://localhost:8000/annotations/search/",
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
 };

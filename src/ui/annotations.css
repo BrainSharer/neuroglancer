@@ -301,4 +301,10 @@ input.neuroglancer-segment-list-entry-id {
   background-color: rgba(255, 255, 255, 0.3);
   color: #fff;
 }
+
+.neuroglancer-annotation-session-id {
+  font: 10pt sans-serif;
+  display: flex;
+  justify-content: space-between;
+}
 /* BRAINSHARE ENDS */

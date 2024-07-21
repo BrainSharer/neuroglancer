@@ -126,7 +126,12 @@ import { RPC } from "#/worker_rpc";
 /* BRAINSHARE STARTS */
 import svg_people from "ikonate/icons/people.svg";
 import { UserSidePanelState, UserSidePanel } from "#/brainshare/user_side_panel";
-import { getState, getUrlParams, getUser } from "./brainshare/state_utils";
+import { 
+  brainState, 
+  getState, 
+  getUrlParams, 
+  getUser 
+} from "./brainshare/state_utils";
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
@@ -674,8 +679,27 @@ export class Viewer extends RefCounted implements ViewerState {
     
     /* BRAINSHARE STARTS */
     getUser();
-    const stateID = getUrlParams().stateID;
-    if (stateID) getState(stateID); 
+    const urlParams = getUrlParams();
+    if (urlParams.stateID) {
+      const success = getState(urlParams.stateID);
+      if (success) {
+        success.then(() => {; 
+          if (!urlParams.loaded && brainState.value !== null) {
+            this.state.reset();
+            this.state.restoreState(verifyObject(
+              brainState.value.neuroglancer_state
+            ));
+            StatusMessage.showTemporaryMessage(
+              "Brain state loaded from database."
+            );
+
+            const href = new URL(location.href);
+            href.searchParams.set("loaded", "1");
+            window.history.pushState({}, '', href.toString());
+          }
+        });
+      }
+    }
     /* BRAINSHARE ENDS */
   }
 

@@ -1,8 +1,8 @@
-import { getCookie } from 'typescript-cookie';
+import { getCookie } from "typescript-cookie";
 
-import { fetchOk } from '#/util/http_request';
-import { StatusMessage } from '#/status';
-import { WatchableValue } from '#/trackable_value';
+import { fetchOk } from "#/util/http_request";
+import { StatusMessage } from "#/status";
+import { WatchableValue } from "#/trackable_value";
 import { APIs } from "./service";
 
 export interface UrlParams {
@@ -17,10 +17,9 @@ export interface UrlParams {
  */
 export function getUrlParams(): any {
   const href = new URL(location.href);
-  const id = href.searchParams.get("id");
-  const locationVariables = {
-    "stateID": id,
-  };
+  const stateID = href.searchParams.get("id");
+  const loaded = Boolean(Number(href.searchParams.get("loaded")));
+  const locationVariables = { stateID, loaded };
   return locationVariables;
 }
 
@@ -73,17 +72,19 @@ export function getUser() {
  * @param stateID The integer from the REST API of the neuroglancer_state id.
  * @returns the JSON state
  */
-export function getState(stateID: number | string | undefined) {
+export function getState(
+  stateID: number | string | undefined
+): Promise<void> | undefined{
   if (stateID === undefined) return;
 
-  fetchOk(APIs.GET_SET_STATE + stateID, { method: 'GET' }).then(
+  return fetchOk(APIs.GET_SET_STATE + stateID, { method: "GET" }).then(
     response => response.json()
   ).then(json => {
     brainState.value = json;
   }).catch(err => {
     console.log(err);
     StatusMessage.showTemporaryMessage(
-      'The brain ID is not in the database. Please check again.'
+      "The brain ID is not in the database. Please check again."
     );
     brainState.value = {
       id: 0,
@@ -95,7 +96,7 @@ export function getState(stateID: number | string | undefined) {
       neuroglancer_state: {},
       readonly: false,
       public: false,
-      lab: 'NA'
+      lab: "NA"
     };
   })
 }
@@ -110,18 +111,18 @@ export function newState(state: Object) {
   const json_body = { ...brainState.value, ...state }
 
   fetchOk(APIs.GET_SET_STATE, {
-    method: 'POST',
-    credentials: 'omit',
+    method: "POST",
+    credentials: "omit",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(json_body, null, 0),
   }).then(
     response => response.json()
   ).then(json => {
     const href = new URL(location.href);
-    href.searchParams.set('id', json['id']);
-    window.history.pushState({}, '', href.toString());
+    href.searchParams.set("id", json["id"]);
+    window.history.pushState({}, "", href.toString());
 
     brainState.value = json;
   })
@@ -137,10 +138,10 @@ export function saveState(stateID: number | string, state: Object) {
   const json_body = { ...brainState.value, ...state }
 
   fetchOk(APIs.GET_SET_STATE + stateID, {
-    method: 'PUT',
-    credentials: 'omit',
+    method: "PUT",
+    credentials: "omit",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
