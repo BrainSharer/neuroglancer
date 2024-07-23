@@ -11,9 +11,25 @@ export const APIs = {
   ADMIN_PORTAL: "https://brainsharer.org/brainsharer/admin/",
   REFRESH_TOKEN: "https://brainsharer.org/brainsharer/api-token-refresh/",
   GET_SET_STATE: "https://brainsharer.org/brainsharer/neuroglancer/",
-  GET_SET_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/",
+  GET_SET_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/api/",
   SEARCH_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/search/",
   GET_ANNOTATION_LABELS: "https://brainsharer.org/brainsharer/annotations/labels/",
+};
+EOF
+)
+SERVICE_TOBOR=$(cat <<'EOF'
+export const APIs = {
+  IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
+  API_ENDPOINT: "https://tobor.eddyod.com/brainsharer",
+  GOOGLE_LOGIN: "https://tobor.eddyod.com/brainsharer/accounts/google/login/?next=",
+  LOCAL_LOGIN: "https://tobor.eddyod.com/brainsharer/admin/login/?next=",
+  LOGOUT: "https://tobor.eddyod.com/brainsharer/local/logout/",
+  ADMIN_PORTAL: "https://tobor.eddyod.com/brainsharer/admin/",
+  REFRESH_TOKEN: "https://tobor.eddyod.com/brainsharer/api-token-refresh/",
+  GET_SET_STATE: "https://tobor.eddyod.com/brainsharer/neuroglancer/",
+  GET_SET_ANNOTATION: "https://tobor.eddyod.com/brainsharer/annotations/api/",
+  SEARCH_ANNOTATION: "https://tobor.eddyod.com/brainsharer/annotations/search/",
+  GET_ANNOTATION_LABELS: "https://tobor.eddyod.com/brainsharer/annotations/labels/",
 };
 EOF
 )
@@ -43,7 +59,7 @@ export const APIs = {
   ADMIN_PORTAL: "https://localhost:8000/admin/",
   REFRESH_TOKEN: "http://localhost:8000/api-token-refresh/",
   GET_SET_STATE: "http://localhost:8000/neuroglancer/",
-  GET_SET_ANNOTATION: "http://localhost:8000/annotations/",
+  GET_SET_ANNOTATION: "http://localhost:8000/annotations/api/",
   SEARCH_ANNOTATION: "http://localhost:8000/annotations/search/",
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
 };
@@ -51,12 +67,12 @@ EOF
 )
 
 if [ "$1" == "" ] || [ $# -gt 1 ]; then
-    echo "Enter either 'production' or 'demo' as an argument."
+    echo "Enter either 'production' or 'demo' 'tobor' as an argument."
 	exit 0
 fi
 
-if ! [[ "$1" =~ ^(demo|production)$ ]]; then
-    echo "Enter either 'production' or 'demo' as an argument."
+if ! [[ "$1" =~ ^(demo|production|tobor)$ ]]; then
+    echo "Enter either 'production' or 'demo' or 'tobor' as an argument."
 	exit 0
 fi
 
@@ -74,6 +90,12 @@ if [ "$1" == "production" ]; then
     BUILD_INFO="{'tag':'Production Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
     PACKAGE="neuroglancer.production.tar.gz"
     echo "$SERVICE_PRODUCTION" > "$SERVICE_PATH"
+fi
+
+if [ "$1" == "tobor" ]; then
+    BUILD_INFO="{'tag':'Tobor Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
+    PACKAGE="neuroglancer.tobor.tar.gz"
+    echo "$SERVICE_TOBOR" > "$SERVICE_PATH"
 fi
 
 if ! command -v npm &> /dev/null
