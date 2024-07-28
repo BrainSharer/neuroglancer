@@ -274,10 +274,10 @@ function visitTransformedAnnotationGeometry(
 
 /* BRAINSHARE STARTS */
 function pasteAnnotation(
-  text: string,
+  json: any,
   annotationSource: AnnotationSource | MultiscaleAnnotationSource,
   transform: CoordinateTransformSpecification,
-  position: Float32Array,
+  position?: Float32Array,
   parentRef?: AnnotationReference,
 ): Annotation[] | undefined {
   let { outputSpace, inputSpace } = transform;
@@ -285,12 +285,14 @@ function pasteAnnotation(
 
   let annotations: Annotation[];
   try {
-    const json = JSON.parse(text);
     annotations = portableJsonToAnnotations(
       json,
       annotationSource,
       inputSpace,
     );
+    if (annotations.length == 0) {
+      throw new Error("No annotation found in pasted JSON");
+    }
   }
   catch (e) {
     console.log(e);
@@ -300,6 +302,8 @@ function pasteAnnotation(
     );
     return undefined;
   }
+  
+  delete annotations[0].parentAnnotationId;
 
   if (parentRef && parentRef.value) {
     if ((
@@ -321,46 +325,61 @@ function pasteAnnotation(
     }
   }
 
-  const positionInputSpace = new Float64Array(position);
-  if (inputSpace !== outputSpace) {
-    vector.multiply(positionInputSpace, positionInputSpace, outputSpace.scales);
-    vector.divide(positionInputSpace, positionInputSpace, inputSpace.scales);
+  const newAnnotations: Annotation[] = [];
+  if (position === undefined) {
+    for (let i = 0; i < annotations.length; i++) {
+      newAnnotations.push(annotations[i]);
+    }
   }
-  const center = new Float32Array(positionInputSpace.length);
-  const translations = new Float64Array(positionInputSpace.length);
-  getCenterPosition(center, annotations[0]);
-  vector.subtract(translations, positionInputSpace, center);
-
-  if (parentRef && parentRef.value) {
-    if (parentRef.value.type === AnnotationType.VOLUME) {
-      if (!isSectionValid(
-        annotationSource,
-        parentRef.id,
-        Math.floor(position[2]),
-      )) {
-        StatusMessage.showTemporaryMessage(
-          "A polygon already exists in this section for the volume, only one \
-          polygon per section is allowed for a volume.",
-          5000,
-        );
-        return;
+  else {
+    if (parentRef && parentRef.value) {
+      if (parentRef.value.type === AnnotationType.VOLUME) {
+        if (!isSectionValid(
+          annotationSource,
+          parentRef.id,
+          Math.floor(position[2]),
+        )) {
+          StatusMessage.showTemporaryMessage(
+            "A polygon already exists in this section for the volume, only one \
+            polygon per section is allowed for a volume.",
+            5000,
+          );
+          return;
+        }
       }
+    }
+
+    const positionInputSpace = new Float64Array(position);
+    if (inputSpace !== outputSpace) {
+      vector.multiply(
+        positionInputSpace, 
+        positionInputSpace, 
+        outputSpace.scales
+      );
+      vector.divide(positionInputSpace, positionInputSpace, inputSpace.scales);
+    }
+    const center = new Float32Array(positionInputSpace.length);
+    const translations = new Float64Array(positionInputSpace.length);
+    getCenterPosition(center, annotations[0]);
+    vector.subtract(translations, positionInputSpace, center);
+
+    for (let i = 0; i < annotations.length; i++) {
+      newAnnotations.push(translateAnnotationPoints(
+        annotations[i],
+        translations
+      ));
     }
   }
 
-  for (let i = 0; i < annotations.length; i++) {
-    const newAnnotation = translateAnnotationPoints(
-      annotations[i],
-      translations
-    );
+  for (let i = 0; i < newAnnotations.length; i++) {
     annotationSource.add(
-      newAnnotation,
+      newAnnotations[i],
       /*commit=*/ true,
       i == 0 ? parentRef : undefined,
     );
   }
 
-  return annotations;
+  return newAnnotations;
 }
 
 // The autocomplete search box for importing annotations
@@ -431,17 +450,30 @@ class AnnotationSearchBar extends AutocompleteTextInput {
   }
 }
 
+export interface CompletionWithDescTime extends CompletionWithDescription {
+  timestamp?: string;
+}
+
 function makeAnnotationCompletionElement(
-  completion: CompletionWithDescription
+  completion: CompletionWithDescTime
 ): HTMLElement {
   const completionDiv = document.createElement("div");
 
   const valueDiv = document.createElement("div");
   valueDiv.textContent = `Id: ${completion.value}`;
   completionDiv.appendChild(valueDiv);
-  const animalDiv = document.createElement("div");
-  animalDiv.textContent = `Description: ${completion.description}`;
-  completionDiv.appendChild(animalDiv);
+
+  if (completion.description) {
+    const desclDiv = document.createElement("div");
+    desclDiv.textContent = `Desc: ${completion.description}`;
+    completionDiv.appendChild(desclDiv);
+  }
+
+  if (completion.timestamp) {
+    const desclDiv = document.createElement("div");
+    desclDiv.textContent = `Updated: ${completion.timestamp}`;
+    completionDiv.appendChild(desclDiv);
+  }
 
   return completionDiv;
 }
@@ -733,7 +765,7 @@ export class AnnotationLayerView extends Tab {
     // Add paste annotation button
     const pasteButton = makeIcon({
       svg: svg_clipBoard,
-      title: "Paste annotation from the system's clipboard",
+      title: "Paste an annotation from the clipboard",
       onClick: () => {
         let annotationLayerState: AnnotationLayerState | undefined = undefined;
         for (const state of this.layer.annotationStates.states) {
@@ -750,7 +782,7 @@ export class AnnotationLayerView extends Tab {
         navigator.clipboard.readText().then((text) => {
           if (annotationLayerState !== undefined) {
             const annotations = pasteAnnotation(
-              text,
+              JSON.parse(text),
               annotationLayerState.source,
               transform,
               this.layer.manager.root.globalPosition.value,
@@ -850,6 +882,7 @@ export class AnnotationLayerView extends Tab {
           ).then(
             response => response.json()
           ).then(json => {
+            console.log(json);
             if (!Array.isArray(json)) throw new Error("JSON is not an array");
 
             return {
@@ -857,6 +890,7 @@ export class AnnotationLayerView extends Tab {
               completions: json.map((annotation: any) => ({
                 value: annotation.id.toString(),
                 description: annotation.animal_abbreviation_username,
+                timestamp: annotation.updated,
               })),
             };
           }).catch(err => {
@@ -882,17 +916,58 @@ export class AnnotationLayerView extends Tab {
           ).then(
             response => response.json()
           ).then(json => {
-            StatusMessage.showTemporaryMessage(
-              "Annotation copied to clipboard.",
-              5000,
-            );
-            const annotation = json.annotation;
-            if (!annotation) throw new Error(
-              "JSON does not have an annotation"
-            );
+            // StatusMessage.showTemporaryMessage(
+            //   "Annotation copied to clipboard.",
+            //   5000,
+            // );
+            // const annotation = json.annotation;
+            // if (!annotation) throw new Error(
+            //   "JSON does not have an annotation"
+            // );
 
-            annotation["sessionID"] = json.id;
-            setClipboard(JSON.stringify(annotation));
+            // annotation["sessionID"] = json.id;
+            // setClipboard(JSON.stringify(annotation));
+            
+            const annotationSessionId = json["id"];
+            const annotationPortableJson = json["annotation"];
+            if (annotationSessionId === undefined) {
+              throw new Error("No annotation id found in returned JSON.");
+            }
+            if (annotationPortableJson === undefined) {
+              throw new Error("No annotation found in returned JSON.");
+            }
+            annotationPortableJson["sessionID"] = annotationSessionId;
+            
+            let annotationLayerState: AnnotationLayerState | undefined;
+            for (const state of this.layer.annotationStates.states) {
+              if (!state.source.readonly) {
+                annotationLayerState = state;
+                break;
+              }
+            }
+            const dataSource = this.layer.dataSources[0];
+            if (dataSource === undefined) return;
+            const transform = dataSource.spec.transform;
+            if (transform === undefined) return;
+
+            if (annotationLayerState !== undefined) {
+              const annotations = pasteAnnotation(
+                annotationPortableJson,
+                annotationLayerState.source,
+                transform,
+              );
+              if (annotations !== undefined && annotations[0] !== undefined) {
+                this.layer.selectAnnotation(
+                  annotationLayerState,
+                  annotations[0].id,
+                  true
+                );
+              }
+              StatusMessage.showTemporaryMessage(
+                "Annotation downloaded.",
+                5000,
+              );
+            }
           }).catch(err => {
             console.log(err);
             StatusMessage.showTemporaryMessage(
@@ -3138,6 +3213,7 @@ export function UserLayerWithAnnotationsMixin<
                 const annotationGrid = addPositionGrid();
                 addListEntry(annotationGrid, reference);
 
+                console.log(brainState);
                 if (
                   !annotationLayer.source.readonly &&
                   !reference.value!.parentAnnotationId &&
@@ -3549,7 +3625,7 @@ export function UserLayerWithAnnotationsMixin<
                   annotation.type === AnnotationType.CLOUD
                 ) {
                   const editButton = makeAddButton({
-                    title: "Edit annotation",
+                    title: "Add a child annotation",
                     onClick: () => {
                       if (!annotation) return;
                       if (annotation.type === AnnotationType.VOLUME) {
@@ -3573,7 +3649,7 @@ export function UserLayerWithAnnotationsMixin<
 
                   const pasteButton = makeIcon({
                     svg: svg_clipBoard,
-                    title: "Paste annotation from the system's clipboard",
+                    title: "Paste a child annotation from the clipboard",
                     onClick: () => {
                       const dataSource = this.dataSources[0];
                       if (dataSource === undefined) return;
@@ -3581,7 +3657,7 @@ export function UserLayerWithAnnotationsMixin<
                       if (transform === undefined) return;
                       navigator.clipboard.readText().then((text) => {
                         pasteAnnotation(
-                          text,
+                          JSON.parse(text),
                           annotationLayer.source,
                           transform,
                           this.manager.root.globalPosition.value,
