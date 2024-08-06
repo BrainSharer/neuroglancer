@@ -35,12 +35,13 @@ export function getDefaultGlobalBindings() {
       map.set("control+digit" + i, "select-layer-" + i);
       map.set("alt+digit" + i, "toggle-pick-layer-" + i);
     }
-
+    /*
     for (let i = 0; i < 26; ++i) {
       const lowercase = String.fromCharCode(97 + i);
       const uppercase = String.fromCharCode(65 + i);
       map.set(`alt?+control?+shift+key${lowercase}`, `tool-${uppercase}`);
     }
+    */
 
     map.set("keyn", "add-layer");
     map.set("keyh", "help");
