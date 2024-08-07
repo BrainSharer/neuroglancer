@@ -734,7 +734,10 @@ export function adjustInvlerpBrightnessContrast(
 export class InvlerpWidget extends Tab {
   cdfPanel = this.registerDisposer(new CdfPanel(this));
   /* BRAINSHARE STARTS */
-  histogramPanel = this.registerDisposer(new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit));
+  // Add histogram panel
+  histogramPanel = this.registerDisposer(
+    new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit)
+  );
   /* BRAINSHARE ENDS */
 
   boundElements = {
@@ -782,7 +785,9 @@ export class InvlerpWidget extends Tab {
     this.invertArrows = [makeArrow(svg_arrowRight), makeArrow(svg_arrowLeft)];
     element.appendChild(boundElements.range.container);
     element.appendChild(this.cdfPanel.element);
+    /* BRAINSHARE STARTS */
     element.appendChild(this.histogramPanel.element);
+    /* BRAINSHARE ENDS */
     element.classList.add("neuroglancer-invlerp-widget");
     element.appendChild(boundElements.window.container);
     this.updateView();

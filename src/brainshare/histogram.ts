@@ -1,59 +1,58 @@
-/**
- * @license
- * Copyright 2016 Google Inc.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * Modified for Brainsharer UCSD/Princeton
- */
-
 import './histogram.css';
 
-import {RenderedPanel} from '#/display_context';
-import {getMemoizedBuffer} from '#/webgl/buffer';
+import { RenderedPanel } from '#/display_context';
+import { getMemoizedBuffer } from '#/webgl/buffer';
 // import {computeInvlerp, getIntervalBoundsEffectiveFraction} from '#/webgl/lerp';
-import {defineLineShader, drawLines, initializeLineShader, VERTICES_PER_LINE} from '#/webgl/lines';
-import {ShaderBuilder} from '#/webgl/shader';
-import {getSquareCornersBuffer} from '#/webgl/square_corners_buffer';
-import {setRawTextureParameters} from '#/webgl/texture';
-import {InvlerpWidget} from '#/widget/invlerp';
-import { computeInvlerp, getIntervalBoundsEffectiveFraction } from 'src/util/lerp';
+import { 
+  defineLineShader, 
+  drawLines, 
+  initializeLineShader, 
+  VERTICES_PER_LINE
+} from '#/webgl/lines';
+import { ShaderBuilder } from '#/webgl/shader';
+import { getSquareCornersBuffer } from '#/webgl/square_corners_buffer';
+import { setRawTextureParameters } from '#/webgl/texture';
+import { InvlerpWidget } from '#/widget/invlerp';
+import { 
+  computeInvlerp, 
+  getIntervalBoundsEffectiveFraction 
+} from 'src/util/lerp';
 
 export class HistogramPanel extends RenderedPanel {
   get drawOrder() {
     return 100;
   }
-  constructor(public parent: InvlerpWidget, public NUM_CDF_LINES: number, public histogramSamplerTextureUnit: symbol) {
+  constructor(
+    public parent: InvlerpWidget, 
+    public NUM_CDF_LINES: number, 
+    public histogramSamplerTextureUnit: symbol) 
+  {
     super(parent.display, document.createElement('div'), parent.visibility);
     const {element} = this;
     element.classList.add('neuroglancer-invlerp-histogram-panel');
   }
 
-  private dataValuesBuffer =
-      this.registerDisposer(getMemoizedBuffer(this.gl, WebGL2RenderingContext.ARRAY_BUFFER, () => {
-            const {NUM_CDF_LINES} = this;
-            const array = new Uint8Array(NUM_CDF_LINES * VERTICES_PER_LINE);
-            for (let i = 0; i < NUM_CDF_LINES; ++i) {
-              for (let j = 0; j < VERTICES_PER_LINE; ++j) {
-                array[i * VERTICES_PER_LINE + j] = i;
-              }
-            }
-            return array;
-          })).value;
+  private dataValuesBuffer = this.registerDisposer(
+    getMemoizedBuffer(this.gl, WebGL2RenderingContext.ARRAY_BUFFER, () => {
+      const {NUM_CDF_LINES} = this;
+      const array = new Uint8Array(NUM_CDF_LINES * VERTICES_PER_LINE);
+      for (let i = 0; i < NUM_CDF_LINES; ++i) {
+        for (let j = 0; j < VERTICES_PER_LINE; ++j) {
+          array[i * VERTICES_PER_LINE + j] = i;
+        }
+      }
+      return array;
+    })
+  ).value;
 
   private lineShader = this.registerDisposer((() => {
     const builder = new ShaderBuilder(this.gl);
     const {histogramSamplerTextureUnit} = this;
     defineLineShader(builder);
-    builder.addTextureSampler('sampler2D', 'uHistogramSampler', histogramSamplerTextureUnit);
+    builder.addTextureSampler(
+      'sampler2D', 'uHistogramSampler', 
+      histogramSamplerTextureUnit
+    );
     builder.addOutputBuffer('vec4', 'out_color', 0);
     builder.addAttribute('uint', 'aDataValue');
     builder.addUniform('float', 'uBoundsFraction');
@@ -109,10 +108,20 @@ out_color = uColor;
   })());
 
   draw() {
-    const {lineShader, gl, regionShader, parent: {dataType, trackable: {value: bounds}}, NUM_CDF_LINES, histogramSamplerTextureUnit} = this;
+    const {
+      lineShader, 
+      gl, 
+      regionShader, 
+      parent: {dataType, trackable: {value: bounds}}, 
+      NUM_CDF_LINES, 
+      histogramSamplerTextureUnit,
+    } = this;
     this.setGLLogicalViewport();
     gl.enable(WebGL2RenderingContext.BLEND);
-    gl.blendFunc(WebGL2RenderingContext.SRC_ALPHA, WebGL2RenderingContext.ONE_MINUS_SRC_ALPHA);
+    gl.blendFunc(
+      WebGL2RenderingContext.SRC_ALPHA, 
+      WebGL2RenderingContext.ONE_MINUS_SRC_ALPHA
+    );
     gl.disable(WebGL2RenderingContext.DEPTH_TEST);
     gl.disable(WebGL2RenderingContext.STENCIL_TEST);
     {
@@ -120,10 +129,18 @@ out_color = uColor;
       gl.uniform4f(regionShader.uniform('uColor'), 0.2, 0.2, 0.2, 1.0);
       const fraction0 = computeInvlerp(bounds.window, bounds.range[0]),
             fraction1 = computeInvlerp(bounds.window, bounds.range[1]);
-      const effectiveFraction = getIntervalBoundsEffectiveFraction(dataType, bounds.window);
+      const effectiveFraction = getIntervalBoundsEffectiveFraction(
+        dataType, 
+        bounds.window
+      );
       gl.uniform2f(
-          regionShader.uniform('uBounds'), Math.min(fraction0, fraction1) * effectiveFraction,
-          Math.max(fraction0, fraction1) * effectiveFraction + (1 - effectiveFraction));
+        regionShader.uniform('uBounds'), 
+        Math.min(fraction0, fraction1) * effectiveFraction,
+        Math.max(
+          fraction0, 
+          fraction1
+        ) * effectiveFraction + (1 - effectiveFraction)
+      );
       const aVertexPosition = regionShader.attribute('aVertexPosition');
       this.regionCornersBuffer.bindToVertexAttrib(
           aVertexPosition, /*componentsPerVertexAttribute=*/ 2,
@@ -134,20 +151,26 @@ out_color = uColor;
     if (this.parent.histogramSpecifications.producerVisibility.visible) {
       const {renderViewport} = this;
       lineShader.bind();
-      initializeLineShader(
-          lineShader, {width: renderViewport.logicalWidth, height: renderViewport.logicalHeight},
-          /*featherWidthInPixels=*/ 1.0);
-      const histogramTextureUnit = lineShader.textureUnit(histogramSamplerTextureUnit);
+      initializeLineShader(lineShader, {
+        width: renderViewport.logicalWidth, 
+        height: renderViewport.logicalHeight
+      }, /*featherWidthInPixels=*/ 1.0);
+      const histogramTextureUnit = lineShader.textureUnit(
+        histogramSamplerTextureUnit
+      );
       gl.uniform1f(
-          lineShader.uniform('uBoundsFraction'),
-          getIntervalBoundsEffectiveFraction(dataType, bounds.window));
+        lineShader.uniform('uBoundsFraction'), 
+        getIntervalBoundsEffectiveFraction(dataType, bounds.window)
+      );
       gl.activeTexture(WebGL2RenderingContext.TEXTURE0 + histogramTextureUnit);
       gl.bindTexture(WebGL2RenderingContext.TEXTURE_2D, this.parent.texture);
       setRawTextureParameters(gl);
       const aDataValue = lineShader.attribute('aDataValue');
-      this.dataValuesBuffer.bindToVertexAttribI(
-          aDataValue, /*componentsPerVertexAttribute=*/ 1,
-          /*attributeType=*/ WebGL2RenderingContext.UNSIGNED_BYTE);
+      this.dataValuesBuffer.bindToVertexAttribI( 
+        aDataValue, 
+        /*componentsPerVertexAttribute=*/ 1, 
+        /*attributeType=*/ WebGL2RenderingContext.UNSIGNED_BYTE
+      );
       drawLines(gl, /*linesPerInstance=*/ NUM_CDF_LINES, /*numInstances=*/ 1);
       gl.disableVertexAttribArray(aDataValue);
       gl.bindTexture(WebGL2RenderingContext.TEXTURE_2D, null);

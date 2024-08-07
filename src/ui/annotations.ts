@@ -3213,7 +3213,6 @@ export function UserLayerWithAnnotationsMixin<
                 const annotationGrid = addPositionGrid();
                 addListEntry(annotationGrid, reference);
 
-                console.log(brainState);
                 if (
                   !annotationLayer.source.readonly &&
                   !reference.value!.parentAnnotationId &&

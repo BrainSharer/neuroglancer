@@ -104,6 +104,7 @@ export const annotationTypes = [
   /* BRAINSHARE STARTS */
   AnnotationType.POLYGON,
   AnnotationType.VOLUME,
+  AnnotationType.CLOUD,
   /* BRAINSHARE ENDS */
 ];
 
@@ -598,6 +599,7 @@ function parseAnnotationPropertySpec(obj: unknown): AnnotationPropertySpec {
   let enumValues: number[] | undefined;
   let enumLabels: string[] | undefined;
   /* BRAINSHARE STARTS */
+  // Add min, max, step for annotation property settings
   let min: number | undefined;
   let max: number | undefined;
   let step: number | undefined;
@@ -706,7 +708,7 @@ export interface AnnotationBase {
   properties: any[];
   /* BRAINSHARE STARTS */
   parentAnnotationId?: string;
-  childrenVisible?: boolean;
+  // childrenVisible?: boolean;
   childAnnotationIds?: string[];
   sessionID?: number;
   /* BRAINSHARE ENDS */
@@ -1074,6 +1076,7 @@ export const annotationTypeHandlers: Record<
     },
   },
   /* BRAINSHARE STARTS */
+  // Main parts for adding polygon, volume, cloud
   [AnnotationType.POLYGON]: {
     icon: "△",
     description: "Polygon",
@@ -1347,6 +1350,7 @@ export function annotationToJson(
   result.id = annotation.id;
   result.description = annotation.description || undefined;
   /* BRAINSHARE STARTS */
+  // Add new properties to JSON
   result.parentAnnotationId = annotation.parentAnnotationId || undefined;
   result.sessionID = annotation.sessionID || undefined;
   /* BRAINSHARE ENDS */
@@ -1410,6 +1414,7 @@ function restoreAnnotation(
     properties,
     type,
     /* BRAINSHARE STARTS */
+    // Restore new properties from JSON
     parentAnnotationId: verifyObjectProperty(
       obj, 
       "parentAnnotationId", 

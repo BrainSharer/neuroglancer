@@ -36,6 +36,7 @@ export function getDefaultGlobalBindings() {
       map.set("alt+digit" + i, "toggle-pick-layer-" + i);
     }
     /* BRAINSHARE STARTS */
+    // Remove unused shortcuts to uncluster help panel
     /*
     for (let i = 0; i < 26; ++i) {
       const lowercase = String.fromCharCode(97 + i);
