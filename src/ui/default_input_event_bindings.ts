@@ -35,6 +35,7 @@ export function getDefaultGlobalBindings() {
       map.set("control+digit" + i, "select-layer-" + i);
       map.set("alt+digit" + i, "toggle-pick-layer-" + i);
     }
+    /* BRAINSHARE STARTS */
     /*
     for (let i = 0; i < 26; ++i) {
       const lowercase = String.fromCharCode(97 + i);
@@ -42,6 +43,7 @@ export function getDefaultGlobalBindings() {
       map.set(`alt?+control?+shift+key${lowercase}`, `tool-${uppercase}`);
     }
     */
+    /* BRAINSHARE ENDS */
 
     map.set("keyn", "add-layer");
     map.set("keyh", "help");
