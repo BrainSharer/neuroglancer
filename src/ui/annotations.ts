@@ -3145,7 +3145,7 @@ export function UserLayerWithAnnotationsMixin<
                       chunkTransform as ChunkTransformParameters,
                       (layerPosition, isVector) => {
                         const copyButton = makeCopyButton({
-                          title: "Copy annotation",
+                          title: "Copy this annotation to clipboard",
                           onClick: () => {
                             const dataSource = this.dataSources[0];
                             if (dataSource === undefined) return;
@@ -3611,6 +3611,62 @@ export function UserLayerWithAnnotationsMixin<
                   childAnnotationTitleDiv.textContent = "child annotations";
                   parent.appendChild(childAnnotationTitleDiv);
 
+                  if (
+                    annotation.type === AnnotationType.VOLUME ||
+                    annotation.type === AnnotationType.CLOUD
+                  ) {
+                    const editPasteDiv = document.createElement("div");
+                    editPasteDiv.style.display = "flex";
+                    editPasteDiv.style.alignItems = "center";
+
+                    parent.appendChild(editPasteDiv);
+
+                    const editButton = makeAddButton({
+                      title: "Add a child annotation",
+                      onClick: () => {
+                        if (!annotation) return;
+                        if (annotation.type === AnnotationType.VOLUME) {
+                          this.tool.value = new PlaceVolumeTool(
+                            this,
+                            {},
+                            reference
+                          );
+                        }
+                        else if (annotation.type === AnnotationType.CLOUD) {
+                          this.tool.value = new PlaceCloudTool(
+                            this,
+                            {},
+                            reference
+                          );
+                        }
+                      },
+                    });
+                    editButton.style.gridColumn = "icon";
+                    editPasteDiv.appendChild(editButton);
+
+                    const pasteButton = makeIcon({
+                      svg: svg_clipBoard,
+                      title: "Paste a child annotation from the clipboard",
+                      onClick: () => {
+                        const dataSource = this.dataSources[0];
+                        if (dataSource === undefined) return;
+                        const transform = dataSource.spec.transform;
+                        if (transform === undefined) return;
+                        navigator.clipboard.readText().then((text) => {
+                          pasteAnnotation(
+                            JSON.parse(text),
+                            annotationLayer.source,
+                            transform,
+                            this.manager.root.globalPosition.value,
+                            reference,
+                          );
+                        });
+                      },
+                    });
+                    pasteButton.style.gridColumn = "copy";
+                    editPasteDiv.appendChild(pasteButton);
+                  }
+
                   const childrenGrid = addPositionGrid();
                   for (const childId of annotation.childAnnotationIds) {
                     const childRef = annotationLayer.source.getReference(
@@ -3618,57 +3674,6 @@ export function UserLayerWithAnnotationsMixin<
                     );
                     addListEntry(childrenGrid, childRef);
                   }
-
-                if (
-                  annotation.type === AnnotationType.VOLUME ||
-                  annotation.type === AnnotationType.CLOUD
-                ) {
-                  const editButton = makeAddButton({
-                    title: "Add a child annotation",
-                    onClick: () => {
-                      if (!annotation) return;
-                      if (annotation.type === AnnotationType.VOLUME) {
-                        this.tool.value = new PlaceVolumeTool(
-                          this,
-                          {},
-                          reference
-                        );
-                      }
-                      else if (annotation.type === AnnotationType.CLOUD) {
-                        this.tool.value = new PlaceCloudTool(
-                          this,
-                          {},
-                          reference
-                        );
-                      }
-                    },
-                  });
-                  editButton.style.gridColumn = "icon";
-                  childrenGrid.appendChild(editButton);
-
-                  const pasteButton = makeIcon({
-                    svg: svg_clipBoard,
-                    title: "Paste a child annotation from the clipboard",
-                    onClick: () => {
-                      const dataSource = this.dataSources[0];
-                      if (dataSource === undefined) return;
-                      const transform = dataSource.spec.transform;
-                      if (transform === undefined) return;
-                      navigator.clipboard.readText().then((text) => {
-                        pasteAnnotation(
-                          JSON.parse(text),
-                          annotationLayer.source,
-                          transform,
-                          this.manager.root.globalPosition.value,
-                          reference,
-                        );
-                      });
-                    },
-                  });
-                  pasteButton.style.gridColumn = "copy";
-                  childrenGrid.appendChild(pasteButton);
-                }
-
                 }
                 /* BRAINSHARE ENDS */
               }
