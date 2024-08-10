@@ -30,14 +30,14 @@ export function getDefaultGlobalBindings() {
     map.set("keya", "toggle-axis-lines");
     map.set("keyo", "toggle-orthographic-projection");
 
+    /* BRAINSHARE STARTS */
+    // Remove unused shortcuts to uncluster help panel
+    /*
     for (let i = 1; i <= 9; ++i) {
       map.set("digit" + i, "toggle-layer-" + i);
       map.set("control+digit" + i, "select-layer-" + i);
       map.set("alt+digit" + i, "toggle-pick-layer-" + i);
     }
-    /* BRAINSHARE STARTS */
-    // Remove unused shortcuts to uncluster help panel
-    /*
     for (let i = 0; i < 26; ++i) {
       const lowercase = String.fromCharCode(97 + i);
       const uppercase = String.fromCharCode(65 + i);
