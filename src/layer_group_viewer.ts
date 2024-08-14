@@ -467,9 +467,9 @@ export class LayerGroupViewer extends RefCounted {
       registerActionListener(this.element, action, handler),
     );
   }
-
+  /* BRAINSHARE STARTS  changing add-layer to add-image-layer */
   private registerActionBindings() {
-    this.bindAction("add-layer", () => {
+    this.bindAction("add-image-layer", () => {
       if (this.layerPanel) {
         this.layerPanel.addLayerMenu();
       }

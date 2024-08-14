@@ -22,11 +22,11 @@ let defaultGlobalBindings: EventActionMap | undefined;
 export function getDefaultGlobalBindings() {
   if (defaultGlobalBindings === undefined) {
     const map = new EventActionMap();
-    map.set("keyl", "recolor");
-    map.set("keyx", "clear-segments");
+    /* BRAINSHARE STARTS map.set("keyl", "recolor"); */
+    /* BRAINSHARE STARTS map.set("keyx", "clear-segments"); */
     map.set("keys", "toggle-show-slices");
     map.set("keyb", "toggle-scale-bar");
-    map.set("keyv", "toggle-default-annotations");
+    /* BRAINSHARE STARTS map.set("keyv", "toggle-default-annotations"); */
     map.set("keya", "toggle-axis-lines");
     map.set("keyo", "toggle-orthographic-projection");
 
@@ -46,7 +46,7 @@ export function getDefaultGlobalBindings() {
     */
     /* BRAINSHARE ENDS */
 
-    map.set("keyn", "add-layer");
+    map.set("keyn", "add-image-layer"); /* BRAINSHARE STARTS  changing add-layer to add-image-layer */
     map.set("keyh", "help");
 
     map.set("space", "toggle-layout");
@@ -98,7 +98,7 @@ export function getDefaultRenderedDataPanelBindings() {
         "control+equal": "zoom-in",
         "alt+equal": "depth-range-decrease",
         "control+shift+equal": "zoom-in",
-        "alt+shift+equal": "depth-range-decrease",
+        // BRAINSHARE  "alt+shift+equal": "depth-range-decrease",
         "control+minus": "zoom-out",
         "alt+minus": "depth-range-increase",
         keyr: "rotate-relative-z-",
@@ -119,7 +119,7 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:control+mousedown0": "annotate",
         "at:mousedown2": "move-to-mouse-position",
         "at:alt+mousedown0": "move-annotation",
-        "at:control+alt+mousedown2": "delete-annotation",
+        // BRAINSHARE "at:control+alt+mousedown2": "delete-annotation",
         "at:touchpinch": "zoom-via-touchpinch",
         "at:touchrotate": "rotate-in-plane-via-touchrotate",
         "at:touchtranslate2": "translate-in-plane-via-touchtranslate",
