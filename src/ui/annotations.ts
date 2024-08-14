@@ -3110,10 +3110,12 @@ export function UserLayerWithAnnotationsMixin<
                   div: HTMLDivElement,
                   annRef: AnnotationReference,
                 ) => {
+                  const annType = AnnotationType[annRef.value!.type];
+
                   const handler = annotationTypeHandlers[annRef.value!.type];
                   const icon = makeIcon({
                     text: handler.icon,
-                    title: "Select annotation",
+                    title: `Select the annotation ${annType}`,
                     onClick: () => {
                       this.selectAnnotation(
                         annotationLayer,
@@ -3145,7 +3147,7 @@ export function UserLayerWithAnnotationsMixin<
                       chunkTransform as ChunkTransformParameters,
                       (layerPosition, isVector) => {
                         const copyButton = makeCopyButton({
-                          title: "Copy this annotation to clipboard",
+                          title: `Copy the annotation ${annType} to clipboard`,
                           onClick: () => {
                             const dataSource = this.dataSources[0];
                             if (dataSource === undefined) return;
@@ -3162,7 +3164,7 @@ export function UserLayerWithAnnotationsMixin<
                             )
                             setClipboard(JSON.stringify(json));
                             StatusMessage.showTemporaryMessage(
-                              "Annotation copied to clipboard.",
+                              `Annotation ${annType} copied to clipboard.`,
                               5000,
                             );
                           },
@@ -3182,7 +3184,7 @@ export function UserLayerWithAnnotationsMixin<
                         }
                         if (!isVector) {
                           const moveButton = makeMoveToButton({
-                            title: "Move to position",
+                            title: `Move to the annotation ${annType}`,
                             onClick: () => {
                               setLayerPosition(
                                 this,
@@ -3198,7 +3200,7 @@ export function UserLayerWithAnnotationsMixin<
                     );
 
                     const deleteButton = makeDeleteButton({
-                      title: "Delete annotation",
+                      title: `Delete the annotation ${annType}`,
                       onClick: () => {
                         annotationLayer.source.delete(annRef);
                       },

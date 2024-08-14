@@ -135,6 +135,7 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:shift+keye": "rotate-polygon-z-",
         "at:shift+equal": "scale-polygon-enlarge",
         "at:shift+minus": "scale-polygon-shrink",
+        "at:alt+shift+mousedown0": "move-parent-annotation",
         /* BRAINSHARE ENDS */
       },
       {

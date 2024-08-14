@@ -721,30 +721,31 @@ export abstract class RenderedDataPanel extends RenderedPanel {
                       lineIndex2 = pickedLineIndex + 1;
                       if (pickedLineIndex === length - 1) lineIndex2 = 0;
                     }
-                  }
-                  
-                  for (let i = 0; i < childAnnotationIds.length; i++) {
-                    let childPartIndex = -1;
-                    if (pickedLineIndex == -1) childPartIndex = 0;
-                    else if (i == lineIndex1) childPartIndex = 2;
-                    else if (i == lineIndex2) childPartIndex = 1;
-                    else continue;
-
-                    const childAnnRef = annotationLayer.source.getReference(
-                      childAnnotationIds[i],
+                    
+                    const childAnnRef1 = annotationLayer.source.getReference(
+                      childAnnotationIds[lineIndex1],
                     );
-                    const childAnn = childAnnRef.value!;
+                    const childAnn1 = childAnnRef1.value!;
 
-                    const childRepPoint = new Float32Array(layerRank)
-                    handler.getRepresentativePoint(
-                      childRepPoint, 
-                      childAnn,
-                      childPartIndex,
-                    );
+                    const childRepPoint1 = new Float32Array(layerRank)
+                    handler.getRepresentativePoint(childRepPoint1, childAnn1, 2);
                     pickedAnnotations.push({
-                      pickedAnnRef: childAnnRef,
-                      pickedRepPoint: childRepPoint,
-                      pickedPartIndex: childPartIndex,
+                      pickedAnnRef: childAnnRef1,
+                      pickedRepPoint: childRepPoint1,
+                      pickedPartIndex: 2,
+                    });
+
+                    const childAnnRef2 = annotationLayer.source.getReference(
+                      childAnnotationIds[lineIndex2],
+                    );
+                    const childAnn2 = childAnnRef2.value!;
+
+                    const childRepPoint2 = new Float32Array(layerRank)
+                    handler.getRepresentativePoint(childRepPoint2, childAnn2, 1);
+                    pickedAnnotations.push({
+                      pickedAnnRef: childAnnRef2,
+                      pickedRepPoint: childRepPoint2,
+                      pickedPartIndex: 1,
                     });
                   }
                 }
@@ -874,6 +875,138 @@ export abstract class RenderedDataPanel extends RenderedPanel {
     );
 
     /* BRAINSHARE STARTS */
+    registerActionListener(
+      element,
+      "move-parent-annotation",
+      (e: ActionEvent<MouseEvent>) => {
+        const { mouseState } = this.viewer;
+        const selectedAnnotationId = mouseState.pickedAnnotationId;
+        const annotationLayer = mouseState.pickedAnnotationLayer;
+        if (annotationLayer !== undefined) {
+          if (selectedAnnotationId !== undefined) {
+            e.stopPropagation();
+            const annotationRef =
+              annotationLayer.source.getReference(selectedAnnotationId)!;
+            const ann = <Annotation>annotationRef.value;
+
+            const handler = getAnnotationTypeRenderHandler(ann.type);
+            const {
+              chunkTransform: { value: chunkTransform },
+            } = annotationLayer;
+            if (chunkTransform.error !== undefined) return;
+            const { layerRank } = chunkTransform;
+            const repPoint = new Float32Array(layerRank);
+            handler.getRepresentativePoint(
+              repPoint,
+              ann,
+              mouseState.pickedOffset,
+            );
+
+            const pickedAnnotations: { 
+              pickedAnnRef: AnnotationReference,
+              pickedRepPoint: Float32Array,
+            }[] = [];
+            if (ann.parentAnnotationId === undefined) {
+              return;
+            }
+            else {
+              const parAnn = annotationLayer.source.getReference(
+                ann.parentAnnotationId
+              ).value;
+              if (!parAnn) return;
+
+              const childAnnotationIds = parAnn.childAnnotationIds!;
+              for (let i = 0; i < childAnnotationIds.length; i++) {
+                const childAnnRef = annotationLayer.source.getReference(
+                  childAnnotationIds[i],
+                );
+                const childAnn = childAnnRef.value!;
+
+                const childRepPoint = new Float32Array(layerRank)
+                handler.getRepresentativePoint(
+                  childRepPoint, 
+                  childAnn,
+                  0,
+                );
+                pickedAnnotations.push({
+                  pickedAnnRef: childAnnRef,
+                  pickedRepPoint: childRepPoint,
+                });
+              }
+            }
+            const totDeltaVec = vec2.set(vec2.create(), 0, 0);
+            if (mouseState.updateUnconditionally()) {
+              startRelativeMouseDrag(
+                e.detail,
+                (_event, deltaX, deltaY) => {
+                  vec2.add(totDeltaVec, totDeltaVec, [deltaX, deltaY]);
+                  const layerPoint = new Float32Array(layerRank);
+                  matrix.transformPoint(
+                    layerPoint,
+                    chunkTransform.chunkToLayerTransform,
+                    layerRank + 1,
+                    repPoint,
+                    layerRank,
+                  );
+                  const renderPt = tempVec3;
+                  const { displayDimensionIndices } =
+                    this.navigationState.pose.displayDimensions.value;
+                  layerToDisplayCoordinates(
+                    renderPt,
+                    layerPoint,
+                    chunkTransform.modelTransform,
+                    displayDimensionIndices,
+                  );
+                  this.translateDataPointByViewportPixels(
+                    renderPt,
+                    renderPt,
+                    totDeltaVec[0],
+                    totDeltaVec[1],
+                  );
+                  displayToLayerCoordinates(
+                    layerPoint,
+                    renderPt,
+                    chunkTransform.modelTransform,
+                    displayDimensionIndices,
+                  );
+                  const newPoint = new Float32Array(layerRank);
+                  matrix.transformPoint(
+                    newPoint,
+                    chunkTransform.layerToChunkTransform,
+                    layerRank + 1,
+                    layerPoint,
+                    layerRank,
+                  );
+                  const diff = new Float32Array(layerRank);
+                  vector.subtract(diff, newPoint, repPoint);
+                  for (let i = 0; i < pickedAnnotations.length; i++) {
+                    const { 
+                      pickedAnnRef, 
+                      pickedRepPoint,
+                    } = pickedAnnotations[i];
+                    const childAnn = pickedAnnRef.value!;
+
+                    const childNewPoint = new Float32Array(layerRank);
+                    vector.add(childNewPoint, pickedRepPoint, diff);
+                    const newAnnotation = handler.updateViaRepresentativePoint(
+                      childAnn,
+                      childNewPoint,
+                      0
+                    );
+                    annotationLayer.source.update(pickedAnnRef, newAnnotation);
+                  }
+                },
+                (_event) => {
+                  annotationLayer.source.commit(annotationRef);
+                  annotationRef.dispose();
+                },
+              );
+            }
+          }
+        }
+      },
+    );
+
     registerActionListener(
       element,
       "complete-annotation",
