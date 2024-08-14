@@ -467,13 +467,17 @@ export class LayerGroupViewer extends RefCounted {
       registerActionListener(this.element, action, handler),
     );
   }
-  /* BRAINSHARE STARTS  changing add-layer to add-image-layer */
   private registerActionBindings() {
+    /* BRAINSHARE STARTS */
+    /*
+    this.bindAction("add-layer", () => {
+    */
     this.bindAction("add-image-layer", () => {
       if (this.layerPanel) {
         this.layerPanel.addLayerMenu();
       }
     });
+    /* BRAINSHARE ENDS */
     this.bindAction("t-", () => {
       this.navigationState.pose.translateNonDisplayDimension(0, -1);
     });
