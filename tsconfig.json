@@ -34,6 +34,16 @@
     "python",
     "testdata",
     "examples",
-    "config"
-  ]
-}
+    "config",
+    "src/brainshare/docs"
+  ],
+  "typedocOptions": {
+        "entryPoints": ["./src"],
+        "entryPointStrategy": "expand",
+        "exclude": ["./src/**/*.spec.ts"],
+        "excludeExternals": false,
+        "excludePrivate": false,
+        "excludeProtected": false,
+        "out": "src/brainshare/docs/typedoc"    
+      }
+  }
