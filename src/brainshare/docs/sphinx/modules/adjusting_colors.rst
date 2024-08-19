@@ -80,3 +80,36 @@ A tool to toggle the color on and off is also included.
         emitGrayscale(pix) ;
         }
     }
+
+
+sRGB
+~~~~
+
+This is for 3 channel sRGB images. Copy the code below into the Shader popup window for sRGB.
+
+. code-block:: c
+   :linenos:
+
+    #uicontrol invlerp toNormalized
+    #uicontrol float gamma slider(min=0.05, max=2.5, default=1.0, step=0.05)
+
+    void main () {
+        emitRGB(vec3(pow(toNormalized(getDataValue(0)),gamma), pow(toNormalized(getDataValue(1)),gamma), pow(toNormalized(getDataValue(2)),gamma)));
+    }
+
+sRGB (option 2)
+~~~~~~~~~~~~~~~
+
+This is for 3 channel sRGB images. This has 3 normalization sliders. It works well but takes up a lot
+of room in the rendering panel. Copy the code below into the Shader popup window for sRGB.
+
+. code-block:: c
+   :linenos:
+
+    #uicontrol invlerp red(channel=0)
+    #uicontrol invlerp green(channel=1)
+    #uicontrol invlerp blue(channel=2)
+
+    void main() {
+    emitRGB(vec3(red(), green(), blue()));
+    }

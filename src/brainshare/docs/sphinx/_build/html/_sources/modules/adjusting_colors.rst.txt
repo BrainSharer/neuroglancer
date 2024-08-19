@@ -80,3 +80,19 @@ A tool to toggle the color on and off is also included.
         emitGrayscale(pix) ;
         }
     }
+
+sRGB
+~~~~
+
+This is for 3 channel sRGB images. Copy the code below into the Shader popup window for sRGB.
+
+. code-block:: c
+   :linenos:
+
+    #uicontrol invlerp red(channel=0)
+    #uicontrol invlerp green(channel=1)
+    #uicontrol invlerp blue(channel=2)
+
+    void main() {
+    emitRGB(vec3(red(), green(), blue()));
+    }

@@ -21,7 +21,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="prev" title="Neuroglancer polygon tool HOWTO" href="polygon_tool.html" /> 
+    <link rel="next" title="Neuroglancer polygon tool HOWTO" href="polygon_tool.html" />
+    <link rel="prev" title="Brainsharer documentation" href="../index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,8 +47,9 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="polygon_tool.html">Polygon tool</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Adjusting colors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polygon_tool.html">Polygon tool</a></li>
+<li class="toctree-l1"><a class="reference internal" href="realignment.html">Realignment with fiducials</a></li>
 </ul>
 
         </div>
@@ -143,13 +145,31 @@ A tool to toggle the color on and off is also included.</p>
 </pre></div>
 </div>
 </section>
+<section id="srgb">
+<h2>sRGB<a class="headerlink" href="#srgb" title="Link to this heading"></a></h2>
+<p>This is for 3 channel sRGB images. Copy the code below into the Shader popup window for sRGB.</p>
+<dl>
+<dt>. code-block:: c</dt><dd><dl class="field-list">
+<dt class="field-odd">linenos<span class="colon">:</span></dt>
+<dd class="field-odd"><p>#uicontrol invlerp red(channel=0)
+#uicontrol invlerp green(channel=1)
+#uicontrol invlerp blue(channel=2)</p>
+<p>void main() {
+emitRGB(vec3(red(), green(), blue()));
+}</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="polygon_tool.html" class="btn btn-neutral float-left" title="Neuroglancer polygon tool HOWTO" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../index.html" class="btn btn-neutral float-left" title="Brainsharer documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="polygon_tool.html" class="btn btn-neutral float-right" title="Neuroglancer polygon tool HOWTO" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
