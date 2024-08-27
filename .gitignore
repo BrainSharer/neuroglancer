@@ -19,3 +19,4 @@ tsconfig.tsbuildinfo
 .pytest_cache
 /ngauth_server/secrets/
 /src/brainshare/firestore.ts
+/src/brainshare/docs/sphinx/_build/
