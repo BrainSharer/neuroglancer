@@ -1,7 +1,7 @@
 
 Adjusting colors and normalization in Neuroglancer
 ==================================================
-This page will describe how to adjust colors and normalization of the Neuroglancer viewer.
+This page will describe how to adjust colors and normalization in the Neuroglancer viewer.
 
 ****
 
@@ -9,7 +9,8 @@ To adjust the colors or normalization in a Neuroglancer view, you need to go to 
 under the Rendering tab. Look for a small box icon to the right of the word 'Shader' and click that. A popup window will
 appear and the default for grayscale images will appear in the popup. The code should look similar to the code in the 
 Greyscale section below. You can copy and paste
-the code from the Greyscale, Red or Green sections into the Shader window and adjust the values as needed.
+the code from the Greyscale, Red, Green or sRGB sections into the Shader window and adjust the values as needed.
+Decrease the larger number in the range if the images are very low contrast. The upper limit is 65535 for 16bit images.
 
 Greyscale 
 ~~~~~~~~~
@@ -27,8 +28,8 @@ Greyscale
     }
 
 The above code will set a grayscale normalized CDF (cumulative distribution function) and a gamma correction slider. 
-Note the value of 65000 (rounded down from 65535), this is an upper limit for the normalization of 16bit images.
-You can adjust this number down to say 7500 for very low contrast images. 
+Note the value of 65535, this is an upper limit for the normalization of 16bit images.
+You can adjust this number down to say 5000 for very low contrast images. 
 
 
 Red
@@ -50,9 +51,9 @@ A tool to toggle the color on and off is also included.
         pix = pow(pix,gamma);
 
         if (colour) {
-        emitRGB(vec3(pix,0,0));
+            emitRGB(vec3(pix,0,0));
         } else {
-        emitGrayscale(pix) ;
+            emitGrayscale(pix) ;
         }
     }
 
@@ -75,9 +76,9 @@ A tool to toggle the color on and off is also included.
         pix = pow(pix,gamma);
 
         if (colour) {
-        emitRGB(vec3(0,pix,0));
+            emitRGB(vec3(0,pix,0));
         } else {
-        emitGrayscale(pix) ;
+            emitGrayscale(pix) ;
         }
     }
 
@@ -87,7 +88,7 @@ sRGB
 
 This is for 3 channel sRGB images. Copy the code below into the Shader popup window for sRGB.
 
-. code-block:: c
+.. code-block:: c
    :linenos:
 
     #uicontrol invlerp toNormalized
@@ -103,7 +104,7 @@ sRGB (option 2)
 This is for 3 channel sRGB images. This has 3 normalization sliders. It works well but takes up a lot
 of room in the rendering panel. Copy the code below into the Shader popup window for sRGB.
 
-. code-block:: c
+.. code-block:: c
    :linenos:
 
     #uicontrol invlerp red(channel=0)
@@ -111,5 +112,5 @@ of room in the rendering panel. Copy the code below into the Shader popup window
     #uicontrol invlerp blue(channel=2)
 
     void main() {
-    emitRGB(vec3(red(), green(), blue()));
+        emitRGB(vec3(red(), green(), blue()));
     }

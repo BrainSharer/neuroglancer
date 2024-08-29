@@ -78,13 +78,14 @@
              
   <section id="adjusting-colors-and-normalization-in-neuroglancer">
 <h1>Adjusting colors and normalization in Neuroglancer<a class="headerlink" href="#adjusting-colors-and-normalization-in-neuroglancer" title="Link to this heading"></a></h1>
-<p>This page will describe how to adjust colors and normalization of the Neuroglancer viewer.</p>
+<p>This page will describe how to adjust colors and normalization in the Neuroglancer viewer.</p>
 <hr class="docutils" />
 <p>To adjust the colors or normalization in a Neuroglancer view, you need to go to the right side panel and look for the Shader
 under the Rendering tab. Look for a small box icon to the right of the word ‘Shader’ and click that. A popup window will
 appear and the default for grayscale images will appear in the popup. The code should look similar to the code in the
 Greyscale section below. You can copy and paste
-the code from the Greyscale, Red or Green sections into the Shader window and adjust the values as needed.</p>
+the code from the Greyscale, Red, Green or sRGB sections into the Shader window and adjust the values as needed.
+Decrease the larger number in the range if the images are very low contrast. The upper limit is 65535 for 16bit images.</p>
 <section id="greyscale">
 <h2>Greyscale<a class="headerlink" href="#greyscale" title="Link to this heading"></a></h2>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="w"> </span><span class="cp">#uicontrol invlerp normalized  (range=[0,65535])</span>
@@ -98,8 +99,8 @@ the code from the Greyscale, Red or Green sections into the Shader window and ad
 </pre></div>
 </div>
 <p>The above code will set a grayscale normalized CDF (cumulative distribution function) and a gamma correction slider.
-Note the value of 65000 (rounded down from 65535), this is an upper limit for the normalization of 16bit images.
-You can adjust this number down to say 7500 for very low contrast images.</p>
+Note the value of 65535, this is an upper limit for the normalization of 16bit images.
+You can adjust this number down to say 5000 for very low contrast images.</p>
 </section>
 <section id="red">
 <h2>Red<a class="headerlink" href="#red" title="Link to this heading"></a></h2>
@@ -115,9 +116,9 @@ A tool to toggle the color on and off is also included.</p>
 <span class="linenos"> 7</span><span class="w">     </span><span class="n">pix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pow</span><span class="p">(</span><span class="n">pix</span><span class="p">,</span><span class="n">gamma</span><span class="p">);</span>
 <span class="linenos"> 8</span>
 <span class="linenos"> 9</span><span class="w">     </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">colour</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="linenos">10</span><span class="w">     </span><span class="n">emitRGB</span><span class="p">(</span><span class="n">vec3</span><span class="p">(</span><span class="n">pix</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">));</span>
+<span class="linenos">10</span><span class="w">         </span><span class="n">emitRGB</span><span class="p">(</span><span class="n">vec3</span><span class="p">(</span><span class="n">pix</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">));</span>
 <span class="linenos">11</span><span class="w">     </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
-<span class="linenos">12</span><span class="w">     </span><span class="n">emitGrayscale</span><span class="p">(</span><span class="n">pix</span><span class="p">)</span><span class="w"> </span><span class="p">;</span>
+<span class="linenos">12</span><span class="w">         </span><span class="n">emitGrayscale</span><span class="p">(</span><span class="n">pix</span><span class="p">)</span><span class="w"> </span><span class="p">;</span>
 <span class="linenos">13</span><span class="w">     </span><span class="p">}</span>
 <span class="linenos">14</span><span class="w"> </span><span class="p">}</span>
 </pre></div>
@@ -137,9 +138,9 @@ A tool to toggle the color on and off is also included.</p>
 <span class="linenos"> 7</span><span class="w">     </span><span class="n">pix</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pow</span><span class="p">(</span><span class="n">pix</span><span class="p">,</span><span class="n">gamma</span><span class="p">);</span>
 <span class="linenos"> 8</span>
 <span class="linenos"> 9</span><span class="w">     </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">colour</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="linenos">10</span><span class="w">     </span><span class="n">emitRGB</span><span class="p">(</span><span class="n">vec3</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">pix</span><span class="p">,</span><span class="mi">0</span><span class="p">));</span>
+<span class="linenos">10</span><span class="w">         </span><span class="n">emitRGB</span><span class="p">(</span><span class="n">vec3</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">pix</span><span class="p">,</span><span class="mi">0</span><span class="p">));</span>
 <span class="linenos">11</span><span class="w">     </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
-<span class="linenos">12</span><span class="w">     </span><span class="n">emitGrayscale</span><span class="p">(</span><span class="n">pix</span><span class="p">)</span><span class="w"> </span><span class="p">;</span>
+<span class="linenos">12</span><span class="w">         </span><span class="n">emitGrayscale</span><span class="p">(</span><span class="n">pix</span><span class="p">)</span><span class="w"> </span><span class="p">;</span>
 <span class="linenos">13</span><span class="w">     </span><span class="p">}</span>
 <span class="linenos">14</span><span class="w"> </span><span class="p">}</span>
 </pre></div>
@@ -148,19 +149,28 @@ A tool to toggle the color on and off is also included.</p>
 <section id="srgb">
 <h2>sRGB<a class="headerlink" href="#srgb" title="Link to this heading"></a></h2>
 <p>This is for 3 channel sRGB images. Copy the code below into the Shader popup window for sRGB.</p>
-<dl>
-<dt>. code-block:: c</dt><dd><dl class="field-list">
-<dt class="field-odd">linenos<span class="colon">:</span></dt>
-<dd class="field-odd"><p>#uicontrol invlerp red(channel=0)
-#uicontrol invlerp green(channel=1)
-#uicontrol invlerp blue(channel=2)</p>
-<p>void main() {
-emitRGB(vec3(red(), green(), blue()));
-}</p>
-</dd>
-</dl>
-</dd>
-</dl>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="w"> </span><span class="cp">#uicontrol invlerp toNormalized</span>
+<span class="linenos">2</span><span class="w"> </span><span class="cp">#uicontrol float gamma slider(min=0.05, max=2.5, default=1.0, step=0.05)</span>
+<span class="linenos">3</span>
+<span class="linenos">4</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">main</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">5</span><span class="w">     </span><span class="n">emitRGB</span><span class="p">(</span><span class="n">vec3</span><span class="p">(</span><span class="n">pow</span><span class="p">(</span><span class="n">toNormalized</span><span class="p">(</span><span class="n">getDataValue</span><span class="p">(</span><span class="mi">0</span><span class="p">)),</span><span class="n">gamma</span><span class="p">),</span><span class="w"> </span><span class="n">pow</span><span class="p">(</span><span class="n">toNormalized</span><span class="p">(</span><span class="n">getDataValue</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="n">gamma</span><span class="p">),</span><span class="w"> </span><span class="n">pow</span><span class="p">(</span><span class="n">toNormalized</span><span class="p">(</span><span class="n">getDataValue</span><span class="p">(</span><span class="mi">2</span><span class="p">)),</span><span class="n">gamma</span><span class="p">)));</span>
+<span class="linenos">6</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="srgb-option-2">
+<h2>sRGB (option 2)<a class="headerlink" href="#srgb-option-2" title="Link to this heading"></a></h2>
+<p>This is for 3 channel sRGB images. This has 3 normalization sliders. It works well but takes up a lot
+of room in the rendering panel. Copy the code below into the Shader popup window for sRGB.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="w"> </span><span class="cp">#uicontrol invlerp red(channel=0)</span>
+<span class="linenos">2</span><span class="w"> </span><span class="cp">#uicontrol invlerp green(channel=1)</span>
+<span class="linenos">3</span><span class="w"> </span><span class="cp">#uicontrol invlerp blue(channel=2)</span>
+<span class="linenos">4</span>
+<span class="linenos">5</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">6</span><span class="w">     </span><span class="n">emitRGB</span><span class="p">(</span><span class="n">vec3</span><span class="p">(</span><span class="n">red</span><span class="p">(),</span><span class="w"> </span><span class="n">green</span><span class="p">(),</span><span class="w"> </span><span class="n">blue</span><span class="p">()));</span>
+<span class="linenos">7</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
 </section>
 </section>
 

@@ -20,4 +20,4 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 publish:
-	rsync -auv --delete _build/html/* webdev:/var/www/webdev/docs/brainsharer/neuroglancer/
+	rsync -auv --delete _build/html/* brainsharer:/var/www/webdev/docs/brainsharer/neuroglancer/

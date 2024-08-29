@@ -5,11 +5,19 @@
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
-from urllib.request import urlretrieve
-urlretrieve (
-    "https://raw.githubusercontent.com/BrainSharer/pipeline/master/docs/sphinx/source/modules/header.rst",
-    "modules/header.rst"
-)
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
+
+url = Request("https://raw.githubusercontent.com/BrainSharer/pipeline/master/docs/sphinx/source/modules/header.rst")
+try:
+    response = urlopen(url, timeout=10)
+except HTTPError as e:
+    print(f'HTTPError code: {e.code}')
+except URLError as e:
+    print(f'URLError: {e.reason}')
+else:
+    with open("modules/header.rst", 'wb') as f:
+        f.write(response.read())
 
 
 project = 'Brainsharer Neuroglancer'
