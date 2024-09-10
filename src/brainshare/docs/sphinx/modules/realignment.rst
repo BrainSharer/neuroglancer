@@ -12,6 +12,15 @@ This document describes these steps.
 
 **Process and example**
 
+* Create the non aligned layer in the pipeline: `python src/pipeline/scripts/create_pipeline.py --task realign --animal {ANIMAL_ID}`
+
+* In a browser, open up the Neuroglancer view with URL ID provided.
+
+* Add another layer with the '+' icon next to the 'C1T' layer.  This will be the layer where you will add the fiducials. To do this, in the 'new layer' precomputed source text box on the right, type: `https://imageserv.dk.ucsd.edu/data/{ANIMAL_ID}/C1T_unaligned/`
+
+* Open up the upper left quadrant. You don't need the other quadrants for this process as the virtual projections are not ready. You may need to adjust
+  the brightness and contrast to see the image better. See the 'Adjusting colors' page for more information.
+
 *   Identify which section(s) are not properly aligned through Neuroglancer interface.  The z value is the section number.
 
 *   Navigate to non-aligned section (in figure below this is section 75).
