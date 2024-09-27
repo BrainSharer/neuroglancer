@@ -3110,6 +3110,9 @@ export function UserLayerWithAnnotationsMixin<
                   div: HTMLDivElement,
                   annRef: AnnotationReference,
                 ) => {
+                  console.log("addListEntry", annRef);
+                  console.log("addListEntry value", annRef.value);
+                  if (annRef.value === null) return;
                   const annType = AnnotationType[annRef.value!.type];
 
                   const handler = annotationTypeHandlers[annRef.value!.type];
