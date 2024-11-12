@@ -17,7 +17,7 @@ tsconfig.tsbuildinfo
 .mypy_cache
 .nox
 .pytest_cache
-/ngauth_server/secrets/
-/src/brainshare/firestore.ts
-/src/brainshare/docs/sphinx/_build/
-/src/brainshare/docs/typedoc
+ngauth_server/secrets/
+src/brainshare/firestore.ts
+src/brainshare/docs/sphinx/_build/
+src/brainshare/docs/typedoc
