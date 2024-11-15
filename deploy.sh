@@ -67,11 +67,11 @@ EOF
 )
 
 if [ "$1" == "" ] || [ $# -gt 1 ]; then
-    echo "Enter either 'production' or 'demo' 'tobor' as an argument."
+    echo "Enter either 'production' or 'demo' or 'tobor' or 'local' as an argument."
 	exit 0
 fi
 
-if ! [[ "$1" =~ ^(demo|production|tobor)$ ]]; then
+if ! [[ "$1" =~ ^(demo|production|tobor|local)$ ]]; then
     echo "Enter either 'production' or 'demo' or 'tobor' as an argument."
 	exit 0
 fi
@@ -96,6 +96,11 @@ if [ "$1" == "tobor" ]; then
     BUILD_INFO="{'tag':'Tobor Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
     PACKAGE="neuroglancer.tobor.tar.gz"
     echo "$SERVICE_TOBOR" > "$SERVICE_PATH"
+fi
+
+if [ "$1" == "local" ]; then
+    echo "$SERVICE_LOCAL" > "$SERVICE_PATH"
+	 exit 0
 fi
 
 if ! command -v npm &> /dev/null
