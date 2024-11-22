@@ -64,7 +64,7 @@ import {
   CoordinateTransformSpecification,
 } from "#/coordinate_transform";
 /* BRAINSHARE ENDS */
-import { MouseSelectionState, UserLayer } from "#/layer";
+import { MouseSelectionState, UserLayer, makeLayer } from "#/layer";
 import { LayerDataSource, LoadedDataSubsource } from "#/layer_data_source";
 import {
   ChunkTransformParameters,
@@ -1431,6 +1431,10 @@ export class AnnotationLayerView extends Tab {
     const maybeAddSegmentationButton = () => {
       if (state.source.readonly) return;
       if (segmentationButton !== undefined) return;
+      if ((userState === undefined) || (userState.value?.id === 0)) return;
+      if ((annotation.type !== AnnotationType.VOLUME) || (annotation.sessionID === undefined)) {
+        return;
+      }
       segmentationButton = makeSegmentationButton({
         title: "Create 3D Mesh",
         onClick: (event) => {
@@ -1438,7 +1442,30 @@ export class AnnotationLayerView extends Tab {
           event.preventDefault();
           const ref = state.source.getReference(annotation.id);
           try {
-            alert("Create 3D Mesh annotations/segmentation/" + annotation.sessionID);
+            StatusMessage.showTemporaryMessage("Creating 3D mesh ...", 15000);
+
+            return fetchOk(
+              `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}`, 
+              { method: "GET"},
+            ).then(
+              response => response.json()
+            ).then(json => {
+              const manager = this.layer.manager;
+              const segmentationLayer = makeLayer(manager, json.name, {type: 'segmentation', 'source': json.url});
+              manager.add(segmentationLayer);              
+              StatusMessage.showTemporaryMessage(
+                "The 3D mesh has been created.",
+                5000,
+              );
+            }).catch(err => {
+              console.log(err);
+              StatusMessage.showTemporaryMessage(
+                "There is an error in creating the mesh.\
+                Please see console for details.",
+                15000,
+              );
+            })
+
           } finally {
             ref.dispose();
           }

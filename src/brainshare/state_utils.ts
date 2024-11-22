@@ -123,8 +123,8 @@ export function newState(state: Object) {
     const href = new URL(location.href);
     href.searchParams.set("id", json["id"]);
     window.history.pushState({}, "", href.toString());
-
     brainState.value = json;
+    StatusMessage.showTemporaryMessage("A new state has been created.", 10000);
   })
 }
 
@@ -146,6 +146,7 @@ export function saveState(stateID: number | string, state: Object) {
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
   });
 }
 

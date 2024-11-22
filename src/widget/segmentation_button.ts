@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import svg_bin from "ikonate/icons/wine.svg";
+import svg_bin from "ikonate/icons/download.svg";
 import { makeIcon, MakeIconOptions } from "#/widget/icon";
 
 export function makeSegmentationButton(options: MakeIconOptions = {}) {
