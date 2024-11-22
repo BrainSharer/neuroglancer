@@ -126,6 +126,9 @@ import { makeAddButton } from "#/widget/add_button";
 import { ColorWidget } from "#/widget/color";
 import { makeCopyButton } from "#/widget/copy_button";
 import { makeDeleteButton } from "#/widget/delete_button";
+/* BRAINSHARE STARTS */
+  import { makeSegmentationButton } from "#/widget/segmentation_button";
+/* BRAINSHARE ENDS */
 import {
   DependentViewContext,
   DependentViewWidget,
@@ -1298,7 +1301,7 @@ export class AnnotationLayerView extends Tab {
       return;
     }
     /* BRAINSHARE STARTS */
-    // Do not add to list if annotaiton is a child annotation
+    // Do not add to list if annotation is a child annotation
     if (annotation.parentAnnotationId) return;
     /* BRAINSHARE ENDS */
     const info = this.attachedAnnotationStates.get(state);
@@ -1422,6 +1425,31 @@ export class AnnotationLayerView extends Tab {
       element.appendChild(deleteButton);
     };
 
+    /* BRAINSHARE STARTS */
+    let segmentationButton: HTMLElement | undefined;
+
+    const maybeAddSegmentationButton = () => {
+      if (state.source.readonly) return;
+      if (segmentationButton !== undefined) return;
+      segmentationButton = makeSegmentationButton({
+        title: "Create 3D Mesh",
+        onClick: (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          const ref = state.source.getReference(annotation.id);
+          try {
+            alert("Create 3D Mesh annotations/segmentation/" + annotation.sessionID);
+          } finally {
+            ref.dispose();
+          }
+        },
+      });
+      segmentationButton.classList.add("neuroglancer-annotation-list-entry-delete");
+      element.appendChild(segmentationButton);
+    };
+    /* BRAINSHARE ENDS */
+
+
     let numRows = 0;
     visitTransformedAnnotationGeometry(
       annotation,
@@ -1461,6 +1489,7 @@ export class AnnotationLayerView extends Tab {
           chunkTransform.modelTransform.localToRenderLayerDimensions,
         );
         maybeAddDeleteButton();
+        maybeAddSegmentationButton();
       },
     );
     if (annotation.description) {
