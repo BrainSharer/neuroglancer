@@ -78,7 +78,7 @@ fi
 
 rm -vf dist/min/*
 rm -vf *.tar.gz
-GIT=$(git tag --sort=version:refname)
+GIT=$(git tag --sort=version:refname | tail -n1)
 
 if [ "$1" == "demo" ]; then
     BUILD_INFO="{'tag':'DEMO Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
