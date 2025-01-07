@@ -45,6 +45,7 @@
     "@rspack/cli": "^1.1.6",
     "@rspack/core": "^1.1.6",
     "@types/codemirror": "5.60.15",
+    "@types/firebase": "^2.4.32",
     "@types/gl-matrix": "^2.4.5",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^22.10.2",
@@ -78,7 +79,9 @@
     "ikonate": "github:mikolajdobrucki/ikonate#a86b4107c6ec717e7877f880a930d1ccf0b59d89",
     "lodash-es": "^4.17.21",
     "nifti-reader-js": "^0.6.8",
-    "numcodecs": "^0.3.2"
+    "numcodecs": "^0.3.2",
+    "firebase": "^10.8.0",
+    "typescript-cookie": "^1.0.6"
   },
   "overrides": {
     "@puppeteer/browsers": ">=2"

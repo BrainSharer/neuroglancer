@@ -1,0 +1,67 @@
+.neuroglancer-multi-users-tab-item-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: auto;
+}
+
+.neuroglancer-multi-users-tab-item {
+  height: 20px;
+  margin: 2px;
+  padding: 2px;
+
+  display: flex;
+  flex-direction: row;
+
+  border: 1px solid rgba(0, 0, 0, 0);
+}
+
+.neuroglancer-multi-users-tab-item:hover {
+  background-color: #333;
+}
+
+.neuroglancer-multi-users-tab-item-number {
+  width: 16px;
+  margin-right: 8px;
+
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+
+  font-family: sans-serif;
+  font-weight: bold;
+  color: white;
+  background-color: var(--layer-number-color);
+
+  flex-grow: 0;
+}
+
+.neuroglancer-multi-users-tab-item-text {
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center; 
+  flex-grow: 1;
+}
+
+.neuroglancer-multi-users-tab-item-icon {
+  flex-grow: 0;
+}
+
+.neuroglancer-multi-users-tab-container {
+}
+
+.neuroglancer-multi-users-tab-header-container {
+  display: flex;
+  flex-direction: row;
+}
+
+.neuroglancer-multi-users-tab-header {
+  margin: 0px;
+  padding: 4px;
+
+  flex: 1;
+
+  font-size: 10pt;
+}
