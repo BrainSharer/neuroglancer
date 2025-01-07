@@ -1,17 +1,17 @@
 import "./state_tab.css"
 
-import { Trackable, getCachedJson } from "src/util/trackable";
-import { StatusMessage } from "src/status";
-import { makeIcon } from "src/widget/icon";
-import { Tab } from "src/widget/tab_view";
-import { verifyObject } from "src/util/json";
+import { Trackable, getCachedJson } from "#src/util/trackable.js";
+import { StatusMessage } from "#src/status.js";
+import { makeIcon } from "#src/widget/icon.js";
+import { Tab } from "#src/widget/tab_view.js";
+import { verifyObject } from "#src/util/json.js";
 import { 
   State, 
   brainState, 
   newState, 
   saveState, 
   userState 
-} from "./state_utils";
+} from "#src/brainshare/state_utils.js";
 
 const displayKeys = new Set([
   "user", 

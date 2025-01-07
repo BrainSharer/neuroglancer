@@ -1,9 +1,9 @@
 import { getCookie } from "typescript-cookie";
 
-import { fetchOk } from "src/util/http_request";
-import { StatusMessage } from "src/status";
-import { WatchableValue } from "src/trackable_value";
-import { APIs } from "src/brainshare/service";
+import { fetchOk } from "#src/util/http_request.js";
+import { StatusMessage } from "#src/status.js";
+import { WatchableValue } from "#src/trackable_value.js";
+import { APIs } from "#src/brainshare/service.js";
 
 export interface UrlParams {
   "stateID": string | null,

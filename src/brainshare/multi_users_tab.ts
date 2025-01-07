@@ -4,14 +4,14 @@ import debounce from "lodash/debounce";
 import firebase from 'firebase/compat/app';
 import svg_swap_horizontal from "ikonate/icons/swap-horizontal.svg?raw";
 
-import { RefCounted } from "src/util/disposable";
-import { getCachedJson, Trackable } from "src/util/trackable";
-import { makeIcon } from "src/widget/icon";
-import { Tab } from "src/widget/tab_view";
-import { WatchableValue } from "src/trackable_value";
-import { brainState, userState } from "src/brainshare/state_utils";
-import { db } from "src/brainshare/firestore";
-import { verifyObject } from "src/util/json";
+import { RefCounted } from "#src/util/disposable.js";
+import { getCachedJson, Trackable } from "#src/util/trackable.js";
+import { makeIcon } from "#src/widget/icon.js";
+import { Tab } from "#src/widget/tab_view.js";
+import { WatchableValue } from "#src/trackable_value.js";
+import { brainState, userState } from "#src/brainshare/state_utils.js";
+import { db } from "#src/brainshare/firestore.js";
+import { verifyObject } from "#src/util/json.js";
 
 
 enum MultiUsersStatus {

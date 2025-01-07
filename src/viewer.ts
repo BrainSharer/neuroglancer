@@ -145,6 +145,16 @@ import {
 } from "#src/widget/position_widget.js";
 import { TrackableScaleBarOptions } from "#src/widget/scale_bar.js";
 import { RPC } from "#src/worker_rpc.js";
+/* BRAINSHARE STARTS */
+import svg_people from "ikonate/icons/people.svg?raw";
+import { UserSidePanelState, UserSidePanel } from "#src/brainshare/user_side_panel.js";
+import { 
+  brainState, 
+  getState, 
+  getUrlParams, 
+  getUser 
+} from "#src/brainshare/state_utils.js";
+/* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
 
@@ -214,6 +224,9 @@ export class InputEventBindings extends DataPanelInputEventBindings {
 }
 
 export const VIEWER_TOP_ROW_CONFIG_OPTIONS = [
+  /* BRAINSHARE STARTS */
+  "showUserButton",
+  /* BRAINSHARE ENDS */
   "showHelpButton",
   "showSettingsButton",
   "showEditStateButton",
@@ -335,6 +348,10 @@ class TrackableViewerState extends CompoundTrackable {
     this.add("selectedStateServer", viewer.selectedStateServer);
     this.add("toolBindings", viewer.toolBinder);
     this.add("toolPalettes", viewer.toolPalettes);
+    /* BRAINSHARE STARTS */
+    this.add("userSidePanel", viewer.userSidePanelState);
+    /* BRAINSHARE ENDS */
+
   }
 
   restoreState(obj: any) {
@@ -514,6 +531,10 @@ export class Viewer extends RefCounted implements ViewerState {
   dataSourceProvider: Borrowed<DataSourceProviderRegistry>;
 
   uiConfiguration: ViewerUIConfiguration;
+  /* BRAINSHARE STARTS */
+  userSidePanelState = new UserSidePanelState();
+  /* BRAINSHARE ENDS */
+
 
   private makeUiControlVisibilityState(key: keyof ViewerUIOptions) {
     const showUIControls = this.uiConfiguration.showUIControls;
@@ -682,6 +703,31 @@ export class Viewer extends RefCounted implements ViewerState {
     this.registerDisposer(
       new PlaybackManager(this.display, this.position, this.velocity),
     );
+    /* BRAINSHARE STARTS */
+    getUser();
+    const urlParams = getUrlParams();
+    if (urlParams.stateID) {
+      const success = getState(urlParams.stateID);
+      if (success) {
+        success.then(() => {; 
+          if (!urlParams.loaded && brainState.value !== null) {
+            this.state.reset();
+            this.state.restoreState(verifyObject(
+              brainState.value.neuroglancer_state
+            ));
+            StatusMessage.showTemporaryMessage(
+              "Brain state loaded from database."
+            );
+
+            const href = new URL(location.href);
+            href.searchParams.set("loaded", "1");
+            window.history.pushState({}, '', href.toString());
+          }
+        });
+      }
+    }
+    /* BRAINSHARE ENDS */
+
   }
 
   private updateShowBorders() {
@@ -914,6 +960,26 @@ export class Viewer extends RefCounted implements ViewerState {
       topRow.appendChild(button.element);
     }
 
+    /* BRAINSHARE STARTS */
+    {
+      const { userSidePanelState } = this;
+      const button = this.registerDisposer(
+        new CheckboxIcon(userSidePanelState.location.watchableVisible, {
+          svg: svg_people,
+          backgroundScheme: "dark",
+          enableTitle: "Show user panel",
+          disableTitle: "Hide user panel",
+        }),
+      );
+      this.registerDisposer(
+        new ElementVisibilityFromTrackableBoolean(
+          this.uiControlVisibility.showUserButton,
+          button.element,
+        ),
+      );
+      topRow.appendChild(button.element);
+    }
+
     this.registerDisposer(
       new ElementVisibilityFromTrackableBoolean(
         makeDerivedWatchableValue(
@@ -925,6 +991,7 @@ export class Viewer extends RefCounted implements ViewerState {
         topRow,
       ),
     );
+    /* BRAINSHARE ENDS */
 
     gridContainer.appendChild(topRow);
 
@@ -1012,6 +1079,20 @@ export class Viewer extends RefCounted implements ViewerState {
     this.registerDisposer(
       new MultiToolPaletteManager(this.sidePanelManager, this.toolPalettes),
     );
+
+    /* BRAINSHARE STARTS */
+    this.registerDisposer(
+      this.sidePanelManager.registerPanel({
+        location: this.userSidePanelState.location,
+        makePanel: () => new UserSidePanel(
+          this.sidePanelManager,
+          this.userSidePanelState,
+          this.state,
+        ),
+      })
+    );
+    /* BRAINSHARE ENDS */
+
 
     const updateVisibility = () => {
       const shouldBeVisible = this.visibility.visible;
