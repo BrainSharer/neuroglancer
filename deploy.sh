@@ -119,10 +119,3 @@ tar zcvf ../../$PACKAGE *
 cd ../../
 
 echo "$SERVICE_LOCAL" > "$SERVICE_PATH"
-
-#git remote add upstream https://github.com/google/neuroglancer.git
-#git remote -v
-#git fetch upstream
-#git checkout master
-# 
-
