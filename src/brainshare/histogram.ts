@@ -1,22 +1,22 @@
 import './histogram.css';
 
-import { RenderedPanel } from 'src/display_context';
-import { getMemoizedBuffer } from 'src/webgl/buffer';
+import { RenderedPanel } from '#src/display_context.js';
+import { getMemoizedBuffer } from '#src/webgl/buffer.js';
 // import {computeInvlerp, getIntervalBoundsEffectiveFraction} from '#/webgl/lerp';
 import { 
   defineLineShader, 
   drawLines, 
   initializeLineShader, 
   VERTICES_PER_LINE
-} from 'src/webgl/lines';
-import { ShaderBuilder } from 'src/webgl/shader';
-import { getSquareCornersBuffer } from 'src/webgl/square_corners_buffer';
-import { setRawTextureParameters } from 'src/webgl/texture';
+} from '#src/webgl/lines.js';
+import { ShaderBuilder } from '#src/webgl/shader.js';
+import { getSquareCornersBuffer } from '#src/webgl/square_corners_buffer.js';
+import { setRawTextureParameters } from '#src/webgl/texture.js';
 import { InvlerpWidget } from 'src/widget/invlerp';
 import { 
   computeInvlerp, 
   getIntervalBoundsEffectiveFraction 
-} from 'src/util/lerp';
+} from '#src/util/lerp.js';
 
 export class HistogramPanel extends RenderedPanel {
   get drawOrder() {

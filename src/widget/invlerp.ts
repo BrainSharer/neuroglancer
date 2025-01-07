@@ -73,6 +73,10 @@ import { AutoRangeFinder } from "#src/widget/invlerp_range_finder.js";
 import type { LayerControlTool } from "#src/widget/layer_control.js";
 import type { LegendShaderOptions } from "#src/widget/shader_controls.js";
 import { Tab } from "#src/widget/tab_view.js";
+/* BRAINSHARE STARTS */
+import { HistogramPanel } from "#src/brainshare/histogram.js";
+/* BRAINSHARE ENDS */
+
 
 const inputEventMap = EventActionMap.fromObject({
   "shift?+mousedown0": { action: "set" },
@@ -731,6 +735,13 @@ export function adjustInvlerpBrightnessContrast(
 
 export class InvlerpWidget extends Tab {
   cdfPanel = this.registerDisposer(new CdfPanel(this));
+  /* BRAINSHARE STARTS */
+  // Add histogram panel
+  histogramPanel = this.registerDisposer(
+    new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit)
+  );
+  /* BRAINSHARE ENDS */
+
   boundElements;
   invertArrows: HTMLElement[];
   autoRangeFinder: AutoRangeFinder;
@@ -779,6 +790,9 @@ export class InvlerpWidget extends Tab {
     this.invertArrows = [makeArrow(svg_arrowRight), makeArrow(svg_arrowLeft)];
     element.appendChild(boundElements.range.container);
     element.appendChild(this.cdfPanel.element);
+    /* BRAINSHARE STARTS */
+    element.appendChild(this.histogramPanel.element);
+    /* BRAINSHARE ENDS */
     element.classList.add("neuroglancer-invlerp-widget");
     element.appendChild(boundElements.window.container);
     this.autoRangeFinder = this.registerDisposer(new AutoRangeFinder(this));
