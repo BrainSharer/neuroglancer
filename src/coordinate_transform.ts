@@ -288,6 +288,12 @@ export function coordinateSpaceFromJson(
     Object.keys(obj),
     allowNumericalDimensions,
   );
+  /* BRAINSHARE STARTS */
+  // For multi-user;
+  // Force the dimensions to be sorted (x, y, z) after being restored from JSON
+  // Do NOT put this in, it screws things up!!!! names.sort();
+  /* BRAINSHARE ENDS */
+
   const rank = names.length;
   const units = new Array<string>(rank);
   const scales = new Float64Array(rank);
@@ -312,7 +318,7 @@ export function coordinateSpaceFromJson(
         if (length !== labels.length) {
           throw new Error(
             `Length of coordinates array (${length}) ` +
-              `does not match length of labels array (${labels.length})`,
+            `does not match length of labels array (${labels.length})`,
           );
         }
         units[i] = "";

@@ -1,0 +1,88 @@
+And here are the conflicts:
+
+Auto-merging .github/workflows/deploy_preview.yml
+CONFLICT FIXED (add/add): Merge conflict in .github/workflows/deploy_preview.yml
+Auto-merging .gitignore
+CONFLICT FIXED (content): Merge conflict in .gitignore
+Auto-merging package-lock.json
+CONFLICT FIXED (content): Merge conflict in package-lock.json
+Auto-merging package.json
+CONFLICT FIXED (content): Merge conflict in package.json
+Auto-merging src/annotation/annotation_layer_state.ts
+Auto-merging src/annotation/frontend_source.ts
+
+CONFLICT (content): Merge conflict in src/annotation/frontend_source.ts
+Auto-merging src/annotation/index.ts
+CONFLICT (content): Merge conflict in src/annotation/index.ts
+Auto-merging src/annotation/line.ts
+CONFLICT (content): Merge conflict in src/annotation/line.ts
+Auto-merging src/annotation/point.ts
+Auto-merging src/annotation/renderlayer.ts
+CONFLICT (content): Merge conflict in src/annotation/renderlayer.ts
+Auto-merging src/coordinate_transform.ts
+Auto-merging src/layer/annotation/index.ts
+Auto-merging src/layer_group_viewer.ts
+Auto-merging src/navigation_state.ts
+Auto-merging src/rendered_data_panel.ts
+CONFLICT (content): Merge conflict in src/rendered_data_panel.ts
+Auto-merging src/ui/annotations.css
+CONFLICT FIXED (content): Merge conflict in src/ui/annotations.css
+Auto-merging src/ui/annotations.ts
+CONFLICT (content): Merge conflict in src/ui/annotations.ts
+Auto-merging src/ui/default_input_event_bindings.ts
+Auto-merging src/ui/title.ts
+Auto-merging src/viewer.ts
+CONFLICT (content): Merge conflict in src/viewer.ts
+Auto-merging src/widget/invlerp.ts
+CONFLICT FIXED (content): Merge conflict in src/widget/invlerp.ts
+Auto-merging tsconfig.json
+CONFLICT FIXED (content): Merge conflict in tsconfig.json
+Automatic merge failed; fix conflicts and then commit the result.
+
+# Differences
+Only in src/annotation: cloud.ts
+Files src/annotation/frontend_source.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/annotation/frontend_source.ts differ
+Files src/annotation/index.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/annotation/index.ts differ
+Files src/annotation/line.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/annotation/line.ts differ
+Files src/annotation/point.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/annotation/point.ts differ
+Only in src/annotation: polygon.ts
+Files src/annotation/renderlayer.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/annotation/renderlayer.ts differ
+Only in src/annotation: volume.ts
+Only in src/brainshare: docs
+Only in /home/eddyod/programming/brainsharer/neuroglancer/src/brainshare: firestore.ts
+Files src/brainshare/histogram.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/brainshare/histogram.ts differ
+Files src/brainshare/multi_users_tab.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/brainshare/multi_users_tab.ts differ
+Files src/brainshare/state_tab.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/brainshare/state_tab.ts differ
+Files src/brainshare/state_utils.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/brainshare/state_utils.ts differ
+Files src/brainshare/user_side_panel.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/brainshare/user_side_panel.ts differ
+Files src/coordinate_transform.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/coordinate_transform.ts differ
+Files src/layer/annotation/index.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/layer/annotation/index.ts differ
+Files src/layer_group_viewer.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/layer_group_viewer.ts differ
+Files src/navigation_state.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/navigation_state.ts differ
+Files src/rendered_data_panel.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/rendered_data_panel.ts differ
+Files src/ui/annotations.css and /home/eddyod/programming/brainsharer/neuroglancer/src/ui/annotations.css differ
+Files src/ui/annotations.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/ui/annotations.ts differ
+Files src/ui/default_input_event_bindings.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/ui/default_input_event_bindings.ts differ
+Files src/ui/title.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/ui/title.ts differ
+Files src/viewer.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/viewer.ts differ
+Files src/widget/invlerp.ts and /home/eddyod/programming/brainsharer/neuroglancer/src/widget/invlerp.ts differ
+Only in src/widget: segmentation_button.ts
+
+# Files that we have modified: with BRAINSHARE STARTS
+./annotation/annotation_layer_state.ts
+./annotation/frontend_source.ts
+./annotation/index.ts
+./annotation/line.ts
+./annotation/point.ts
+./annotation/renderlayer.ts
+./annotation/user_layer.ts
+./layer_group_viewer.ts
+./navigation_state.ts
+./rendered_data_panel.ts
+./ui/annotations.ts
+./ui/default_input_event_bindings.ts
+./viewer.ts
+./widget/invlerp.ts
+
+
+
