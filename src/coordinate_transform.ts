@@ -283,11 +283,7 @@ export function coordinateSpaceFromJson(
     Object.keys(obj),
     allowNumericalDimensions,
   );
-  /* BRAINSHARE STARTS */
-  // For multi-user;
-  // Force the dimensions to be sorted (x, y, z) after being restored from JSON
-  names.sort();
-  /* BRAINSHARE ENDS */
+  
   const rank = names.length;
   const units = new Array<string>(rank);
   const scales = new Float64Array(rank);
