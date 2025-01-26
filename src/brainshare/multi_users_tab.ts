@@ -12,6 +12,7 @@ import { WatchableValue } from "#/trackable_value";
 import { brainState, userState } from "./state_utils";
 import { db } from "./firestore";
 import { verifyObject } from "src/util/json";
+import { StatusMessage } from "src/status";
 
 
 enum MultiUsersStatus {
@@ -128,6 +129,12 @@ export class MultiUsersTab extends Tab {
   }
 
   private stateUpdated() {
+    /* A large sized state will cause an error when trying to save it to firestore, DK78 full segmentation is 8,626,688.
+    Mysql size = 9,276,778
+    A typical state size is ID=523
+    The max is 1,048,576 bytes, so we need to check the size of the state before saving it to firestore
+    ID=945 is 1,138,722 in 
+    */
     if (userState.value !== null) {
       if (userState.value.id === 0) {
         // Detach user change listener
@@ -139,14 +146,21 @@ export class MultiUsersTab extends Tab {
         if (brainState.value !== null) {
           const username = String(userState.value.username);
           const state_id = String(brainState.value.id);
-
           this.throttledUpdateStateToFirebase = debounce(() => {
             const cacheState = getCachedJson(this.viewerState);
             const { generation, value } = cacheState;
             if (generation !== this.prevStateGeneration) {
               this.prevStateGeneration = cacheState.generation;
+              console.log('state size');
+              let s = JSON.stringify(value);
+              console.log(s.length);
+              db.collection('states').doc(state_id).set(value)
+                .catch(error => {
+                  StatusMessage.showTemporaryMessage("Error, the data is too big " + error, 10000);
+                  console.error('Error writing document: ', error);
+                }
+                );
 
-              db.collection('states').doc(state_id).set(value);
             }
           }, 10)
 
