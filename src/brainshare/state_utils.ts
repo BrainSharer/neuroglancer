@@ -96,14 +96,14 @@ export function getState(
       neuroglancer_state: {},
       readonly: false,
       public: false,
-      lab: "NA"
+      lab: "NA",
     };
   })
 }
 
 /**
  * Creates a new neuroglancer_state in the database via a REST POST
- * Authorization is required
+ * Authorization should be required, but hasn't been implemented yet.
  * @param state the JSON state
  * @returns the JSON state
  */
@@ -124,7 +124,7 @@ export function newState(state: Object) {
     href.searchParams.set("id", json["id"]);
     window.history.pushState({}, "", href.toString());
     brainState.value = json;
-    StatusMessage.showTemporaryMessage("A new state has been created.", 10000);
+    StatusMessage.showTemporaryMessage("A new state has been created.", 10000);  
   })
 }
 
@@ -149,6 +149,168 @@ export function saveState(stateID: number | string, state: Object) {
     StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
   });
 }
+
+/**
+ * Couch Couch Couch Couch Couch user methods
+ */
+async function fetchUserRevision(stateID: number | string): Promise<any> {
+  const response = await fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+    method: "GET",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const json = await response.json();
+  StatusMessage.showTemporaryMessage("A couch state has been fetched." + json._rev, 10000);
+  return json;
+}
+
+export async function insertCouchUser(stateID: string | number) {
+  const data = {"editor": "joe",  "otherUsers": ["imauser"]};
+  fetchOk(APIs.GET_SET_COUCH_USER + JSON.stringify(stateID), {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+  });
+
+}
+
+export async function updateCouchUser(stateID: number | string, editor: string, otherUsername: string) {
+  console.log('updateCouchUser', stateID, editor, otherUsername);
+  const users = await fetchUserRevision(stateID);
+  const data = {"_rev": users._rev, "editor": editor,  "otherUsers": [otherUsername]};
+  fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+  });
+
+}
+
+export async function updateCouchUserRemoveEditor(stateID: number | string) {
+  const users = await fetchUserRevision(stateID);
+  const data = {"_rev": users._rev, "editor": ""};
+  fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+  });
+
+}
+
+/**
+ * Couch state methods
+ */
+
+export async function fetchCouchStateXXXX(stateID: number | string): Promise<any> {
+  const response = await fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+    method: "GET",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const json = await response.json();
+  StatusMessage.showTemporaryMessage("A couch state has been fetched." + json._rev, 10000);
+  return json;
+}
+
+
+export async function fetchStateRevision(stateID: number | string): Promise<any> {
+  const response = await fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+    method: "GET",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const json = await response.json();
+  StatusMessage.showTemporaryMessage("A couch state has been fetched." + json._rev, 10000);
+  return json._rev;
+}
+
+export function upsertCouchState(stateID: string | number, state: State) {
+  stateID = JSON.stringify(stateID);
+  fetchStateRevision(stateID).then(_rev => {
+    if (_rev === undefined) {
+      console.log('insertCouchState', stateID, state);
+      insertCouchState(stateID, state);
+    } else {
+      console.log('updateCouchState', stateID, _rev, state);
+      updateCouchState(stateID, _rev, state);
+    }
+  });
+}
+
+
+function insertCouchState(stateID: string | number, state: State) {
+  const json_body = { ...brainState.value, ...state }
+  fetchOk(APIs.GET_SET_COUCH_STATE + JSON.stringify(stateID), {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(json_body, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has NOT been saved to couch.", 10000);
+  });
+
+}
+
+function updateCouchState(stateID: string, _rev: string, state: State) {
+  const json_body = { ...brainState.value, ...state, "_rev": _rev }
+  const url = APIs.GET_SET_COUCH_STATE + JSON.stringify(stateID); 
+  console.log('PUT URL', url);
+
+  fetchOk(url, {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(json_body, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has been updated to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has NOT been updated to couch.", 10000);
+  });
+}
+
 
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);

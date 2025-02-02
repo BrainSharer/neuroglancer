@@ -13,6 +13,10 @@ import {
   userState 
 } from "./state_utils";
 
+// import { dbn } from "src/brainshare/db_nano";
+// import { dbp } from "./pouch_servive";
+
+
 const displayKeys = new Set([
   "user", 
   "lab", 
@@ -107,10 +111,17 @@ export class StateTab extends Tab {
         }
 
         if (brainState.value !== null && userState.value !== null) {
-          const newBrainState = {
+          const newBrainState: State = {
+            id: brainState.value.id,
+            user: userState.value.username,
+            owner: userState.value.id,
+            animal: brainState.value.animal,
+            lab: userState.value.lab,
+            public: brainState.value.public,
+            readonly: brainState.value.readonly,
             comments: comments,
             user_date: String(Date.now()),
-            neuroglancer_state: getCachedJson(this.viewerState).value,
+            neuroglancer_state: getCachedJson(this.viewerState).value
           };
           saveState(brainState.value.id, newBrainState);
         }
@@ -184,3 +195,5 @@ function formatStateString(value: string | number | boolean): string {
     return date.toLocaleDateString();
   }
 }
+
+
