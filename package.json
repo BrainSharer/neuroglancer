@@ -73,6 +73,7 @@
     "glsl-editor": "^1.0.0",
     "ikonate": "mikolajdobrucki/ikonate#a86b4107c6ec717e7877f880a930d1ccf0b59d89",
     "lodash": "^4.17.21",
+    "mongodb": "6.13",
     "nifti-reader-js": "^0.5.4",
     "numcodecs": "^0.3.1",
     "pako": "^2.0.3",

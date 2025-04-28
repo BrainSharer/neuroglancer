@@ -5,6 +5,15 @@ import { StatusMessage } from "#/status";
 import { WatchableValue } from "#/trackable_value";
 import { APIs } from "./service";
 
+export interface CouchUserDocument {
+  _id: string;          // Unique document ID
+  _rev: string;        // Revision token, optional for new docs
+  _deleted?: boolean;   // If true, marks the document as deleted
+  editor: string;
+  otherUsers: string[];
+}
+
+
 export interface UrlParams {
   "stateID": string | null,
 }
@@ -42,6 +51,14 @@ export interface User {
   lab: string;
 }
 
+export interface Revision {
+  id: number;
+  FK_neuroglancer_state_id: number;
+  state: Object;
+  editor: string;
+  users: string;
+}
+
 /**
  * username and id are both cookies
  * If the user_id (id) cookie exists, use it, otherwise set to 0
@@ -74,7 +91,7 @@ export function getUser() {
  */
 export function getState(
   stateID: number | string | undefined
-): Promise<void> | undefined{
+): Promise<void> | undefined {
   if (stateID === undefined) return;
 
   return fetchOk(APIs.GET_SET_STATE + stateID, { method: "GET" }).then(
@@ -124,7 +141,7 @@ export function newState(state: Object) {
     href.searchParams.set("id", json["id"]);
     window.history.pushState({}, "", href.toString());
     brainState.value = json;
-    StatusMessage.showTemporaryMessage("A new state has been created.", 10000);  
+    StatusMessage.showTemporaryMessage("A new state has been created.", 10000);
   })
 }
 
@@ -146,30 +163,52 @@ export function saveState(stateID: number | string, state: Object) {
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
+    upsertCouchState(JSON.stringify(stateID), json);
     StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
   });
 }
 
 /**
- * Couch Couch Couch Couch Couch user methods
+ * Couch user methods
  */
-async function fetchUserRevision(stateID: number | string): Promise<any> {
-  const response = await fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
-    method: "GET",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  const json = await response.json();
-  StatusMessage.showTemporaryMessage("A couch state has been fetched." + json._rev, 10000);
-  return json;
+export async function fetchUserRevision(stateID: string): Promise<CouchUserDocument | undefined> {
+  try { 
+    const response = await fetch(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    if (response.status === 404) {
+      console.warn(`Document with ID ${stateID} not found.`);
+      return undefined;
+    }
+    const data: CouchUserDocument = await response.json();
+    StatusMessage.showTemporaryMessage("A couch state has been fetched." + data._rev, 10000);
+    return data;
+  } catch (error) {
+    console.error('Error fetching CouchDB document:', error);
+    return undefined;
+  }
 }
 
-export async function insertCouchUser(stateID: string | number) {
-  const data = {"editor": "joe",  "otherUsers": ["imauser"]};
-  fetchOk(APIs.GET_SET_COUCH_USER + JSON.stringify(stateID), {
-    method: "PUT",
+
+export async function upsertCouchUser(stateID: string, editor: string, otherUsers?: string[]) {
+  const users = await fetchUserRevision(stateID);
+  if (users === undefined) { 
+    console.log("No state found, inserting new state");
+    insertCouchUser(stateID, editor, otherUsers);
+  } else {
+    console.log("user found, updating state");
+    updateCouchUser(stateID, users._rev, editor);
+  }
+}
+
+
+export async function insertCouchUser(stateID: string, editor: string, otherUsers?: string[]) {
+  const data = { "editor": editor, "otherUsers": otherUsers };
+  fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
+    method: "POST",
     credentials: "omit",
     headers: {
       "Content-Type": "application/json",
@@ -185,11 +224,63 @@ export async function insertCouchUser(stateID: string | number) {
 
 }
 
-export async function updateCouchUser(stateID: number | string, editor: string, otherUsername: string) {
-  console.log('updateCouchUser', stateID, editor, otherUsername);
-  const users = await fetchUserRevision(stateID);
-  const data = {"_rev": users._rev, "editor": editor,  "otherUsers": [otherUsername]};
-  fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+//   [editor]: false,
+//   [this.otherUsername]: true,
+
+export async function updateCouchUserSetEditor(stateID: string, username: string) {
+  const data = await fetchUserRevision(stateID);
+  if (!data) {
+    console.error("User document is null. Cannot update editor.");
+    return;
+  }
+  const body = { "_rev": data._rev, "editor": username };
+  fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+  });
+}
+
+//  [username]: editor === "" ? true : false
+export async function updateCouchUserSetUser(stateID: string, username: string, editor: boolean) {
+  const data = await fetchUserRevision(stateID);
+  if (data === undefined) {
+    console.error("User document is null. Cannot update editor.");
+    return;
+  }
+  const body = { "_rev": data._rev, [username]: editor };
+  fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
+    method: "PUT",
+    credentials: "omit",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body, null, 0),
+  }).then(response => response.json()).then(json => {
+    brainState.value = json;
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+  }).catch(err => {
+    console.log(err);
+    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+  });
+}
+
+
+function updateCouchUser(stateID: string, _rev:string, editor:string) {
+  const data = { "_id": stateID, "_rev": _rev, "editor": editor };
+  const url = APIs.GET_SET_COUCH_USER + parseInt(stateID);
+  console.log('PUT URL', url);
+
+  fetchOk(url, {
     method: "PUT",
     credentials: "omit",
     headers: {
@@ -198,24 +289,28 @@ export async function updateCouchUser(stateID: number | string, editor: string, 
     body: JSON.stringify(data, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has been updated to couch.", 10000);
   }).catch(err => {
     console.log(err);
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+    StatusMessage.showTemporaryMessage("The current neuroglancer state has NOT been updated to couch.", 10000);
   });
-
 }
 
-export async function updateCouchUserRemoveEditor(stateID: number | string) {
-  const users = await fetchUserRevision(stateID);
-  const data = {"_rev": users._rev, "editor": ""};
-  fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
+export async function updateCouchUserRemoveEditor(stateID: string) {
+  const data = await fetchUserRevision(stateID);
+  if (data === undefined) {
+    console.error("User document is null. Cannot update editor.");
+    return;
+  }
+
+  const body = { "_rev": data._rev, "editor": "" };
+  fetchOk(APIs.GET_SET_COUCH_USER + stateID, {
     method: "PUT",
     credentials: "omit",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(data, null, 0),
+    body: JSON.stringify(body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
     StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
@@ -230,50 +325,32 @@ export async function updateCouchUserRemoveEditor(stateID: number | string) {
  * Couch state methods
  */
 
-export async function fetchCouchStateXXXX(stateID: number | string): Promise<any> {
-  const response = await fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
-    method: "GET",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  const json = await response.json();
-  StatusMessage.showTemporaryMessage("A couch state has been fetched." + json._rev, 10000);
-  return json;
+export async function fetchStateRevision(stateID: string): Promise<any> {
+  try {
+    const response = await fetchOk(APIs.GET_SET_COUCH_STATE + parseInt(stateID), { method: "GET" });
+    const data = await response.json();
+    return data;
+  } catch (error: any) {
+    return null;
+  }
 }
 
 
-export async function fetchStateRevision(stateID: number | string): Promise<any> {
-  const response = await fetchOk(APIs.GET_SET_COUCH_STATE + stateID, {
-    method: "GET",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  const json = await response.json();
-  StatusMessage.showTemporaryMessage("A couch state has been fetched." + json._rev, 10000);
-  return json._rev;
-}
-
-export function upsertCouchState(stateID: string | number, state: State) {
-  stateID = JSON.stringify(stateID);
-  fetchStateRevision(stateID).then(_rev => {
-    if (_rev === undefined) {
-      console.log('insertCouchState', stateID, state);
-      insertCouchState(stateID, state);
-    } else {
-      console.log('updateCouchState', stateID, _rev, state);
-      updateCouchState(stateID, _rev, state);
-    }
-  });
+export async function upsertCouchState(stateID: string, state: State) {
+  const result = await fetchStateRevision(stateID);
+  if (result === null) { 
+    console.log("No state found, inserting new state");
+    insertCouchState(stateID, state);
+  } else {
+    console.log("State found, updating state");
+    updateCouchState(stateID, result._rev, state);
+  }
 }
 
 
-function insertCouchState(stateID: string | number, state: State) {
+function insertCouchState(stateID: string, state: State) {
   const json_body = { ...brainState.value, ...state }
-  fetchOk(APIs.GET_SET_COUCH_STATE + JSON.stringify(stateID), {
+  fetchOk(APIs.GET_SET_COUCH_STATE + parseInt(stateID), {
     method: "PUT",
     credentials: "omit",
     headers: {
@@ -292,7 +369,7 @@ function insertCouchState(stateID: string | number, state: State) {
 
 function updateCouchState(stateID: string, _rev: string, state: State) {
   const json_body = { ...brainState.value, ...state, "_rev": _rev }
-  const url = APIs.GET_SET_COUCH_STATE + JSON.stringify(stateID); 
+  const url = APIs.GET_SET_COUCH_STATE + parseInt(stateID);
   console.log('PUT URL', url);
 
   fetchOk(url, {
@@ -312,5 +389,42 @@ function updateCouchState(stateID: string, _rev: string, state: State) {
 }
 
 
+export async function deleteCouchDbDocument(
+  dbUrl: string,
+  docId: string,
+  username?: string,
+  password?: string
+): Promise<void> {
+  const data = await fetchUserRevision(docId);
+  if (!data) {
+    console.error("Document is null.");
+    return;
+  }
+
+  try {
+    const url = new URL(`${dbUrl}/${encodeURIComponent(docId)}?rev=${encodeURIComponent(data._rev)}`);
+
+    const headers: HeadersInit = {};
+    if (username && password) {
+      const credentials = btoa(`${username}:${password}`);
+      headers['Authorization'] = `Basic ${credentials}`;
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'DELETE',
+      headers: headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to delete document: ${errorData.reason}`);
+    }
+
+    console.log(`Document ${docId} deleted successfully.`);
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    throw error;
+  }
+}
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);
