@@ -7,10 +7,10 @@ import { getCachedJson, Trackable } from "#/util/trackable";
 import { makeIcon } from "#/widget/icon";
 import { Tab } from "#/widget/tab_view";
 import { WatchableValue } from "#/trackable_value";
-import { brainState, userState, upsertCouchState, deleteCouchDbDocument, upsertCouchUser, fetchUserRevision, CouchUserDocument } from "./state_utils";
+import { brainState, userState, upsertCouchState, deleteCouchDbDocument, upsertCouchUser, fetchStateDocument, fetchUserDocument, CouchUserDocument } from "./state_utils";
 import { verifyObject } from "src/util/json";
-import { listenToDocumentChanges } from "./db_nano";
-import { couchStateUrl, couchUserUrl } from "./service";
+// import { listenToDocumentChanges } from "./db_nano";
+import { APIs } from "./service";
 
 enum MultiUsersStatus {
   disabled = 1,
@@ -47,7 +47,7 @@ class MultiUsersTabItem extends RefCounted {
       svg: svg_swap_horizontal,
       title: "swap",
       onClick: () => {
-        upsertCouchUser(state_id, editor, [this.otherUsername])        
+        upsertCouchUser(state_id, editor, [this.otherUsername])
       },
     });
     this.swapButton.classList.add("neuroglancer-multi-users-tab-item-icon");
@@ -68,7 +68,7 @@ export class MultiUsersTab extends Tab {
   private throttledUpdateStateToFirebase: () => void;
   private stateListenerDetach: () => void;
   private usersListenerDetach: () => void;
-  private currentUserDoc: CouchUserDocument | undefined;
+  private currentUserDoc: CouchUserDocument | null;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     state_id: "",
@@ -92,7 +92,9 @@ export class MultiUsersTab extends Tab {
       this.stateUpdated();
     });
     this.multiUsersState.changed.add(() => {
+      console.log('MultiUsersState has changed');
       this.multiUsersStateUpdated();
+
     })
     this.stateUpdated();
     this.multiUsersStateUpdated();
@@ -143,7 +145,7 @@ export class MultiUsersTab extends Tab {
             }
           }, 10);
 
-          fetchUserRevision(state_id).then((doc) => {
+          fetchUserDocument(state_id).then((doc) => {
             this.currentUserDoc = doc;
             if (this.currentUserDoc === undefined) {
               this.multiUsersState.value = {
@@ -155,8 +157,8 @@ export class MultiUsersTab extends Tab {
               }
             } else {
               console.log('user doc', this.currentUserDoc);
-              const editor = this.currentUserDoc.editor;
-              let usernames = this.currentUserDoc.otherUsers;
+              const editor = this.currentUserDoc?.editor;
+              let usernames = this.currentUserDoc?.usernames;
               if (usernames === undefined) {
                 usernames = [username]
               } else {
@@ -172,7 +174,7 @@ export class MultiUsersTab extends Tab {
                 status,
                 state_id,
                 username,
-                editor,
+                editor: username,
                 usernames,
               };
             }
@@ -185,7 +187,7 @@ export class MultiUsersTab extends Tab {
       }
     } else { console.log('userState.value === null'); }
   }
-
+ 
   private multiUsersStateUpdated() {
     this.updateHeaderAndListener();
     this.updateUserItems();
@@ -193,7 +195,7 @@ export class MultiUsersTab extends Tab {
 
   private updateHeaderAndListener() {
     console.log('updateHeaderAndListener method');
-    const { status, state_id, editor, usernames } = this.multiUsersState.value;
+    const { status, state_id, username, editor, usernames } = this.multiUsersState.value;
 
     // Remove any listener if any
     this.viewerState.changed.remove(this.throttledUpdateStateToFirebase);
@@ -205,39 +207,38 @@ export class MultiUsersTab extends Tab {
     let actionButtonDisplay = "";
     let actionButtonTextContent = "";
     let actionButtonOnclick = () => { };
+    // Deal with the different status types
     if (status === MultiUsersStatus.disabled) {
-      // Update UI
+      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxx");
       const header_editor = editor === "" ? "No one" : editor;
       headerTextContent = header_editor + " is sharing";
       actionButtonDisplay = "block";
       actionButtonTextContent = editor === "" ? "Share" : "Observe";
       actionButtonOnclick = () => {
-        /**
-        db.collection('users').doc(state_id).set({
-          [username]: editor === "" ? true : false
-        }, { merge: true });
-        */
-        const editing = editor === "" ? true : false;
-        console.log('219 upsertCouchUser stateid ' + state_id + ' editor ' + editor + ' editing ' + editing + ' usernames ' + usernames);
-        upsertCouchUser(state_id, editor, usernames);
+        // const editing = editor === "" ? true : false;
+        let display_editor =  username;
+        let display_usernames = usernames;
+        if (editor !== "") {
+          display_editor = "";
+          display_usernames.push(username);
+        }
+        upsertCouchUser(state_id, display_editor, display_usernames);
       };
     }
     else if (status === MultiUsersStatus.sharing) {
       // Add state change listener
       this.viewerState.changed.add(this.throttledUpdateStateToFirebase);
-      // Update UI
       headerTextContent = "You are sharing";
       actionButtonDisplay = "block";
       actionButtonTextContent = "Stop";
       actionButtonOnclick = () => {
-        // db.collection('users').doc(state_id).delete();
-        deleteCouchDbDocument(couchUserUrl, state_id);
-        console.log('deleting entry')
+        console.log('onclick MultiUsersState.sharing')
+        deleteCouchDbDocument(APIs.GET_SET_COUCH_USER, state_id);
       };
     }
     else if (status === MultiUsersStatus.observing) {
       //TODO check for changes in neuroglancer state from couchdb, if changed, update
-      const data = undefined;
+      const data = fetchStateDocument(state_id);
       if (data !== undefined) {
         this.viewerState.restoreState(verifyObject(data));
       }
@@ -246,13 +247,9 @@ export class MultiUsersTab extends Tab {
       actionButtonDisplay = "block";
       actionButtonTextContent = "Stop";
       actionButtonOnclick = () => {
-        console.log('fix me');
-        /** 
-        // Remove yourself from the list
-        db.collection('users').doc(state_id).set({
-          [username]: firebase.firestore.FieldValue.delete()
-        }, { merge: true });
-        */
+        let display_usernames = usernames.filter(user => user !== username);
+        upsertCouchUser(state_id, editor, display_usernames)   
+        this.multiUsersStateUpdated();     
       };
     }
     else if (status === MultiUsersStatus.no_state) {
@@ -270,6 +267,9 @@ export class MultiUsersTab extends Tab {
 
   private updateUserItems() {
     const { status, editor, usernames } = this.multiUsersState.value;
+
+    console.log('updateUserItems method editor = ', editor);
+    console.log('updateUserItems method usernames = ', usernames);
 
     // Update userItems
     this.userItems.clear();
@@ -292,5 +292,6 @@ export class MultiUsersTab extends Tab {
       )
     });
   }
+
 
 }

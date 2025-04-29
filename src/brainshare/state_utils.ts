@@ -1,18 +1,33 @@
 import { getCookie } from "typescript-cookie";
-
 import { fetchOk } from "#/util/http_request";
 import { StatusMessage } from "#/status";
 import { WatchableValue } from "#/trackable_value";
 import { APIs } from "./service";
 
+/** 
+type CouchDBResponse = {
+  ok: boolean;
+  id: string;
+  rev: string;
+} | {
+  error: string;
+  reason: string;
+};
+*/
 export interface CouchUserDocument {
   _id: string;          // Unique document ID
-  _rev: string;        // Revision token, optional for new docs
+  _rev?: string;        // Revision token, optional for new docs
   _deleted?: boolean;   // If true, marks the document as deleted
   editor: string;
-  otherUsers: string[];
+  usernames?: string[];
 }
 
+export interface CouchStateDocument {
+  _id: string;          // Unique document ID
+  _rev?: string;        // Revision token, optional for new docs
+  _deleted?: boolean;   // If true, marks the document as deleted
+  state: State;
+}
 
 export interface UrlParams {
   "stateID": string | null,
@@ -163,120 +178,82 @@ export function saveState(stateID: number | string, state: Object) {
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
+    //TODO take this upsert out later!
     upsertCouchState(JSON.stringify(stateID), json);
     StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
   });
 }
-
 /**
  * Couch user methods
  */
-export async function fetchUserRevision(stateID: string): Promise<CouchUserDocument | undefined> {
-  try { 
-    const response = await fetch(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-    if (response.status === 404) {
-      console.warn(`Document with ID ${stateID} not found.`);
-      return undefined;
-    }
+
+export async function fetchCurrentUser(stateID: string): Promise<CouchUserDocument | null> {
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
+  if (revision === null) { 
+    console.log("No user found when looking for revision");
+    return null;
+  } else {
+    console.log('found revision', revision);
+  }
+  try {
+    const response = await fetch(APIs.GET_SET_COUCH_USER + "/" + parseInt(stateID), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
     const data: CouchUserDocument = await response.json();
     StatusMessage.showTemporaryMessage("A couch state has been fetched." + data._rev, 10000);
     return data;
   } catch (error) {
     console.error('Error fetching CouchDB document:', error);
-    return undefined;
+    return null;
   }
 }
 
-
-export async function upsertCouchUser(stateID: string, editor: string, otherUsers?: string[]) {
-  const users = await fetchUserRevision(stateID);
-  if (users === undefined) { 
-    console.log("No state found, inserting new state");
-    insertCouchUser(stateID, editor, otherUsers);
+/** 
+export async function upsertCouchUserXXX(stateID: string, editor: string, usernames?: string[]) {
+  console.log("method upsertCouchUser");
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
+  if (revision === null) { 
+    console.log("No user found, inserting new user with", editor, usernames);
+    // insertCouchUser(stateID, editor, usernames);
+    const couchData: CouchUserDocument = {"state_id": parseInt(stateID), "editor": editor, "usernames": usernames };
+    // insertDocument(APIs.GET_SET_COUCH_USER, couchData);
   } else {
-    console.log("user found, updating state");
-    updateCouchUser(stateID, users._rev, editor);
+    console.log("user found, updating user");
+    // const couchData: CouchDBDocument = {_id: stateID, _rev: revision, "users": {"editor": editor, "usernames": usernames } };
+    // updateCouchDBDocument(APIs.GET_SET_COUCH_USER, couchData);
+    updateCouchUser(stateID, revision, editor, usernames);
   }
 }
+*/
 
 
-export async function insertCouchUser(stateID: string, editor: string, otherUsers?: string[]) {
-  const data = { "editor": editor, "otherUsers": otherUsers };
-  fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
-    method: "POST",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data, null, 0),
-  }).then(response => response.json()).then(json => {
-    brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
-  }).catch(err => {
-    console.log(err);
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
-  });
 
-}
-
-//   [editor]: false,
-//   [this.otherUsername]: true,
-
-export async function updateCouchUserSetEditor(stateID: string, username: string) {
-  const data = await fetchUserRevision(stateID);
-  if (!data) {
-    console.error("User document is null. Cannot update editor.");
-    return;
-  }
-  const body = { "_rev": data._rev, "editor": username };
+export async function insertCouchUser(stateID: string, editor: string, usernames?: string[]) {
+  console.log("method insertCouchUser");
+  const json_body = { "editor": editor, "usernames": usernames };
   fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
     method: "PUT",
     credentials: "omit",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body, null, 0),
+    body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
+    StatusMessage.showTemporaryMessage("The current user data has been saved to couch.", 10000);
   }).catch(err => {
     console.log(err);
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
+    StatusMessage.showTemporaryMessage("The current user data has NOT been saved to couch.", 10000);
   });
 }
 
-//  [username]: editor === "" ? true : false
-export async function updateCouchUserSetUser(stateID: string, username: string, editor: boolean) {
-  const data = await fetchUserRevision(stateID);
-  if (data === undefined) {
-    console.error("User document is null. Cannot update editor.");
-    return;
-  }
-  const body = { "_rev": data._rev, [username]: editor };
-  fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
-    method: "PUT",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body, null, 0),
-  }).then(response => response.json()).then(json => {
-    brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
-  }).catch(err => {
-    console.log(err);
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
-  });
-}
-
-
-function updateCouchUser(stateID: string, _rev:string, editor:string) {
-  const data = { "_id": stateID, "_rev": _rev, "editor": editor };
+/** 
+function updateCouchUser(stateID: string, _rev:string, editor:string, usernames?: string[]) {
+  console.log("method updateCouchUser");
+  const data = { "_id": stateID, "_rev": _rev, "editor": editor, "usernames": usernames };
   const url = APIs.GET_SET_COUCH_USER + parseInt(stateID);
   console.log('PUT URL', url);
 
@@ -295,60 +272,36 @@ function updateCouchUser(stateID: string, _rev:string, editor:string) {
     StatusMessage.showTemporaryMessage("The current neuroglancer state has NOT been updated to couch.", 10000);
   });
 }
+*/
 
-export async function updateCouchUserRemoveEditor(stateID: string) {
-  const data = await fetchUserRevision(stateID);
-  if (data === undefined) {
-    console.error("User document is null. Cannot update editor.");
-    return;
+export async function upsertCouchUser(stateID: string, editor: string, usernames?: string[]) {
+  console.log("method upsertCouchUser with ID: " + stateID);
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
+  let couchState: CouchUserDocument = {_id: stateID, "editor": editor, "usernames": usernames };
+  if (revision !== null) { 
+    couchState = {_id: stateID, _rev: revision, "editor": editor, "usernames": usernames };
   }
-
-  const body = { "_rev": data._rev, "editor": "" };
-  fetchOk(APIs.GET_SET_COUCH_USER + stateID, {
-    method: "PUT",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body, null, 0),
-  }).then(response => response.json()).then(json => {
-    brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has been saved to couch.", 10000);
-  }).catch(err => {
-    console.log(err);
-    StatusMessage.showTemporaryMessage("The current neuroglancer user has NOT been saved to couch.", 10000);
-  });
-
+  updateCouchDBDocument(APIs.GET_SET_COUCH_USER, stateID, couchState);
 }
+
 
 /**
  * Couch state methods
  */
 
-export async function fetchStateRevision(stateID: string): Promise<any> {
-  try {
-    const response = await fetchOk(APIs.GET_SET_COUCH_STATE + parseInt(stateID), { method: "GET" });
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    return null;
-  }
-}
-
-
 export async function upsertCouchState(stateID: string, state: State) {
-  const result = await fetchStateRevision(stateID);
-  if (result === null) { 
-    console.log("No state found, inserting new state");
-    insertCouchState(stateID, state);
-  } else {
-    console.log("State found, updating state");
-    updateCouchState(stateID, result._rev, state);
+  console.log("method upsertCouchState");
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
+  let couchState: CouchStateDocument = {_id: stateID, "state": state };
+  if (revision !== null) { 
+    couchState = {_id: stateID, _rev: revision, "state": state };
   }
+  updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
 }
 
-
+/**
 function insertCouchState(stateID: string, state: State) {
+  console.log("method insertCouchState");
   const json_body = { ...brainState.value, ...state }
   fetchOk(APIs.GET_SET_COUCH_STATE + parseInt(stateID), {
     method: "PUT",
@@ -364,45 +317,194 @@ function insertCouchState(stateID: string, state: State) {
     console.log(err);
     StatusMessage.showTemporaryMessage("The current neuroglancer state has NOT been saved to couch.", 10000);
   });
+}
+*/
 
+
+/**
+ * Couch generic methods
+ */
+
+export async function fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
+  const dbUrl = APIs.GET_SET_COUCH_USER
+  const url = `${dbUrl}/_design/states/_view/by_id?&include_docs=true&key=${encodeURIComponent(stateID)}`;
+  try { 
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    if (response.status === 404) {
+      console.warn(`Document with ID ${stateID} not found.`);
+      return null;
+    }
+    const data: CouchUserDocument = await response.json();
+    StatusMessage.showTemporaryMessage("A couch user document has been fetched.", 10000);
+    return data;
+  } catch (error) {
+    console.error('Error fetching CouchDB document:', error);
+    return null;
+  }
 }
 
-function updateCouchState(stateID: string, _rev: string, state: State) {
-  const json_body = { ...brainState.value, ...state, "_rev": _rev }
-  const url = APIs.GET_SET_COUCH_STATE + parseInt(stateID);
-  console.log('PUT URL', url);
+export async function fetchStateDocument(stateID: string): Promise<CouchStateDocument | null> {
+  const dbUrl = APIs.GET_SET_COUCH_STATE
+  const url = `${dbUrl}/_design/by_key/_view/by_key?include_docs=true&key=${encodeURIComponent(stateID)}`;
+  console.log(url);
+  try { 
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    if (response.status === 404) {
+      console.warn(`Document with ID ${stateID} not found.`);
+      return null;
+    }
+    const data: CouchStateDocument = await response.json();
+    StatusMessage.showTemporaryMessage("A document has been fetched. rev=" + data, 10000);
+    return data;
+  } catch (error) {
+    console.error('Error fetching CouchDB document:', error);
+    return null;
+  }
+}
 
-  fetchOk(url, {
+
+/**
+async function insertDocumentXXX(
+  dbUrl: string,
+  doc: object,
+  username?: string,
+  password?: string
+): Promise<CouchDBResponse> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (username && password) {
+    const auth = btoa(`${username}:${password}`);
+    headers['Authorization'] = `Basic ${auth}`;
+  }
+
+  try {
+    const response = await fetch(dbUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(doc),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        error: result.error || 'unknown_error',
+        reason: result.reason || 'Unknown reason',
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    return {
+      error: 'network_error',
+      reason: error.message,
+    };
+  }
+}
+*/
+
+async function updateCouchDBDocument<T>(
+  dbUrl: string,
+  _id: string,
+  updatedDoc: T,
+  auth?: { username: string; password: string }
+): Promise<T> {
+
+
+  if (!_id) {
+    throw new Error("Document must have _id ");
+  }
+  const url = `${dbUrl}/${encodeURIComponent( _id)}`;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  if (auth) {
+    const credentials = btoa(`${auth.username}:${auth.password}`);
+    headers["Authorization"] = `Basic ${credentials}`;
+  }
+
+  const response = await fetch(url, {
     method: "PUT",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(json_body, null, 0),
-  }).then(response => response.json()).then(json => {
-    brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current neuroglancer state has been updated to couch.", 10000);
-  }).catch(err => {
-    console.log(err);
-    StatusMessage.showTemporaryMessage("The current neuroglancer state has NOT been updated to couch.", 10000);
+    headers,
+    body: JSON.stringify(updatedDoc),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update document: ${response.status} ${errorText}`);
+  }
+
+  return await response.json();
+  
+}
+
+
+async function getRevisionFromChangesFeed(couchDbUrl: string, docId: string): Promise<string | null> {
+  const url = `${couchDbUrl}/_changes?include_docs=true&filter=_doc_ids`;
+  const body = {
+    doc_ids: [docId]
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      return null;
+      // throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    const change = data.results.find((result: any) => (result.id === docId));
+
+    if (change) {
+      return change.changes?.[0]?.rev || null;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error fetching _changes feed:", error);
+    return null;
+  }
 }
 
 
 export async function deleteCouchDbDocument(
   dbUrl: string,
-  docId: string,
+  stateID: string,
   username?: string,
   password?: string
 ): Promise<void> {
-  const data = await fetchUserRevision(docId);
-  if (!data) {
-    console.error("Document is null.");
+  console.log("method deleteCouchDbDocument");
+  const revision = await getRevisionFromChangesFeed(dbUrl, stateID);
+
+  if (revision === null) {
+    console.error("Cannot delete document as the revision is null.");
     return;
   }
 
   try {
-    const url = new URL(`${dbUrl}/${encodeURIComponent(docId)}?rev=${encodeURIComponent(data._rev)}`);
+    const url = new URL(`${dbUrl}/${encodeURIComponent(stateID)}?rev=${encodeURIComponent(revision)}`);
 
     const headers: HeadersInit = {};
     if (username && password) {
@@ -420,7 +522,7 @@ export async function deleteCouchDbDocument(
       throw new Error(`Failed to delete document: ${errorData.reason}`);
     }
 
-    console.log(`Document ${docId} deleted successfully.`);
+    console.log(`Document ${stateID} deleted successfully.`);
   } catch (error) {
     console.error('Error deleting document:', error);
     throw error;
