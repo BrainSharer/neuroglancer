@@ -7,9 +7,8 @@ import { getCachedJson, Trackable } from "#/util/trackable";
 import { makeIcon } from "#/widget/icon";
 import { Tab } from "#/widget/tab_view";
 import { WatchableValue } from "#/trackable_value";
-import { brainState, userState, upsertCouchState, deleteCouchDbDocument, upsertCouchUser, fetchStateDocument, fetchUserDocument, CouchUserDocument } from "./state_utils";
+import { brainState, userState, upsertCouchState, upsertCouchUser, fetchStateDocument, fetchUserDocument, listenForDocumentChanges } from "./state_utils";
 import { verifyObject } from "src/util/json";
-// import { listenToDocumentChanges } from "./db_nano";
 import { APIs } from "./service";
 
 enum MultiUsersStatus {
@@ -27,6 +26,7 @@ interface MultiUsersState {
   usernames: Array<string>,
 }
 
+
 class MultiUsersTabItem extends RefCounted {
   element = document.createElement("div");
   numberElement = document.createElement("div");
@@ -35,7 +35,7 @@ class MultiUsersTabItem extends RefCounted {
  
   constructor(
     private otherUsername: string,
-    private multiUsersState: WatchableValue<MultiUsersState>
+    private multiUsersState: WatchableValue<MultiUsersState>,
   ) {
     super();
 
@@ -68,7 +68,6 @@ export class MultiUsersTab extends Tab {
   private throttledUpdateStateToFirebase: () => void;
   private stateListenerDetach: () => void;
   private usersListenerDetach: () => void;
-  private currentUserDoc: CouchUserDocument | null;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     state_id: "",
@@ -77,6 +76,7 @@ export class MultiUsersTab extends Tab {
     usernames: [],
     status: MultiUsersStatus.no_state,
   });
+
 
   constructor(
     private viewerState: Trackable,
@@ -92,7 +92,6 @@ export class MultiUsersTab extends Tab {
       this.stateUpdated();
     });
     this.multiUsersState.changed.add(() => {
-      console.log('MultiUsersState has changed');
       this.multiUsersStateUpdated();
 
     })
@@ -129,6 +128,7 @@ export class MultiUsersTab extends Tab {
       if (userState.value.id === 0) {
         // Detach user change listener
         if (this.usersListenerDetach !== undefined) {
+          console.log('Detaching user change listener');
           this.usersListenerDetach();
         }
       } else {
@@ -139,53 +139,29 @@ export class MultiUsersTab extends Tab {
             const cacheState = getCachedJson(this.viewerState);
             const { generation, value } = cacheState;
             if (generation !== this.prevStateGeneration) {
-              console.log('stateUpdated, generation !== this.prevStateGeneration')
               this.prevStateGeneration = cacheState.generation;
               upsertCouchState(state_id, value)
             }
           }, 10);
 
-          fetchUserDocument(state_id).then((doc) => {
-            this.currentUserDoc = doc;
-            if (this.currentUserDoc === undefined) {
-              this.multiUsersState.value = {
-                status: MultiUsersStatus.disabled,
-                state_id,
-                username,
-                editor: "",
-                usernames: [],
-              }
-            } else {
-              console.log('user doc', this.currentUserDoc);
-              const editor = this.currentUserDoc?.editor;
-              let usernames = this.currentUserDoc?.usernames;
-              if (usernames === undefined) {
-                usernames = [username]
-              } else {
-                usernames.push(username);
-              }
+          this.multiUsersState.value = {
+            status: MultiUsersStatus.disabled,
+            state_id,
+            username,
+            editor: "",
+            usernames: [],
+          };
+  
+          listenForDocumentChanges(APIs.GET_SET_COUCH_USER , state_id, (change) => {
+            console.log('User Document change detected, wahaoo:', change);
+            this.updateMultiUsersStatus();
+            });
 
-              const status = usernames?.includes(username) ? (
-                editor === username ? MultiUsersStatus.sharing
-                  : MultiUsersStatus.observing
-              ) : MultiUsersStatus.disabled;
+          this.multiUsersState.changed.dispatch();          
 
-              this.multiUsersState.value = {
-                status,
-                state_id,
-                username,
-                editor: username,
-                usernames,
-              };
-            }
-            this.multiUsersState.changed.dispatch();
-          }).catch((err) => {
-            console.error('Error fetching user revision:', err);
-          });
-
-        } else { console.log('brainState.value === null'); }
+        } 
       }
-    } else { console.log('userState.value === null'); }
+    } 
   }
  
   private multiUsersStateUpdated() {
@@ -194,8 +170,7 @@ export class MultiUsersTab extends Tab {
   }
 
   private updateHeaderAndListener() {
-    console.log('updateHeaderAndListener method');
-    const { status, state_id, username, editor, usernames } = this.multiUsersState.value;
+    let { state_id, username, status,  editor, usernames } = this.multiUsersState.value;
 
     // Remove any listener if any
     this.viewerState.changed.remove(this.throttledUpdateStateToFirebase);
@@ -208,21 +183,31 @@ export class MultiUsersTab extends Tab {
     let actionButtonTextContent = "";
     let actionButtonOnclick = () => { };
     // Deal with the different status types
+    /**
+     * When the status is disabled, a user can observe if someone
+     * else is sharing, otherwise, the user can share
+     * If no one is sharing, the text reads "No one is sharing" Share
+     * and the list of users is empty
+     */
     if (status === MultiUsersStatus.disabled) {
-      console.log("xxxxxxxxxxxxxxxxxxxxxxxxxx");
-      const header_editor = editor === "" ? "No one" : editor;
-      headerTextContent = header_editor + " is sharing";
+      if (editor === "") {
+        headerTextContent = "No one is sharing";
+        actionButtonTextContent = "Share";  
+      }
+      if (editor === username) {
+        headerTextContent = editor + " is sharing";
+        actionButtonTextContent = "Observe"
+      }
+
+      if (editor !== "" && editor !== username) {
+        headerTextContent = username + " is observing";
+      }
+      // const header_editor = editor === "" ? "No one" : editor;
+      // headerTextContent = header_editor + " is sharing";
       actionButtonDisplay = "block";
-      actionButtonTextContent = editor === "" ? "Share" : "Observe";
+      // actionButtonTextContent = editor === "" ? "Share" : "Observe";
       actionButtonOnclick = () => {
-        // const editing = editor === "" ? true : false;
-        let display_editor =  username;
-        let display_usernames = usernames;
-        if (editor !== "") {
-          display_editor = "";
-          display_usernames.push(username);
-        }
-        upsertCouchUser(state_id, display_editor, display_usernames);
+        upsertCouchUser(state_id, editor, usernames);
       };
     }
     else if (status === MultiUsersStatus.sharing) {
@@ -232,8 +217,8 @@ export class MultiUsersTab extends Tab {
       actionButtonDisplay = "block";
       actionButtonTextContent = "Stop";
       actionButtonOnclick = () => {
-        console.log('onclick MultiUsersState.sharing')
-        deleteCouchDbDocument(APIs.GET_SET_COUCH_USER, state_id);
+        console.log('onclick MultiUsersState.sharing, setting editor to "" and users to empty array')
+        upsertCouchUser(state_id, "", []);
       };
     }
     else if (status === MultiUsersStatus.observing) {
@@ -249,7 +234,6 @@ export class MultiUsersTab extends Tab {
       actionButtonOnclick = () => {
         let display_usernames = usernames.filter(user => user !== username);
         upsertCouchUser(state_id, editor, display_usernames)   
-        this.multiUsersStateUpdated();     
       };
     }
     else if (status === MultiUsersStatus.no_state) {
@@ -267,9 +251,10 @@ export class MultiUsersTab extends Tab {
 
   private updateUserItems() {
     const { status, editor, usernames } = this.multiUsersState.value;
-
-    console.log('updateUserItems method editor = ', editor);
-    console.log('updateUserItems method usernames = ', usernames);
+    console.log('updateUserItems status', status);
+    console.log('updateUserItems editor', editor);
+    console.log('updateUserItems usernames', usernames);
+    
 
     // Update userItems
     this.userItems.clear();
@@ -291,7 +276,58 @@ export class MultiUsersTab extends Tab {
         status === MultiUsersStatus.sharing ? "block" : "none"
       )
     });
+    
   }
+
+  private updateMultiUsersStatus() {
+    if ((userState.value === null) || (brainState.value === null)) {
+      console.error("userState or brainState is null");
+      return;
+    } 
+    const username = String(userState.value.username);
+    const state_id = String(brainState.value.id);
+
+    let status: number = MultiUsersStatus.disabled
+    let editor: string = "";
+    let usernames: string[] = []
+
+    fetchUserDocument(state_id).then((currentUsers) => {
+      if (currentUsers !== null) {
+        console.log('currentUsers', currentUsers.editor);
+        editor = currentUsers.editor;
+
+        if ( (currentUsers.usernames !== undefined) && (currentUsers?.usernames.includes(username))
+          && (editor !== username)) {
+          status = MultiUsersStatus.observing;
+        }
+
+        if ( (currentUsers.usernames !== undefined) && (currentUsers?.usernames.includes(username))
+          && (editor === username)) {
+          status = MultiUsersStatus.sharing;
+        }
+
+
+        console.log('Check the status and usersnames here')
+        console.log('status', status);
+        console.log('username', username);
+        console.log('editor', editor);
+        console.log('usernames', usernames);
+
+        this.multiUsersState.value = {
+          status,
+          state_id,
+          username,
+          editor,
+          usernames,
+        };
+      } else {
+        console.log('No current users found');
+      }
+    });
+
+  }
+
+
 
 
 }

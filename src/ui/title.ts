@@ -24,12 +24,15 @@ declare let NEUROGLANCER_BUILD_INFO:
 export function bindTitle(title: WatchableValueInterface<string | undefined>) {
   const debouncedSetTitle = animationFrameDebounce(() => {
     // const value = title.value?.trim();
-	 let tag_title = NEUROGLANCER_BUILD_INFO.tag;
-	 let date_title = NEUROGLANCER_BUILD_INFO.timestamp;
-	 document.title = 'Neuroglancer';
-	 if ((tag_title) && (date_title)) {
-	  document.title = tag_title + ' built at ' + date_title;
-	 }
+   if (NEUROGLANCER_BUILD_INFO !== undefined) {
+    let tag_title = NEUROGLANCER_BUILD_INFO.tag;
+    let date_title = NEUROGLANCER_BUILD_INFO.timestamp;
+    document.title = 'Neuroglancer';
+    if ((tag_title) && (date_title)) {
+      document.title = tag_title + ' built at ' + date_title;
+    }
+    document.title = 'Running dev server'
+  }
 										
   });
   const unregisterSignalHandler = title.changed.add(debouncedSetTitle);
