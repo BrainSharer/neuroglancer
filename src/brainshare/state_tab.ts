@@ -135,9 +135,7 @@ export class StateTab extends Tab {
       this.registerEventListener(loadButton, "click", () => {
         if (brainState.value !== null) {
           this.viewerState.reset();
-          this.viewerState.restoreState(verifyObject(
-            brainState.value.neuroglancer_state
-          ));
+          this.viewerState.restoreState(verifyObject(brainState.value.neuroglancer_state));
         }
       });
       buttonGroupDiv.appendChild(loadButton);

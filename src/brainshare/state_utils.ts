@@ -4,11 +4,41 @@ import { StatusMessage } from "#/status";
 import { WatchableValue } from "#/trackable_value";
 import { APIs } from "./service";
 
+interface ListenOptions {
+  dbUrl: string;
+  docId: string;
+  since?: string; // Optional: start listening from a specific sequence
+  onChange: (change: CouchDbChange) => void;
+  onError?: (error: any) => void;
+}
+
+interface CouchDbChange {
+  id: string;
+  seq: string;
+  changes: { rev: string }[];
+  deleted?: boolean;
+  doc?: any;
+}
+
+interface ChangeResult {
+  seq: string;
+  id: string;
+  changes: { rev: string }[];
+  deleted?: boolean;
+}
+
+interface ChangesFeed {
+  results: ChangeResult[];
+  last_seq: string;
+  pending: number;
+}
+
+
 export interface CouchUserDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
   _deleted?: boolean;   // If true, marks the document as deleted
-  doc: any;
+  users: any;
 }
 
 export interface CouchStateDocument {
@@ -21,7 +51,6 @@ export interface CouchStateDocument {
 export interface UrlParams {
   "stateID": string | null,
 }
-type ChangeHandler = (change: any) => void;
 
 /**
  * This function gets the two parameters from the URL
@@ -173,7 +202,8 @@ export function saveState(stateID: number | string, state: Object) {
     StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
   });
 }
-/**
+
+/** 
  * Couch user methods
  */
 
@@ -185,48 +215,30 @@ export async function fetchUserDocument(stateID: string): Promise<CouchUserDocum
   } else {
     console.log('found user revision', revision);
   }
-  try {
     const response = await fetch(APIs.GET_SET_COUCH_USER + "/" + parseInt(stateID), {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
     });
+
+    if (!response.ok) {
+      console.error('Error fetching CouchDB user document:', response.statusText);
+      return null;
+    }
     const data: CouchUserDocument = await response.json();
-    StatusMessage.showTemporaryMessage("A couch state has been fetched." + data._rev, 10000);
+    StatusMessage.showTemporaryMessage("A couch user data has been fetched." + data._rev, 10000);
+    console.log("try fetched user document", data);
     return data;
-  } catch (error) {
-    console.error('Error fetching CouchDB document:', error);
-    return null;
-  }
-}
-
-export async function insertCouchUser(stateID: string, editor: string, usernames?: string[]) {
-  console.log("method insertCouchUser");
-  const json_body = { "editor": editor, "usernames": usernames };
-  fetchOk(APIs.GET_SET_COUCH_USER + parseInt(stateID), {
-    method: "PUT",
-    credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(json_body, null, 0),
-  }).then(response => response.json()).then(json => {
-    brainState.value = json;
-    StatusMessage.showTemporaryMessage("The current user data has been saved to couch.", 10000);
-  }).catch(err => {
-    console.log(err);
-    StatusMessage.showTemporaryMessage("The current user data has NOT been saved to couch.", 10000);
-  });
 }
 
 
-export async function upsertCouchUser(stateID: string, doc: any) {
+export async function upsertCouchUser(stateID: string, users: any) {
   console.log("method upsertCouchUser with ID: " + stateID);
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
-  let couchState: CouchUserDocument = {_id: stateID, doc };
+  let couchState: CouchUserDocument = {_id: stateID, users };
   if (revision !== null) { 
-    couchState = {_id: stateID, _rev: revision, doc };
+    couchState = {_id: stateID, _rev: revision, users };
   }
   updateCouchDBDocument(APIs.GET_SET_COUCH_USER, stateID, couchState);
 }
@@ -235,17 +247,6 @@ export async function upsertCouchUser(stateID: string, doc: any) {
 /**
  * Couch state methods
  */
-
-export async function upsertCouchState(stateID: string, state: State) {
-  console.log("method upsertCouchState");
-  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
-  let couchState: CouchStateDocument = {_id: stateID, "state": state };
-  if (revision !== null) { 
-    couchState = {_id: stateID, _rev: revision, "state": state };
-  }
-  updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
-}
-
 
 export async function fetchStateDocument(stateID: string): Promise<CouchStateDocument | null> {
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
@@ -270,7 +271,18 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
     return null;
   }
 }
+export async function upsertCouchState(stateID: string, state: State) {
+  console.log("method upsertCouchState");
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
+  let couchState: CouchStateDocument = {_id: stateID, "state": state };
+  if (revision !== null) { 
+    couchState = {_id: stateID, _rev: revision, "state": state };
+  }
+  updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
+}
 
+
+/** Generic couch DB methods */
 
 async function updateCouchDBDocument<T>(
   dbUrl: string,
@@ -310,92 +322,82 @@ async function updateCouchDBDocument<T>(
 }
 
 
-async function getRevisionFromChangesFeed(couchDbUrl: string, docId: string): Promise<string | null> {
-  const url = `${couchDbUrl}/_changes?include_docs=true&filter=_doc_ids`;
-  const body = {
-    doc_ids: [docId]
-  };
+export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
+  const changesUrl = `${dbUrl}/_changes?filter=_doc_ids&include_docs=false&descending=false`;
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
+  const response = await fetch(changesUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ doc_ids: [docId] }),
+  });
 
-    if (!response.ok) {
-      return null;
-      // throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    const change = data.results.find((result: any) => (result.id === docId));
-
-    if (change) {
-      return change.changes?.[0]?.rev || null;
-    }
-
-    return null;
-  } catch (error) {
-    console.error("Error fetching _changes feed:", error);
-    return null;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch _changes: ${response.statusText}`);
   }
+
+  const data: ChangesFeed = await response.json();
+
+  const change = data.results.find(change => change.id === docId);
+  return change?.changes[0]?.rev || null;
 }
 
-export async function listenForDocumentChanges(
-  dbUrl: string,
-  docId: string,
-  onChange: ChangeHandler
-) {
+
+export function listenToDocumentChanges(options: ListenOptions) {
+  const { dbUrl, docId, since = 'now', onChange, onError } = options;
+
   const url = new URL(`${dbUrl}/_changes`);
-  url.searchParams.set('feed', 'continuous');
-  url.searchParams.set('include_docs', 'true');
-  url.searchParams.set('since', 'now');
-  url.searchParams.set('filter', '_doc_ids');
-  
+  url.searchParams.append('feed', 'continuous');
+  url.searchParams.append('include_docs', 'true');
+  url.searchParams.append('filter', '_doc_ids');
+  url.searchParams.append('since', since);
+  url.searchParams.append('heartbeat', '25000');
+
   const body = JSON.stringify({ doc_ids: [docId] });
 
-  const response = await fetch(url.toString(), {
+  const controller = new AbortController();
+  const signal = controller.signal;
+
+  fetch(url.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body,
-  });
+    signal,
+  })
+    .then(async (response) => {
+      if (!response.body) {
+        throw new Error('No response body.');
+      }
 
-  if (!response.body) {
-    throw new Error('No response body from CouchDB');
-  }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    
-    let lines = buffer.split('\n');
-    buffer = lines.pop() || ''; // Last incomplete line stays in buffer
-
-    for (const line of lines) {
-      if (line.trim()) {
-        try {
-          const change = JSON.parse(line);
-          onChange(change);
-        } catch (e) {
-          console.error('Failed to parse change line:', line, e);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+          for (const line of lines) {
+            try {
+              const change: CouchDbChange = JSON.parse(line);
+              onChange(change);
+            } catch (err) {
+              if (onError) onError(err);
+            }
+          }
         }
       }
-    }
-  }
-}
+    })
+    .catch((error) => {
+      if (onError) onError(error);
+    });
 
+  return () => {
+    controller.abort(); // Allow stopping the listener
+  };
+}
 
 
 export async function deleteCouchDbDocument(
