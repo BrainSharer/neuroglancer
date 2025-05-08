@@ -3,22 +3,7 @@ import { fetchOk } from "#/util/http_request";
 import { StatusMessage } from "#/status";
 import { WatchableValue } from "#/trackable_value";
 import { APIs } from "./service";
-
-interface ListenOptions {
-  dbUrl: string;
-  docId: string;
-  since?: string; // Optional: start listening from a specific sequence
-  onChange: (change: CouchDbChange) => void;
-  onError?: (error: any) => void;
-}
-
-interface CouchDbChange {
-  id: string;
-  seq: string;
-  changes: { rev: string }[];
-  deleted?: boolean;
-  doc?: any;
-}
+import { AUTHs} from "./couchdb_store";
 
 interface ChangeResult {
   seq: string;
@@ -33,7 +18,6 @@ interface ChangesFeed {
   pending: number;
 }
 
-
 export interface CouchUserDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
@@ -45,25 +29,23 @@ export interface CouchStateDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
   _deleted?: boolean;   // If true, marks the document as deleted
-  state: State;
+  state: Object;
 }
 
-export interface UrlParams {
-  "stateID": string | null,
+interface CouchDbChange {
+  id: string;
+  seq: string;
+  changes: { rev: string }[];
+  deleted?: boolean;
+  doc?: any;
 }
 
-/**
- * This function gets the two parameters from the URL
- * 1. The id which is the primary key in the neuroglancer state table
- * 2. multi which is a boolean saying if we are in multi user mode or not.
- * @returns a JSON dictionary of the two variables
- */
-export function getUrlParams(): any {
-  const href = new URL(location.href);
-  const stateID = href.searchParams.get("id");
-  const loaded = Boolean(Number(href.searchParams.get("loaded")));
-  const locationVariables = { stateID, loaded };
-  return locationVariables;
+interface ListenOptions {
+  dbUrl: string;
+  docId: string;
+  since?: string; // Optional: start listening from a specific sequence
+  onChange: (change: CouchDbChange) => void;
+  onError?: (error: any) => void;
 }
 
 export interface State {
@@ -85,12 +67,22 @@ export interface User {
   lab: string;
 }
 
-export interface Revision {
-  id: number;
-  FK_neuroglancer_state_id: number;
-  state: Object;
-  editor: string;
-  users: string;
+export interface UrlParams {
+  "stateID": string | null,
+}
+
+/**
+ * This function gets the two parameters from the URL
+ * 1. The id which is the primary key in the neuroglancer state table
+ * 2. multi which is a boolean saying if we are in multi user mode or not.
+ * @returns a JSON dictionary of the two variables
+ */
+export function getUrlParams(): any {
+  const href = new URL(location.href);
+  const stateID = href.searchParams.get("id");
+  const loaded = Boolean(Number(href.searchParams.get("loaded")));
+  const locationVariables = { stateID, loaded };
+  return locationVariables;
 }
 
 /**
@@ -203,33 +195,38 @@ export function saveState(stateID: number | string, state: Object) {
   });
 }
 
-/** 
+/** End mysql REST api methods */
+
+/** Start CouchDB methods
  * Couch user methods
  */
 
 export async function fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
-  if (revision === null) { 
+  if (revision === null) {
     console.log("No user found when looking for revision");
     return null;
   } else {
     console.log('found user revision', revision);
   }
-    const response = await fetch(APIs.GET_SET_COUCH_USER + "/" + parseInt(stateID), {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
 
-    if (!response.ok) {
-      console.error('Error fetching CouchDB user document:', response.statusText);
-      return null;
-    }
-    const data: CouchUserDocument = await response.json();
-    StatusMessage.showTemporaryMessage("A couch user data has been fetched." + data._rev, 10000);
-    console.log("try fetched user document", data);
-    return data;
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+  const response = await fetch(APIs.GET_SET_COUCH_USER + "/" + parseInt(stateID), {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    console.error('Error fetching CouchDB user document:', response.statusText);
+    return null;
+  }
+  const data: CouchUserDocument = await response.json();
+  StatusMessage.showTemporaryMessage("A couch user data has been fetched." + data._rev, 10000);
+  return data;
 }
 
 
@@ -256,12 +253,17 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
   } else {
     console.log('found state revision', revision);
   }
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
   try {
     const response = await fetch(APIs.GET_SET_COUCH_STATE + "/" + parseInt(stateID), {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
     });
     const data: CouchStateDocument = await response.json();
     StatusMessage.showTemporaryMessage("A couch state has been fetched." + data._rev, 10000);
@@ -271,8 +273,14 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
     return null;
   }
 }
-export async function upsertCouchState(stateID: string, state: State) {
-  console.log("method upsertCouchState");
+export async function upsertCouchState(stateID: string, state: Object) {
+  if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
+    console.log("Upserting the State interface structure");
+  } else {
+    console.log("state does NOT match the State interface structure");
+    return;
+  }
+  
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
   let couchState: CouchStateDocument = {_id: stateID, "state": state };
   if (revision !== null) { 
@@ -287,8 +295,7 @@ export async function upsertCouchState(stateID: string, state: State) {
 async function updateCouchDBDocument<T>(
   dbUrl: string,
   _id: string,
-  updatedDoc: T,
-  auth?: { username: string; password: string }
+  updatedDoc: T
 ): Promise<T> {
 
 
@@ -301,10 +308,8 @@ async function updateCouchDBDocument<T>(
     "Content-Type": "application/json",
   };
 
-  if (auth) {
-    const credentials = btoa(`${auth.username}:${auth.password}`);
-    headers["Authorization"] = `Basic ${credentials}`;
-  }
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
 
   const response = await fetch(url, {
     method: "PUT",
@@ -324,10 +329,17 @@ async function updateCouchDBDocument<T>(
 
 export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
   const changesUrl = `${dbUrl}/_changes?filter=_doc_ids&include_docs=false&descending=false`;
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
 
   const response = await fetch(changesUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ doc_ids: [docId] }),
   });
 
@@ -356,12 +368,17 @@ export function listenToDocumentChanges(options: ListenOptions) {
 
   const controller = new AbortController();
   const signal = controller.signal;
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
 
   fetch(url.toString(), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body,
     signal,
   })
@@ -400,44 +417,5 @@ export function listenToDocumentChanges(options: ListenOptions) {
 }
 
 
-export async function deleteCouchDbDocument(
-  dbUrl: string,
-  stateID: string,
-  username?: string,
-  password?: string
-): Promise<void> {
-  console.log("method deleteCouchDbDocument");
-  const revision = await getRevisionFromChangesFeed(dbUrl, stateID);
-
-  if (revision === null) {
-    console.error("Cannot delete document as the revision is null.");
-    return;
-  }
-
-  try {
-    const url = new URL(`${dbUrl}/${encodeURIComponent(stateID)}?rev=${encodeURIComponent(revision)}`);
-
-    const headers: HeadersInit = {};
-    if (username && password) {
-      const credentials = btoa(`${username}:${password}`);
-      headers['Authorization'] = `Basic ${credentials}`;
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'DELETE',
-      headers: headers,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Failed to delete document: ${errorData.reason}`);
-    }
-
-    console.log(`Document ${stateID} deleted successfully.`);
-  } catch (error) {
-    console.error('Error deleting document:', error);
-    throw error;
-  }
-}
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);

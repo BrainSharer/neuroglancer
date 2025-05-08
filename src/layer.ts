@@ -189,25 +189,33 @@ export class UserLayer extends RefCounted {
   messages = new MessageList();
 
   initializeSelectionState(state: this["selectionState"]) {
-    state.generation = -1;
-    state.localPositionValid = false;
-    state.localPosition = kEmptyFloat32Vec;
-    state.localCoordinateSpace = undefined;
-    state.annotationId = undefined;
-    state.annotationType = undefined;
-    state.annotationBuffer = undefined;
-    state.annotationIndex = undefined;
-    state.annotationCount = undefined;
-    state.annotationSourceIndex = undefined;
-    state.annotationSubsource = undefined;
-    state.annotationPartIndex = undefined;
-    state.value = undefined;
+    if (state !== undefined) {
+      state.generation = -1;
+      state.localPositionValid = false;
+      state.localPosition = kEmptyFloat32Vec;
+      state.localCoordinateSpace = undefined;
+      state.annotationId = undefined;
+      state.annotationType = undefined;
+      state.annotationBuffer = undefined;
+      state.annotationIndex = undefined;
+      state.annotationCount = undefined;
+      state.annotationSourceIndex = undefined;
+      state.annotationSubsource = undefined;
+      state.annotationPartIndex = undefined;
+      state.value = undefined;
+    } else {
+      console.log("state is undefined in initializeSelectionState");
+    }
   }
 
   resetSelectionState(state: this["selectionState"]) {
-    state.localPositionValid = false;
-    state.annotationId = undefined;
-    state.value = undefined;
+    if (state === undefined) {
+      console.log("state is undefined in resetSelectionState");
+    } else {
+      state.localPositionValid = false;
+      state.annotationId = undefined;
+      state.value = undefined;
+    }
   }
 
   selectionStateFromJson(state: this["selectionState"], json: any) {
@@ -226,8 +234,10 @@ export class UserLayer extends RefCounted {
           ),
       );
       if (localPosition === undefined) {
+        console.log('local position is undefined and setting state.localPosition to false');
         state.localPositionValid = false;
       } else {
+        console.log('local position is valid and setting state.localPosition to true');
         state.localPositionValid = true;
         state.localPosition = localPosition;
       }
@@ -274,6 +284,9 @@ export class UserLayer extends RefCounted {
   selectionStateToJson(state: this["selectionState"], forPython: boolean): any {
     forPython;
     const json: any = {};
+    if (state === undefined) {
+      console.log("state is undefined in selectionStateToJson");
+    }
     if (state.localPositionValid) {
       const { localPosition } = state;
       if (localPosition.length > 0) {
@@ -312,6 +325,11 @@ export class UserLayer extends RefCounted {
     dest: this["selectionState"],
     source: this["selectionState"],
   ) {
+    if (source === undefined) {
+      console.log("dest and source is undefined in copySelectionState");
+    }
+
+
     dest.generation = source.generation;
     dest.localPositionValid = source.localPositionValid;
     dest.localCoordinateSpace = source.localCoordinateSpace;
@@ -1183,6 +1201,10 @@ export class LayerSelectedValues extends RefCounted {
         if (layer.visible && userLayer !== null) {
           const { selectionState } = userLayer;
           userLayer.resetSelectionState(selectionState);
+          if (selectionState === undefined) {
+            console.log("selectionState is undefined in update");
+            continue;
+          }
           selectionState.generation = generation;
           userLayer.captureSelectionState(selectionState, mouseState);
         }
@@ -1193,6 +1215,7 @@ export class LayerSelectedValues extends RefCounted {
   get<T extends UserLayer>(userLayer: T): T["selectionState"] | undefined {
     this.update();
     const { selectionState } = userLayer;
+    if (selectionState === undefined) return undefined;
     if (selectionState.generation !== this.changed.count) return undefined;
     return selectionState;
   }

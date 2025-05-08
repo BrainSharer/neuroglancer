@@ -4,4 +4,5 @@
 #http://eddyod:ax11992288@localhost:5984/neuroglancer/250
 
 curl -X GET \
-http://localhost:5984/users/_design/states/_view/by_id?include_docs=true&key=250
+  -u brainaccess:access1XXX \
+http://localhost:5984/users/250

@@ -21,3 +21,4 @@ ngauth_server/secrets/
 src/brainshare/firestore.ts
 src/brainshare/docs/sphinx/_build/
 src/brainshare/docs/typedoc
+src/brainshare/couchdb_store.ts
