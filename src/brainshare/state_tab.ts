@@ -13,9 +13,6 @@ import {
   userState 
 } from "./state_utils";
 
-// import { dbn } from "src/brainshare/db_nano";
-// import { dbp } from "./pouch_servive";
-
 
 const displayKeys = new Set([
   "user", 
@@ -79,11 +76,11 @@ export class StateTab extends Tab {
         return;
       }
 
-      if (userState.value !== null) {
+      if (userState.value !== null && brainState.value !== null && brainState.value.animal !== null) {
         const newBrainstate = {
           owner: userState.value.id,
+          animal: brainState.value.animal,
           comments: comments,
-          user_date: String(Date.now()),
           neuroglancer_state: getCachedJson(this.viewerState).value,
           readonly: false,
           public: true,
@@ -100,6 +97,10 @@ export class StateTab extends Tab {
       const saveButton = makeIcon({
         text: "Save",
         title: "Save to the current JSON state"
+      });
+      const readOnlyButton = makeIcon({
+        text: "Read Only",
+        title: "You cannot edit this state"
       });
       this.registerEventListener(saveButton, "click", () => {
         const comments = commentTextarea.value;
@@ -120,13 +121,16 @@ export class StateTab extends Tab {
             public: brainState.value.public,
             readonly: brainState.value.readonly,
             comments: comments,
-            user_date: String(Date.now()),
             neuroglancer_state: getCachedJson(this.viewerState).value
           };
           saveState(brainState.value.id, newBrainState);
         }
       });
-      buttonGroupDiv.appendChild(saveButton);
+      if (brainState.value != null && brainState.value.readonly) {
+        buttonGroupDiv.appendChild(readOnlyButton);
+    } else {
+        buttonGroupDiv.appendChild(saveButton);
+      }
 
       const loadButton = makeIcon({
         text: "Load",

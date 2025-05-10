@@ -14,6 +14,8 @@ export const APIs = {
   GET_SET_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/api/",
   SEARCH_ANNOTATION: "https://brainsharer.org/brainsharer/annotations/search/",
   GET_ANNOTATION_LABELS: "https://brainsharer.org/brainsharer/annotations/labels/",
+  GET_SET_COUCH_STATE: "https://nosql.dk.ucsd.edu/neuroglancer",
+  GET_SET_COUCH_USER: "https://nosql.dk.ucsd.edu/users",
 };
 EOF
 )

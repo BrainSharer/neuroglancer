@@ -54,7 +54,6 @@ export interface State {
   owner: number;
   animal: string;
   comments: string;
-  user_date: string;
   neuroglancer_state: object;
   readonly: boolean;
   public: boolean;
@@ -124,6 +123,7 @@ export function getState(
     response => response.json()
   ).then(json => {
     brainState.value = json;
+    console.log("brainState", brainState.value);
   }).catch(err => {
     console.log(err);
     StatusMessage.showTemporaryMessage(
@@ -135,7 +135,6 @@ export function getState(
       owner: 0,
       animal: "",
       comments: err,
-      user_date: "0",
       neuroglancer_state: {},
       readonly: false,
       public: false,
@@ -152,6 +151,7 @@ export function getState(
  */
 export function newState(state: Object) {
   const json_body = { ...brainState.value, ...state }
+  console.log("newState", json_body);
 
   fetchOk(APIs.GET_SET_STATE, {
     method: "POST",

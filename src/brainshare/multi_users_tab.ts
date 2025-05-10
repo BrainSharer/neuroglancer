@@ -7,7 +7,7 @@ import { getCachedJson, Trackable } from "#/util/trackable";
 import { makeIcon } from "#/widget/icon";
 import { Tab } from "#/widget/tab_view";
 import { WatchableValue } from "#/trackable_value";
-import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, State, listenToDocumentChanges } from "./state_utils";
+import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, listenToDocumentChanges } from "./state_utils";
 import { verifyObject } from "src/util/json";
 import { APIs } from "./service";
 

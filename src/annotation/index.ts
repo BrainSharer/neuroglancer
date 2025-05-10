@@ -2440,19 +2440,33 @@ export function annotationToPortableJson(
   inputCoordinateSpace: CoordinateSpace,
 ) {
   const { scales, units } = inputCoordinateSpace;
-  if (!units.every((unit) => unit === "m")) {
+  const xyzUnits = units.slice(0, 3); // we only want to look at the first 3 units, not time
+  if (!xyzUnits.every((unit) => unit === "m")) {
     return {};
   }
   
   const scaledAnnotation = annotationPointsPixelsToMeters(annotation, scales);
   const result = annotationToJson(scaledAnnotation, annotationSouce);
   delete result.id;
+  if (result.hasOwnProperty("centroid")) {
+    result.centroid = result.centroid.slice(0, 3);
+  }
+  if (result.hasOwnProperty("source")) {
+    result.source = result.source.slice(0, 3);
+  }
 
   if (annotation.childAnnotationIds) {
     result.childJsons = [];
     for (const childId of annotation.childAnnotationIds) {
       const childRef = annotationSouce.getReference(childId);
       if (!childRef || !childRef.value) continue;
+      if (childRef.value.type === AnnotationType.LINE) {
+        const line = <Line>childRef.value;
+        const pointA = line.pointA.slice(0, 3);
+        const pointB = line.pointB.slice(0, 3);
+        childRef.value.pointA = pointA;
+        childRef.value.pointB = pointB;
+      }
       const childJson = annotationToPortableJson(
         childRef.value, 
         annotationSouce, 

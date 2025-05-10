@@ -515,17 +515,22 @@ export function uploadAnnotation(
     inputCoordinateSpace = transform.outputSpace;
   }
   const ann = annRef.value!;
+  console.log('ann to upload');
+  console.log(ann);
   const annJson = annotationToPortableJson(
     ann,
     annotationLayer.source,
     inputCoordinateSpace,
   )
+  console.log('annJson');
+  console.log(annJson);
 
   if (
     !brainState.value || 
     !userState.value ||
     !annRef.value!.description
   ) {
+    console.log("Brain or user state is not defined.");
     return;
   }
 
@@ -539,7 +544,8 @@ export function uploadAnnotation(
     annotator: userState.value.id,
     label: labels[0],
   }
-
+  console.log('json body for annotations')
+  console.log(jsonBody);
   StatusMessage.showTemporaryMessage("Uploading annotation...", 5000);
   return fetchOk(
     `${APIs.GET_SET_ANNOTATION}${save ? ann.sessionID : ""}`, { 
@@ -3219,6 +3225,8 @@ export function UserLayerWithAnnotationsMixin<
                               inputCoordinateSpace,
                             )
                             setClipboard(JSON.stringify(json));
+                            console.log('copied json');
+                            console.log(json);
                             StatusMessage.showTemporaryMessage(
                               `Annotation ${annType} copied to clipboard.`,
                               5000,
@@ -3710,9 +3718,12 @@ export function UserLayerWithAnnotationsMixin<
                         if (dataSource === undefined) return;
                         const transform = dataSource.spec.transform;
                         if (transform === undefined) return;
-                        navigator.clipboard.readText().then((text) => {
+                        navigator.clipboard.readText().then((json) => {
+                          console.log('pasteButton json');
+                          console.log(this.manager.root.globalPosition.value);
+                          console.log(json);
                           pasteAnnotation(
-                            JSON.parse(text),
+                            JSON.parse(json),
                             annotationLayer.source,
                             transform,
                             this.manager.root.globalPosition.value,

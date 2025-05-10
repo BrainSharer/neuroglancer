@@ -4,5 +4,5 @@
 #http://eddyod:ax11992288@localhost:5984/neuroglancer/250
 
 curl -X GET \
-  -u brainaccess:access1XXX \
-http://localhost:5984/users/250
+  -u brainaccess:access1 \
+https://nosql.dk.ucsd.edu/neuroglancer/250
