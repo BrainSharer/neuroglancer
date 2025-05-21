@@ -1,6 +1,9 @@
 #!/bin/bash
 
-SERVICE_PATH="./src/brainshare/service.ts"
+RELATIVE_SERVICE_PATH="./src/brainshare/service.ts"
+SERVICE_PATH="$(realpath "$RELATIVE_SERVICE_PATH")"
+
+#SERVICE_PATH="/home/duane/brain-ng/neuroglancer/src/brainshare/service.ts"
 SERVICE_PRODUCTION=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
@@ -80,6 +83,7 @@ rm -vf dist/min/*
 rm -vf *.tar.gz
 GIT=$(git tag --sort=version:refname | tail -n1)
 
+echo "DEPLOYING API CONSTANTS TO $SERVICE_PATH"
 if [ "$1" == "demo" ]; then
     BUILD_INFO="{'tag':'DEMO Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
     PACKAGE="neuroglancer.demo.tar.gz"
@@ -118,4 +122,5 @@ cd dist/client/
 tar zcvf ../../$PACKAGE *
 cd ../../
 
-echo "$SERVICE_LOCAL" > "$SERVICE_PATH"
+
+# echo "$SERVICE_LOCAL" > "$SERVICE_PATH"

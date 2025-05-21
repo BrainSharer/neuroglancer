@@ -74,14 +74,17 @@
   },
   "dependencies": {
     "codemirror": "^5.61.1",
-    "core-js": "^3.39.0",
-    "firebase": "^10.8.0",
+    "core-js": "^3.40.0",
+    "crc-32": "^1.2.2",
     "gl-matrix": "3.1.0",
     "ikonate": "github:mikolajdobrucki/ikonate#a86b4107c6ec717e7877f880a930d1ccf0b59d89",
     "lodash-es": "^4.17.21",
-    "nano": "^10.1.4",
+    "msgpackr": "^1.11.2",
     "nifti-reader-js": "^0.6.8",
     "numcodecs": "^0.3.2",
+    "valibot": "^1.0.0-beta.15",
+    "nano": "^10.1.4",
+    "firebase": "^10.8.0", 
     "typescript-cookie": "^1.0.6"
   },
   "overrides": {
