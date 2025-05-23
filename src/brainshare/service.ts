@@ -10,4 +10,6 @@ export const APIs = {
   GET_SET_ANNOTATION: "http://localhost:8000/annotations/api/",
   SEARCH_ANNOTATION: "http://localhost:8000/annotations/search/",
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
+  GET_SET_COUCH_STATE: "http://localhost:5984/neuroglancer",
+  GET_SET_COUCH_USER: "http://localhost:5984/users",
 };

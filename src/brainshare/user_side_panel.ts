@@ -1,25 +1,24 @@
-import "#src/ui/layer_side_panel.css";
+import "#/ui/layer_side_panel.css";
 
-import { SidePanel, SidePanelManager } from "#src/ui/side_panel.js";
-import { Tab, TabView } from "#src/widget/tab_view.js";
-import { makeIcon } from "#src/widget/icon.js";
-import { CachedWatchableValue, WatchableValue } from "#src/trackable_value.js";
+import { SidePanel, SidePanelManager } from "#/ui/side_panel";
+import { Tab, TabView } from "#/widget/tab_view";
+import { makeIcon } from "#/widget/icon";
+import { CachedWatchableValue, WatchableValue } from "#/trackable_value";
 import { 
   DEFAULT_SIDE_PANEL_LOCATION, 
   SidePanelLocation, 
   TrackableSidePanelLocation 
-} from "#src/ui/side_panel_location.js";
-import { NullarySignal, Signal } from "#src/util/signal.js";
-import { MultiUsersTab } from "#src/brainshare/multi_users_tab.js";
-import { Trackable } from "src/util/trackable";
-import { StateTab  } from "#src/brainshare/state_tab.js";
-import { APIs } from "#src/brainshare/service.js";
-import { userState } from "#src/brainshare/state_utils.js";
-import { emptyToUndefined } from "#src/util/json.js";
-import svg_exit from "ikonate/icons/exit.svg?raw";
-import svg_entrance from "ikonate/icons/entrance.svg?raw";
-import svg_language from "ikonate/icons/language.svg?raw";
-
+} from "#/ui/side_panel_location";
+import { NullarySignal, Signal } from "#/util/signal";
+import { MultiUsersTab } from "./multi_users_tab";
+import { Trackable } from "#/util/trackable";
+import { StateTab  } from "./state_tab";
+import { APIs } from "./service";
+import { userState } from "./state_utils";
+import { emptyToUndefined } from "#/util/json";
+import svg_exit from "ikonate/icons/exit.svg";
+import svg_entrance from "ikonate/icons/entrance.svg";
+import svg_language from "ikonate/icons/language.svg";
 
 
 const DEFAULT_USER_SIDE_PANEL_LOCATION: SidePanelLocation = {

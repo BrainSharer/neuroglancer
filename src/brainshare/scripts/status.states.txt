@@ -1,0 +1,5 @@
+Swap = editor:false, this.otherUsername: true
+disabled = username: true if editor = "" else false
+Stop
+
+250 - edward: true, eddy.odonnell@gmail.com: false

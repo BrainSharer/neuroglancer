@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brain section alignment with fiducials &mdash; Brainsharer Neuroglancer 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=83e35b93" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Neuroglancer polygon tool HOWTO" href="polygon_tool.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html">
+            
+              <img src="../_static/250.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="adjusting_colors.html">Adjusting colors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polygon_tool.html">Polygon tool</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Realignment with fiducials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Brainsharer Neuroglancer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Brain section alignment with fiducials</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/modules/realignment.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="brain-section-alignment-with-fiducials">
+<h1>Brain section alignment with fiducials<a class="headerlink" href="#brain-section-alignment-with-fiducials" title="Link to this heading"></a></h1>
+<p><strong>Background</strong>
+As part of the data ingestion pipeline onto brainsharer.org, sections must be aligned.
+The general pipeline steps allow for automated alignment post-masking.  Unfortunately, some sections may
+still be out of alignment and require fiducials to properly align specific sections to the rest of the image stack.</p>
+<p>After the pipeline has completed (Neuroglancer-compatible image stack created and visible from
+brainsharer.org), the user should identify which sections are out of alignment, create fiducials and re-rerun alignment.
+This document describes these steps.</p>
+<p><strong>Process and example</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Create the first aligned image stack in the pipeline:</dt><dd><p><cite>python src/pipeline/scripts/create_pipeline.py –task align –animal {ANIMAL_ID}</cite></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Create the first aligned precomputed data stack in the pipeline:</dt><dd><p><cite>python src/pipeline/scripts/create_pipeline.py –task neuroglancer –animal {ANIMAL_ID}</cite></p>
+</dd>
+</dl>
+</li>
+<li><p>In a browser, open up Neuroglancer and create a new view.</p></li>
+<li><p>Add the first layer with the ‘+’ icon. This initial layer will have a source such as: <a class="reference external" href="https://imageserv.dk.ucsd.edu/data">https://imageserv.dk.ucsd.edu/data</a>/{ANIMAL_ID}/neuroglancer_data/C1T_aligned.</p></li>
+<li><p>This will be the layer where you will add the fiducials. This layer has already been aligned, but most brains need fiducials to make the alignment more accurate.</p></li>
+<li><p>Open up the upper left quadrant. You may need to adjust the brightness and contrast to see the image better. See the ‘Adjusting colors’ page for more information.</p></li>
+<li><p>Identify which section(s) are not properly aligned through Neuroglancer interface.  The z value is the section number.</p></li>
+<li><p>Navigate to non-aligned section (in figure below this is section 75).</p></li>
+</ul>
+<img alt="../_images/realignment.1.png" src="../_images/realignment.1.png" />
+<ul class="simple">
+<li><p>Create a new annotation layer (just click CTRL and  the “+” icon next to the “C1T_aligned” layer. That creates a new annotation layer.</p></li>
+<li><p>Click the ‘Annotations’ tab on the top far right, then  click the ‘Annotate cloud’ icon on the far right (in red box)</p></li>
+</ul>
+<img alt="../_images/realignment.2.png" src="../_images/realignment.2.png" />
+<ul class="simple">
+<li><p>Pick 2 or 3 points on aligned section and save with a Fiducial label.</p></li>
+</ul>
+<p><strong>Adding fiducial label</strong></p>
+<ul class="simple">
+<li><p>Go to the lower right panel and type ‘Fiducial’ in the text box that says ‘Add annotation labels’. A search result will pop up.</p></li>
+<li><p>Select the ‘Fiducial’ selection</p></li>
+</ul>
+<p><strong>Save current state (the fiducial points must be exported!)</strong></p>
+<ul class="simple">
+<li><p>Click the ‘new’ (lower-case ‘n’) icon in lower-right corner of screen (see figure below)</p></li>
+<li><p>Note: These are NOT same new/save buttons used for saving entire state!  Those have upper-case letters.</p></li>
+<li><p>N.B. If you add more points, make sure to click the ‘save’ button on the bottom far right.</p></li>
+<li><p>Repeat cloud annotations for all non-aligned sections (same number of points)</p></li>
+</ul>
+<p><strong>Re-run alignment</strong></p>
+<ol class="arabic simple">
+<li><p>Login into one of the linux workstations</p></li>
+<li><dl class="simple">
+<dt>Navigate to /data/pipeline/ (contains all scripts)</dt><dd><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">/data/pipeline</span></code></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Active the python virtual enviroment</dt><dd><p><code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">/usr/local/share/pipeline/bin/activate</span></code></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Run  realign step [for channel 1, downsampled]</dt><dd><p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">src/pipeline/scripts/create_pipeline.py</span> <span class="pre">--task</span> <span class="pre">realign</span> <span class="pre">--animal</span> <span class="pre">{ANIMAL_ID}</span></code></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Run  neuroglancer step [for channel 1, downsampled]</dt><dd><p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">src/pipeline/scripts/create_pipeline.py</span> <span class="pre">--task</span> <span class="pre">neuroglancer</span> <span class="pre">--animal</span> <span class="pre">{ANIMAL_ID}</span></code></p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>The newly aligned data will be available as a new precomputed data stack. Open up a new layer and enter this as a precomputed data source:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">https://imageserv.dk.ucsd.edu/data/{ANIMAL_ID}/neuroglancer_data/C1T_realigned</span></code></p>
+</dd>
+</dl>
+</li>
+<li><p>Check the alignment of the sections with fiducials. If the alignment is still not correct, add more/better fiducials and repeat the process.</p></li>
+</ol>
+<dl class="simple">
+<dt><strong>Note</strong></dt><dd><p>The neuroglancer process will use the realigned data stack if it exists, otherwise, it will use the original aligned data stack.</p>
+</dd>
+</dl>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="polygon_tool.html" class="btn btn-neutral float-left" title="Neuroglancer polygon tool HOWTO" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, David Kleinfeld Lab @UCSD.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

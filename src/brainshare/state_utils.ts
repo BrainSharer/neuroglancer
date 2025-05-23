@@ -1,9 +1,70 @@
 import { getCookie } from "typescript-cookie";
+import { fetchOk } from "#/util/http_request";
+import { StatusMessage } from "#/status";
+import { WatchableValue } from "#/trackable_value";
+import { APIs } from "./service";
+import { AUTHs} from "./couchdb_store";
 
-import { fetchOk } from "#src/util/http_request.js";
-import { StatusMessage } from "#src/status.js";
-import { WatchableValue } from "#src/trackable_value.js";
-import { APIs } from "#src/brainshare/service.js";
+interface ChangeResult {
+  seq: string;
+  id: string;
+  changes: { rev: string }[];
+  deleted?: boolean;
+}
+
+interface ChangesFeed {
+  results: ChangeResult[];
+  last_seq: string;
+  pending: number;
+}
+
+export interface CouchUserDocument {
+  _id: string;          // Unique document ID
+  _rev?: string;        // Revision token, optional for new docs
+  _deleted?: boolean;   // If true, marks the document as deleted
+  users: any;
+}
+
+export interface CouchStateDocument {
+  _id: string;          // Unique document ID
+  _rev?: string;        // Revision token, optional for new docs
+  _deleted?: boolean;   // If true, marks the document as deleted
+  state: Object;
+}
+
+interface CouchDbChange {
+  id: string;
+  seq: string;
+  changes: { rev: string }[];
+  deleted?: boolean;
+  doc?: any;
+}
+
+interface ListenOptions {
+  dbUrl: string;
+  docId: string;
+  since?: string; // Optional: start listening from a specific sequence
+  onChange: (change: CouchDbChange) => void;
+  onError?: (error: any) => void;
+}
+
+export interface State {
+  id: number;
+  user: string;
+  owner: number;
+  animal: string;
+  comments: string;
+  neuroglancer_state: object;
+  readonly: boolean;
+  public: boolean;
+  lab: string;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  lab: string;
+}
 
 export interface UrlParams {
   "stateID": string | null,
@@ -21,25 +82,6 @@ export function getUrlParams(): any {
   const loaded = Boolean(Number(href.searchParams.get("loaded")));
   const locationVariables = { stateID, loaded };
   return locationVariables;
-}
-
-export interface State {
-  id: number;
-  user: string;
-  owner: number;
-  animal: string;
-  comments: string;
-  user_date: string;
-  neuroglancer_state: object;
-  readonly: boolean;
-  public: boolean;
-  lab: string;
-}
-
-export interface User {
-  id: number;
-  username: string;
-  lab: string;
 }
 
 /**
@@ -74,13 +116,14 @@ export function getUser() {
  */
 export function getState(
   stateID: number | string | undefined
-): Promise<void> | undefined{
+): Promise<void> | undefined {
   if (stateID === undefined) return;
 
   return fetchOk(APIs.GET_SET_STATE + stateID, { method: "GET" }).then(
     response => response.json()
   ).then(json => {
     brainState.value = json;
+    console.log("brainState", brainState.value);
   }).catch(err => {
     console.log(err);
     StatusMessage.showTemporaryMessage(
@@ -92,23 +135,23 @@ export function getState(
       owner: 0,
       animal: "",
       comments: err,
-      user_date: "0",
       neuroglancer_state: {},
       readonly: false,
       public: false,
-      lab: "NA"
+      lab: "NA",
     };
   })
 }
 
 /**
  * Creates a new neuroglancer_state in the database via a REST POST
- * Authorization is required
+ * Authorization should be required, but hasn't been implemented yet.
  * @param state the JSON state
  * @returns the JSON state
  */
 export function newState(state: Object) {
   const json_body = { ...brainState.value, ...state }
+  console.log("newState", json_body);
 
   fetchOk(APIs.GET_SET_STATE, {
     method: "POST",
@@ -146,9 +189,233 @@ export function saveState(stateID: number | string, state: Object) {
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
+    //TODO take this upsert out later!
+    upsertCouchState(JSON.stringify(stateID), json);
     StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
   });
 }
+
+/** End mysql REST api methods */
+
+/** Start CouchDB methods
+ * Couch user methods
+ */
+
+export async function fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
+  if (revision === null) {
+    console.log("No user found when looking for revision");
+    return null;
+  } else {
+    console.log('found user revision', revision);
+  }
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+  const response = await fetch(APIs.GET_SET_COUCH_USER + "/" + parseInt(stateID), {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    console.error('Error fetching CouchDB user document:', response.statusText);
+    return null;
+  }
+  const data: CouchUserDocument = await response.json();
+  StatusMessage.showTemporaryMessage("A couch user data has been fetched." + data._rev, 10000);
+  return data;
+}
+
+
+export async function upsertCouchUser(stateID: string, users: any) {
+  console.log("method upsertCouchUser with ID: " + stateID);
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
+  let couchState: CouchUserDocument = {_id: stateID, users };
+  if (revision !== null) { 
+    couchState = {_id: stateID, _rev: revision, users };
+  }
+  updateCouchDBDocument(APIs.GET_SET_COUCH_USER, stateID, couchState);
+}
+
+
+/**
+ * Couch state methods
+ */
+
+export async function fetchStateDocument(stateID: string): Promise<CouchStateDocument | null> {
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
+  if (revision === null) { 
+    console.log("No state found when looking for revision");
+    return null;
+  } else {
+    console.log('found state revision', revision);
+  }
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
+  try {
+    const response = await fetch(APIs.GET_SET_COUCH_STATE + "/" + parseInt(stateID), {
+      method: "GET",
+      headers,
+    });
+    const data: CouchStateDocument = await response.json();
+    StatusMessage.showTemporaryMessage("A couch state has been fetched." + data._rev, 10000);
+    return data;
+  } catch (error) {
+    console.error('Error fetching CouchDB state document:', error);
+    return null;
+  }
+}
+export async function upsertCouchState(stateID: string, state: Object) {
+  if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
+    console.log("Upserting the State interface structure");
+  } else {
+    console.log("state does NOT match the State interface structure");
+    return;
+  }
+  
+  const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
+  let couchState: CouchStateDocument = {_id: stateID, "state": state };
+  if (revision !== null) { 
+    couchState = {_id: stateID, _rev: revision, "state": state };
+  }
+  updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
+}
+
+
+/** Generic couch DB methods */
+
+async function updateCouchDBDocument<T>(
+  dbUrl: string,
+  _id: string,
+  updatedDoc: T
+): Promise<T> {
+
+
+  if (!_id) {
+    throw new Error("Document must have _id ");
+  }
+  const url = `${dbUrl}/${encodeURIComponent( _id)}`;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(updatedDoc),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update document: ${response.status} ${errorText}`);
+  }
+
+  return await response.json();
+  
+}
+
+
+export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
+  const changesUrl = `${dbUrl}/_changes?filter=_doc_ids&include_docs=false&descending=false`;
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
+
+  const response = await fetch(changesUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ doc_ids: [docId] }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch _changes: ${response.statusText}`);
+  }
+
+  const data: ChangesFeed = await response.json();
+
+  const change = data.results.find(change => change.id === docId);
+  return change?.changes[0]?.rev || null;
+}
+
+
+export function listenToDocumentChanges(options: ListenOptions) {
+  const { dbUrl, docId, since = 'now', onChange, onError } = options;
+
+  const url = new URL(`${dbUrl}/_changes`);
+  url.searchParams.append('feed', 'continuous');
+  url.searchParams.append('include_docs', 'true');
+  url.searchParams.append('filter', '_doc_ids');
+  url.searchParams.append('since', since);
+  url.searchParams.append('heartbeat', '25000');
+
+  const body = JSON.stringify({ doc_ids: [docId] });
+
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+  headers["Authorization"] = `Basic ${credentials}`;
+
+
+  fetch(url.toString(), {
+    method: 'POST',
+    headers,
+    body,
+    signal,
+  })
+    .then(async (response) => {
+      if (!response.body) {
+        throw new Error('No response body.');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+          for (const line of lines) {
+            try {
+              const change: CouchDbChange = JSON.parse(line);
+              onChange(change);
+            } catch (err) {
+              if (onError) onError(err);
+            }
+          }
+        }
+      }
+    })
+    .catch((error) => {
+      if (onError) onError(error);
+    });
+
+  return () => {
+    controller.abort(); // Allow stopping the listener
+  };
+}
+
 
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);

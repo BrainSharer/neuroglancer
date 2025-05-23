@@ -1,17 +1,18 @@
 import "./state_tab.css"
 
-import { Trackable, getCachedJson } from "#src/util/trackable.js";
-import { StatusMessage } from "#src/status.js";
-import { makeIcon } from "#src/widget/icon.js";
-import { Tab } from "#src/widget/tab_view.js";
-import { verifyObject } from "#src/util/json.js";
+import { Trackable, getCachedJson } from "#/util/trackable";
+import { StatusMessage } from "#/status";
+import { makeIcon } from "#/widget/icon";
+import { Tab } from "#/widget/tab_view";
+import { verifyObject } from "#/util/json";
 import { 
   State, 
   brainState, 
   newState, 
   saveState, 
   userState 
-} from "#src/brainshare/state_utils.js";
+} from "./state_utils";
+
 
 const displayKeys = new Set([
   "user", 
@@ -75,11 +76,11 @@ export class StateTab extends Tab {
         return;
       }
 
-      if (userState.value !== null) {
+      if (userState.value !== null && brainState.value !== null && brainState.value.animal !== null) {
         const newBrainstate = {
           owner: userState.value.id,
+          animal: brainState.value.animal,
           comments: comments,
-          user_date: String(Date.now()),
           neuroglancer_state: getCachedJson(this.viewerState).value,
           readonly: false,
           public: true,
@@ -97,6 +98,10 @@ export class StateTab extends Tab {
         text: "Save",
         title: "Save to the current JSON state"
       });
+      const readOnlyButton = makeIcon({
+        text: "Read Only",
+        title: "You cannot edit this state"
+      });
       this.registerEventListener(saveButton, "click", () => {
         const comments = commentTextarea.value;
         if (comments.length === 0) {
@@ -107,15 +112,25 @@ export class StateTab extends Tab {
         }
 
         if (brainState.value !== null && userState.value !== null) {
-          const newBrainState = {
+          const newBrainState: State = {
+            id: brainState.value.id,
+            user: userState.value.username,
+            owner: userState.value.id,
+            animal: brainState.value.animal,
+            lab: userState.value.lab,
+            public: brainState.value.public,
+            readonly: brainState.value.readonly,
             comments: comments,
-            user_date: String(Date.now()),
-            neuroglancer_state: getCachedJson(this.viewerState).value,
+            neuroglancer_state: getCachedJson(this.viewerState).value
           };
           saveState(brainState.value.id, newBrainState);
         }
       });
-      buttonGroupDiv.appendChild(saveButton);
+      if (brainState.value != null && brainState.value.readonly) {
+        buttonGroupDiv.appendChild(readOnlyButton);
+    } else {
+        buttonGroupDiv.appendChild(saveButton);
+      }
 
       const loadButton = makeIcon({
         text: "Load",
@@ -124,9 +139,7 @@ export class StateTab extends Tab {
       this.registerEventListener(loadButton, "click", () => {
         if (brainState.value !== null) {
           this.viewerState.reset();
-          this.viewerState.restoreState(verifyObject(
-            brainState.value.neuroglancer_state
-          ));
+          this.viewerState.restoreState(verifyObject(brainState.value.neuroglancer_state));
         }
       });
       buttonGroupDiv.appendChild(loadButton);
@@ -184,3 +197,5 @@ function formatStateString(value: string | number | boolean): string {
     return date.toLocaleDateString();
   }
 }
+
+
