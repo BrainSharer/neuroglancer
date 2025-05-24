@@ -526,11 +526,13 @@ export function uploadAnnotation(
   console.log(annJson);
 
   if (
-    !brainState.value || 
+    !brainState.value ||
     !userState.value ||
-    !annRef.value!.description
+    !annRef.value!.description ||
+    !brainState.value.animal
   ) {
     console.log("Brain or user state is not defined.");
+    StatusMessage.showTemporaryMessage("Cannot create annotation, animal or annotation description missing.", 5000);
     return;
   }
 
@@ -3225,8 +3227,6 @@ export function UserLayerWithAnnotationsMixin<
                               inputCoordinateSpace,
                             )
                             setClipboard(JSON.stringify(json));
-                            console.log('copied json');
-                            console.log(json);
                             StatusMessage.showTemporaryMessage(
                               `Annotation ${annType} copied to clipboard.`,
                               5000,
@@ -3302,8 +3302,10 @@ export function UserLayerWithAnnotationsMixin<
 
                   const newButton = makeIcon({
                     text: "new",
-                    title: "Create a new annotation in database",
+                    title: "Export this annotation to the database",
                     onClick: () => {
+                      console.log("Exporting annotation to the database");
+                      console.log('this datasource', this.dataSources[0]);
                       uploadAnnotation(
                         reference, 
                         this.dataSources[0], 
@@ -3312,6 +3314,7 @@ export function UserLayerWithAnnotationsMixin<
                       );
                     },
                   });
+
                   saveNewDiv.appendChild(newButton);
 
                   if (sessionID) {
@@ -3719,9 +3722,6 @@ export function UserLayerWithAnnotationsMixin<
                         const transform = dataSource.spec.transform;
                         if (transform === undefined) return;
                         navigator.clipboard.readText().then((json) => {
-                          console.log('pasteButton json');
-                          console.log(this.manager.root.globalPosition.value);
-                          console.log(json);
                           pasteAnnotation(
                             JSON.parse(json),
                             annotationLayer.source,
