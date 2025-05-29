@@ -893,7 +893,6 @@ export class AnnotationLayerView extends Tab {
           ).then(
             response => response.json()
           ).then(json => {
-            console.log(json);
             if (!Array.isArray(json)) throw new Error("JSON is not an array");
 
             return {

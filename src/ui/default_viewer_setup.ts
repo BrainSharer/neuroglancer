@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { StatusMessage } from "#/status";
+// import { StatusMessage } from "#/status";
 import {
   bindDefaultCopyHandler,
   bindDefaultPasteHandler,
@@ -22,7 +22,7 @@ import {
 import { setDefaultInputEventBindings } from "#/ui/default_input_event_bindings";
 import { makeDefaultViewer } from "#/ui/default_viewer";
 import { bindTitle } from "#/ui/title";
-import { UrlHashBinding } from "#/ui/url_hash_binding";
+// import { UrlHashBinding } from "#/ui/url_hash_binding";
 
 declare let NEUROGLANCER_DEFAULT_STATE_FRAGMENT: string | undefined;
 
@@ -33,6 +33,7 @@ export function setupDefaultViewer() {
   const viewer = ((<any>window).viewer = makeDefaultViewer());
   setDefaultInputEventBindings(viewer.inputEventBindings);
 
+  /**
   const hashBinding = viewer.registerDisposer(
     new UrlHashBinding(
       viewer.state,
@@ -57,6 +58,7 @@ export function setupDefaultViewer() {
     }),
   );
   hashBinding.updateFromUrlHash();
+  */
   viewer.registerDisposer(bindTitle(viewer.title));
 
   bindDefaultCopyHandler(viewer);

@@ -68,8 +68,8 @@ export class MultiUsersTab extends Tab {
   private userItems = new Map<String, MultiUsersTabItem>();
   private prevStateGeneration: number | undefined;
   private throttledUpdateStateToCouch: () => void;
-  private stateListenerDetach: () => void;
-  private usersListenerDetach: () => void;
+  // private stateListenerDetach: () => void;
+  // private usersListenerDetach: () => void;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     state_id: "",
@@ -78,6 +78,8 @@ export class MultiUsersTab extends Tab {
     usernames: [],
     status: MultiUsersStatus.no_state,
   });
+  usersListenerDetach: EventSource;
+  stateListenerDetach: EventSource;
 
 
   constructor(
@@ -144,7 +146,7 @@ export class MultiUsersTab extends Tab {
       if (userState.value.id === 0) {
         if (this.usersListenerDetach !== undefined) {
           console.log("User ID is 0, detaching user change listener");
-          this.usersListenerDetach();
+          this.usersListenerDetach.close();
         }
       } else {
         if (brainState.value !== null) {
@@ -166,15 +168,14 @@ export class MultiUsersTab extends Tab {
 
           this.usersListenerDetach = listenToDocumentChanges({
             dbUrl: APIs.GET_SET_COUCH_USER,
-            docId: state_id,
             onChange: (change) => {
               console.log('User change detected:', change);
               if (change.doc === undefined) {
                 console.log('User document change detected but change.doc is undefined');
               }
-  
+
+              
               const data = change.doc.users;
-              // console.log('Users found data doc:', data);
 
               if (data !== undefined && Object.keys(data).length !== 0) {
                 const editors = Object.keys(data).filter(
@@ -228,7 +229,7 @@ export class MultiUsersTab extends Tab {
     // Remove any listener if any
     this.viewerState.changed.remove(this.throttledUpdateStateToCouch);
     if (this.stateListenerDetach !== undefined) {
-      this.stateListenerDetach();
+      this.stateListenerDetach.close();
     }
 
     let headerTextContent = "";
@@ -282,13 +283,20 @@ export class MultiUsersTab extends Tab {
         dbUrl: APIs.GET_SET_COUCH_STATE,
         docId: state_id,
         onChange: (change) => {
+          console.log('State change detected while observing:', change);
           const data = change.doc;
           if ((data !== undefined) && (data.state !== undefined)) {
             const state: Object = data.state;
             if (state !== undefined && typeof state === "object") {
               console.log('State document change detected:');
               console.log(state);
-              this.viewerState.restoreState(verifyObject(state));
+              this.viewerState.reset();
+
+              try {
+                this.viewerState.restoreState(verifyObject(state));
+              } catch (error) {
+                console.error('Error restoring state from document change:', error);
+              }
             } else {
               console.error('State document change detected but either null or undefined', state);
             }
@@ -317,7 +325,7 @@ export class MultiUsersTab extends Tab {
 
 
         upsertCouchUser(state_id, users);
-        this.stateListenerDetach(); // stops the listener
+        this.stateListenerDetach.close(); // stops the listener
       };
     }
     else if (status === MultiUsersStatus.no_state) {
@@ -372,7 +380,7 @@ export class MultiUsersTab extends Tab {
       console.log('fetchuserDocument result:', result);
       if ((result !== null) && (result.users !== undefined) && (Object.keys(result.users).length !== 0)) {
         const data = result.users;
-        // console.log('Users found data doc.users:', data);
+        console.log('Users found data users:', data);
         const editors = Object.keys(data).filter(
           key => data[key]
         );

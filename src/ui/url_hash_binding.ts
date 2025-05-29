@@ -74,6 +74,7 @@ export class UrlHashBinding extends RefCounted {
     options: UrlHashBindingOptions = {},
   ) {
     super();
+    
     const { updateDelayMilliseconds = 200, defaultFragment = "{}" } = options;
     this.registerEventListener(window, "hashchange", () =>
       this.updateFromUrlHash(),
@@ -85,6 +86,7 @@ export class UrlHashBinding extends RefCounted {
     this.registerDisposer(root.changed.add(throttledSetUrlHash));
     this.registerDisposer(() => throttledSetUrlHash.cancel());
     this.defaultFragment = defaultFragment;
+    
   }
 
   /**

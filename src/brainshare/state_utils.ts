@@ -33,12 +33,14 @@ export interface CouchStateDocument {
 }
 
 interface CouchDbChange {
-  id: string;
   seq: string;
+  id: string;
   changes: { rev: string }[];
   deleted?: boolean;
-  doc?: any;
+  doc?: any; // This needs to be very generic
 }
+
+
 
 interface ListenOptions {
   dbUrl: string;
@@ -47,6 +49,7 @@ interface ListenOptions {
   onChange: (change: CouchDbChange) => void;
   onError?: (error: any) => void;
 }
+
 
 export interface State {
   id: number;
@@ -354,7 +357,7 @@ export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): 
 }
 
 
-export function listenToDocumentChanges(options: ListenOptions) {
+export function listenToDocumentChangesXXX(options: ListenOptions) {
   const { dbUrl, docId, since = 'now', onChange, onError } = options;
 
   const url = new URL(`${dbUrl}/_changes`);
@@ -394,28 +397,81 @@ export function listenToDocumentChanges(options: ListenOptions) {
         const { done, value } = await reader.read();
         if (done) break;
         if (value) {
-          const chunk = decoder.decode(value, { stream: true });
+          let chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n').filter((line) => line.trim() !== '');
-          for (const line of lines) {
+          for (let line of lines) {
             try {
               const change: CouchDbChange = JSON.parse(line);
               onChange(change);
-            } catch (err) {
+            } catch (err) {              
+              console.error('Error parsing change:', err);
+              console.error(line);
               if (onError) onError(err);
             }
+
           }
         }
       }
     })
     .catch((error) => {
+      console.error('Error in changes feed:', error);
       if (onError) onError(error);
     });
 
   return () => {
+    console.log("Stopping changes feed listener");
     controller.abort(); // Allow stopping the listener
   };
 }
 
+
+/**
+ *  new listener
+ */
+type ListenXXXOptions = {
+  dbUrl: string;        // e.g., http://localhost:5984/mydb
+  docId?: string;
+  since?: string;       // e.g., "now" or a sequence token
+  includeDocs?: boolean;
+  onChange: (change: CouchDbChange) => void;
+  onError?: (err: any) => void;
+};
+
+export function listenToDocumentChanges(options: ListenXXXOptions): EventSource {
+  const {
+    dbUrl,
+    since = 'now',
+    includeDocs = true,
+    onChange,
+    onError,
+  } = options;
+
+  const changesUrl = new URL(`${dbUrl}/_changes`);
+  changesUrl.searchParams.set('feed', 'eventsource');
+  changesUrl.searchParams.set('since', since);
+  changesUrl.searchParams.set('include_docs', String(includeDocs));
+
+  const eventSource = new EventSource(changesUrl.toString());
+
+  eventSource.onmessage = (event) => {
+    try {
+      const change: CouchDbChange = JSON.parse(event.data);
+      onChange(change);
+    } catch (err) {
+      console.error('Failed to parse CouchDB change event:', err);
+    }
+  };
+
+  eventSource.onerror = (err) => {
+    if (onError) {
+      onError(err);
+    } else {
+      console.error('CouchDB EventSource error:', err);
+    }
+  };
+
+  return eventSource;
+}
 
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);
