@@ -22,16 +22,11 @@ import type {
   BoundingBox,
   CoordinateSpaceTransform,
   WatchableCoordinateSpaceTransform,
-<<<<<<< HEAD
   /* BRAINSHARE STARTS */
   CoordinateSpace
   /* BRAINSHARE ENDS */
-} from "#/coordinate_transform";
-import { arraysEqual } from "#/util/array";
-=======
 } from "#src/coordinate_transform.js";
 import { arraysEqual } from "#src/util/array.js";
->>>>>>> master
 import {
   packColor,
   parseRGBAColorSpecification,
@@ -58,29 +53,16 @@ import {
   verifyOptionalObjectProperty,
   verifyOptionalString,
   verifyString,
-<<<<<<< HEAD
   /* BRAINSHARE STARTS */
   verifyBoolean,
   verifyStringArray,
   verifyOptionalInt,
   /* BRAINSHARE ENDS */
-} from "#/util/json";
-import { parseDataTypeValue } from "#/util/lerp";
-import { getRandomHexString } from "#/util/random";
-import { NullarySignal, Signal } from "#/util/signal";
-import { Uint64 } from "#/util/uint64";
-/* BRAINSHARE STARTS */
-import * as vector from "#/util/vector";
-import { MultiscaleAnnotationSource } from "#/annotation/frontend_source";
-import { getZCoordinate } from "#/annotation/polygon";
-/* BRAINSHARE ENDS */
-=======
 } from "#src/util/json.js";
 import { parseDataTypeValue } from "#src/util/lerp.js";
 import { getRandomHexString } from "#src/util/random.js";
 import { NullarySignal, Signal } from "#src/util/signal.js";
 import { Uint64 } from "#src/util/uint64.js";
->>>>>>> master
 
 export type AnnotationId = string;
 

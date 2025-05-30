@@ -146,14 +146,14 @@ import {
 import { TrackableScaleBarOptions } from "#src/widget/scale_bar.js";
 import { RPC } from "#src/worker_rpc.js";
 /* BRAINSHARE STARTS */
-import svg_people from "ikonate/icons/people.svg";
-import { UserSidePanelState, UserSidePanel } from "#src/brainshare/user_side_panel.ts";
+import svg_people from "ikonate/icons/people.svg?raw";
+import { UserSidePanelState, UserSidePanel } from "#src/brainshare/user_side_panel.js";
 import { 
   brainState, 
   getState, 
   getUrlParams, 
   getUser 
-} from "./brainshare/state_utils.ts";
+} from "#src/brainshare/state_utils.js";
 /* BRAINSHARE ENDS */
 
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;

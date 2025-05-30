@@ -5,12 +5,12 @@
 import {
   AnnotationType,
   Cloud,
-} from '#/annotation';
+} from '#src/annotation/index.js';
 import {
   AnnotationRenderContext,
   AnnotationRenderHelper,
   registerAnnotationTypeRenderHandler
-} from '#/annotation/type_handler';
+} from '#src/annotation/type_handler.js';
 
 class RenderHelper extends AnnotationRenderHelper {
   draw(context: AnnotationRenderContext) {

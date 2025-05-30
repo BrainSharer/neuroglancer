@@ -8,14 +8,14 @@ import {
   AnnotationType,
   Polygon,
   Volume
-} from '#/annotation';
+} from '#src/annotation/index.js';
 import {
   AnnotationRenderContext,
   AnnotationRenderHelper,
   registerAnnotationTypeRenderHandler
-} from '#/annotation/type_handler';
+} from '#src/annotation/type_handler.js';
 import { MultiscaleAnnotationSource } from './frontend_source';
-import { getZCoordinate } from './polygon';
+import { getZCoordinate } from './polygon.ts';
 
 /**
   * RenderHelper class is used for rendering the polygon annotation. Polygons 

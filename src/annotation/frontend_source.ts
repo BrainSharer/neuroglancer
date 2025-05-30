@@ -14,30 +14,7 @@
  * limitations under the License.
  */
 
-<<<<<<< HEAD
-import {
-  Annotation,
-  AnnotationId,
-  AnnotationPropertySerializer,
-  AnnotationPropertySpec,
-  AnnotationReference,
-  AnnotationSourceSignals,
-  AnnotationType,
-  annotationTypeHandlers,
-  annotationTypes,
-  fixAnnotationAfterStructuredCloning,
-  makeAnnotationId,
-  makeAnnotationPropertySerializers,
-  SerializedAnnotations,
-  /* BRAINSHARE STARTS */
-  isChildDummyAnnotation,
-  isTypeCollection, 
-  Collection,
-  /* BRAINSHARE ENDS */
-} from "#/annotation";
-=======
 import type { AnnotationGeometryChunkSpecification } from "#src/annotation/base.js";
->>>>>>> master
 import {
   ANNOTATION_COMMIT_UPDATE_RESULT_RPC_ID,
   ANNOTATION_COMMIT_UPDATE_RPC_ID,
@@ -54,6 +31,11 @@ import type {
   AnnotationPropertySpec,
   AnnotationSourceSignals,
   SerializedAnnotations,
+  /* BRAINSHARE STARTS */
+  isChildDummyAnnotation,
+  isTypeCollection, 
+  Collection,
+  /* BRAINSHARE ENDS */
 } from "#src/annotation/index.js";
 import {
   AnnotationReference,

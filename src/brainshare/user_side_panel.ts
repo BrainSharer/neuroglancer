@@ -2,7 +2,7 @@ import "#src/ui/layer_side_panel.css";
 
 
 
-import { SidePanel, SidePanelManager } from "#src/ui/side_panel.ts";
+import { SidePanel, SidePanelManager } from "#src/ui/side_panel.js";
 import { Tab, TabView } from "#src/widget/tab_view.js";
 import { makeIcon } from "#src/widget/icon.js";
 import { CachedWatchableValue, WatchableValue } from "#src/trackable_value.js";
@@ -18,9 +18,9 @@ import { StateTab  } from "./state_tab.ts";
 import { APIs } from "./service.ts";
 import { userState } from "./state_utils.ts";
 import { emptyToUndefined } from "#src/util/json.js";
-import svg_exit from "ikonate/icons/exit.svg";
-import svg_entrance from "ikonate/icons/entrance.svg";
-import svg_language from "ikonate/icons/language.svg";
+import svg_exit from "ikonate/icons/exit.svg?raw";
+import svg_entrance from "ikonate/icons/entrance.svg?raw";
+import svg_language from "ikonate/icons/language.svg?raw";
 
 
 const DEFAULT_USER_SIDE_PANEL_LOCATION: SidePanelLocation = {

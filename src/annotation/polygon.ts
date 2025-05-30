@@ -8,23 +8,23 @@ import {
   AnnotationType, 
   Line, 
   Polygon,
-} from '#/annotation';
+} from '#src/annotation/index.js';
 import {
   AnnotationRenderContext, 
   AnnotationRenderHelper, 
   registerAnnotationTypeRenderHandler
-} from '#/annotation/type_handler';
+} from '#src/annotation/type_handler.js';
 import { 
   AnnotationLayerState 
-} from '#/annotation/annotation_layer_state';
-import { isSectionValid } from '#/annotation/volume';
+} from '#src/annotation/annotation_layer_state.js';
+import { isSectionValid } from '#src/annotation/volume.ts';
 
-import { DisplayPose, NavigationState } from '#/navigation_state';
-import { StatusMessage } from '#/status';
-import { TrackableValue } from '#/trackable_value';
-import { UserLayerWithAnnotations } from '#/ui/annotations';
-import { arraysEqual } from '#/util/array';
-import { verifyInt, verifyFloat } from '#/util/json';
+import { DisplayPose, NavigationState } from '#src/navigation_state.js';
+import { StatusMessage } from '#src/status.js';
+import { TrackableValue } from '#src/trackable_value.js';
+import { UserLayerWithAnnotations } from '#src/ui/annotations/index.js';
+import { arraysEqual } from '#src/util/array.js';
+import { verifyInt, verifyFloat } from '#src/util/json.js';
 
 /**
  * 

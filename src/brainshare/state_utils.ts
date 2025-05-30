@@ -2,8 +2,8 @@ import { getCookie } from "typescript-cookie";
 import { fetchOk } from "#src/util/http_request.js";
 import { StatusMessage } from "#src/status.js";
 import { WatchableValue } from "#src/trackable_value.js";
-import { APIs } from "./service.ts";
-import { AUTHs} from "./couchdb_store.ts";
+import { APIs } from "#src/brainshare/service.js";
+import { AUTHs} from "#src/brainshare/couchdb_store.js";
 
 interface ChangeResult {
   seq: string;
