@@ -40,8 +40,6 @@ interface CouchDbChange {
   doc?: any; // This needs to be very generic
 }
 
-
-
 interface ListenOptions {
   dbUrl: string;
   docId: string;
@@ -49,7 +47,6 @@ interface ListenOptions {
   onChange: (change: CouchDbChange) => void;
   onError?: (error: any) => void;
 }
-
 
 export interface State {
   id: number;
@@ -357,20 +354,19 @@ export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): 
 }
 
 
-export function listenToDocumentChangesXXX(options: ListenOptions) {
+export function listenToDocumentChanges(options: ListenOptions) {
   const { dbUrl, docId, since = 'now', onChange, onError } = options;
-
   const url = new URL(`${dbUrl}/_changes`);
   url.searchParams.append('feed', 'continuous');
   url.searchParams.append('include_docs', 'true');
   url.searchParams.append('filter', '_doc_ids');
   url.searchParams.append('since', since);
-  url.searchParams.append('heartbeat', '25000');
-
-  const body = JSON.stringify({ doc_ids: [docId] });
+  url.searchParams.append('heartbeat', '10000');
 
   const controller = new AbortController();
   const signal = controller.signal;
+  const body = JSON.stringify({ doc_ids: [docId] });
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -379,99 +375,144 @@ export function listenToDocumentChangesXXX(options: ListenOptions) {
   headers["Authorization"] = `Basic ${credentials}`;
 
 
-  fetch(url.toString(), {
-    method: 'POST',
+  const fetchOptions: RequestInit = {
+    method: docId ? 'POST' : 'GET',
     headers,
     body,
     signal,
-  })
-    .then(async (response) => {
-      if (!response.body) {
-        throw new Error('No response body.');
+  };
+
+
+  (async () => {
+    try {
+      const res = await fetch(url, fetchOptions);
+
+      if (!res.ok || !res.body) {
+        throw new Error(`Fetch error: ${res.status} ${res.statusText}`);
       }
 
-      const reader = response.body.getReader();
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { value, done } = await reader.read();
         if (done) break;
-        if (value) {
-          let chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter((line) => line.trim() !== '');
-          for (let line of lines) {
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line) {
             try {
-              const change: CouchDbChange = JSON.parse(line);
-              onChange(change);
-            } catch (err) {              
-              console.error('Error parsing change:', err);
-              console.error(line);
+              const json = JSON.parse(line);
+              onChange(json);
+            } catch (err) {
               if (onError) onError(err);
             }
-
           }
         }
       }
-    })
-    .catch((error) => {
-      console.error('Error in changes feed:', error);
-      if (onError) onError(error);
-    });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        if (onError) onError(err);
+      }
+    }
+  })();
 
-  return () => {
-    console.log("Stopping changes feed listener");
-    controller.abort(); // Allow stopping the listener
+  return {
+    stop: () => controller.abort(),
   };
 }
 
-
-/**
- *  new listener
- */
-type ListenXXXOptions = {
-  dbUrl: string;        // e.g., http://localhost:5984/mydb
-  docId?: string;
-  since?: string;       // e.g., "now" or a sequence token
-  includeDocs?: boolean;
-  onChange: (change: CouchDbChange) => void;
+/** class for listening to couchdb document changes */
+type CouchDBListenerOptions = {
+  dbUrl: string;
+  docId: string;
+  since?: string; // For resuming changes
+  onChange: (doc: any) => void;
   onError?: (err: any) => void;
 };
 
-export function listenToDocumentChanges(options: ListenXXXOptions): EventSource {
-  const {
-    dbUrl,
-    since = 'now',
-    includeDocs = true,
-    onChange,
-    onError,
-  } = options;
+export class CouchDBDocumentListener {
+  private controller: AbortController;
+  private running: boolean = false;
 
-  const changesUrl = new URL(`${dbUrl}/_changes`);
-  changesUrl.searchParams.set('feed', 'eventsource');
-  changesUrl.searchParams.set('since', since);
-  changesUrl.searchParams.set('include_docs', String(includeDocs));
+  constructor(private options: CouchDBListenerOptions) {
+    this.controller = new AbortController();
+  }
 
-  const eventSource = new EventSource(changesUrl.toString());
+  public async start() {
+    if (this.running) return;
 
-  eventSource.onmessage = (event) => {
+    this.running = true;
+    const { dbUrl, docId, since, onChange, onError } = this.options;
+
+    const url = new URL(`${dbUrl}/_changes`);
+    url.searchParams.append('feed', 'continuous');
+    url.searchParams.append('include_docs', 'true');
+    url.searchParams.append('filter', '_doc_ids');
+    url.searchParams.append('since', since || 'now');
+    url.searchParams.append('heartbeat', '10000');
+
+    const headers = new Headers();
+    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
+    headers.append('Authorization', `Basic ${credentials}`);
+    headers.append('Content-Type', 'application/json');
+
     try {
-      const change: CouchDbChange = JSON.parse(event.data);
-      onChange(change);
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ doc_ids: [docId] }),
+        signal: this.controller.signal,
+      });
+
+      if (!response.body) throw new Error("No response body from CouchDB");
+
+      const reader = response.body.getReader();
+      let buffer = '';
+
+      while (this.running) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += new TextDecoder().decode(value, { stream: true });
+
+        let newlineIndex;
+        while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed && parsed.doc) {
+                onChange(parsed.doc);
+              }
+            } catch (e) {
+              onError?.(e);
+            }
+          }
+        }
+      }
     } catch (err) {
-      console.error('Failed to parse CouchDB change event:', err);
+      if (this.running) {
+        onError?.(err);
+      }
     }
-  };
+  }
 
-  eventSource.onerror = (err) => {
-    if (onError) {
-      onError(err);
-    } else {
-      console.error('CouchDB EventSource error:', err);
-    }
-  };
-
-  return eventSource;
+  public stop() {
+    if (!this.running) return;
+    this.running = false;
+    this.controller.abort();
+  }
 }
+
 
 export const userState = new WatchableValue<User | null>(null);
 export const brainState = new WatchableValue<State | null>(null);

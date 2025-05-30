@@ -7,7 +7,8 @@ import { getCachedJson, Trackable } from "#/util/trackable";
 import { makeIcon } from "#/widget/icon";
 import { Tab } from "#/widget/tab_view";
 import { WatchableValue } from "#/trackable_value";
-import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, listenToDocumentChanges } from "./state_utils";
+import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, 
+  listenToDocumentChanges } from "./state_utils";
 import { verifyObject } from "src/util/json";
 import { APIs } from "./service";
 
@@ -68,8 +69,6 @@ export class MultiUsersTab extends Tab {
   private userItems = new Map<String, MultiUsersTabItem>();
   private prevStateGeneration: number | undefined;
   private throttledUpdateStateToCouch: () => void;
-  // private stateListenerDetach: () => void;
-  // private usersListenerDetach: () => void;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     state_id: "",
@@ -78,8 +77,8 @@ export class MultiUsersTab extends Tab {
     usernames: [],
     status: MultiUsersStatus.no_state,
   });
-  usersListenerDetach: EventSource;
-  stateListenerDetach: EventSource;
+  protected userDocumentListener: { stop: () => void; };
+  protected stateDocumentListener: { stop: () => void; };
 
 
   constructor(
@@ -144,9 +143,8 @@ export class MultiUsersTab extends Tab {
 
     if (userState.value !== null) {
       if (userState.value.id === 0) {
-        if (this.usersListenerDetach !== undefined) {
-          console.log("User ID is 0, detaching user change listener");
-          this.usersListenerDetach.close();
+        if (this.userDocumentListener !== undefined) {
+          this.userDocumentListener.stop();
         }
       } else {
         if (brainState.value !== null) {
@@ -166,15 +164,18 @@ export class MultiUsersTab extends Tab {
           /**  Check user status right away and then setup the listener */
           this.updateMultiUsersStatus();
 
-          this.usersListenerDetach = listenToDocumentChanges({
+          this.userDocumentListener = listenToDocumentChanges({
             dbUrl: APIs.GET_SET_COUCH_USER,
+            docId: state_id,
             onChange: (change) => {
               console.log('User change detected:', change);
               if (change.doc === undefined) {
                 console.log('User document change detected but change.doc is undefined');
-              }
+              } 
+              if (change.doc.users === undefined) {
+                console.log('User document change detected but change.doc.users is undefined');
+              } 
 
-              
               const data = change.doc.users;
 
               if (data !== undefined && Object.keys(data).length !== 0) {
@@ -183,19 +184,19 @@ export class MultiUsersTab extends Tab {
                 );
                 const editor = editors.length > 0 ? editors[0] : "";
                 const usernames = Object.keys(data);
-  
+
                 const status = usernames.includes(username) ? (
                   editor === username ? MultiUsersStatus.sharing
                     : MultiUsersStatus.observing
-                ) : MultiUsersStatus.disabled
-                console.log('User document change detected: status' , status);
+                ) : MultiUsersStatus.disabled;
+                console.log('User document change detected: status', status);
                 this.multiUsersState.value = {
                   status,
                   username,
                   state_id,
                   editor,
                   usernames,
-                }
+                };
               } else {
                 this.multiUsersState.value = {
                   status: MultiUsersStatus.disabled,
@@ -203,7 +204,7 @@ export class MultiUsersTab extends Tab {
                   state_id,
                   editor: "",
                   usernames: [],
-                }
+                };
               }
             },
             onError: (err) => {
@@ -228,8 +229,8 @@ export class MultiUsersTab extends Tab {
 
     // Remove any listener if any
     this.viewerState.changed.remove(this.throttledUpdateStateToCouch);
-    if (this.stateListenerDetach !== undefined) {
-      this.stateListenerDetach.close();
+    if (this.stateDocumentListener !== undefined) {
+      this.stateDocumentListener.stop();
     }
 
     let headerTextContent = "";
@@ -279,7 +280,7 @@ export class MultiUsersTab extends Tab {
     }
     else if (status === MultiUsersStatus.observing) {
       console.log('Observing state', state_id);
-      this.stateListenerDetach = listenToDocumentChanges({
+      this.stateDocumentListener = listenToDocumentChanges({
         dbUrl: APIs.GET_SET_COUCH_STATE,
         docId: state_id,
         onChange: (change) => {
@@ -325,7 +326,9 @@ export class MultiUsersTab extends Tab {
 
 
         upsertCouchUser(state_id, users);
-        this.stateListenerDetach.close(); // stops the listener
+        //this.stateDocumentListener.close(); // stops the listener
+        console.log('We need to remove state listener in observing');
+        this.stateDocumentListener.stop();
       };
     }
     else if (status === MultiUsersStatus.no_state) {
@@ -374,7 +377,6 @@ export class MultiUsersTab extends Tab {
     }
     const username = String(userState.value.username);
     const state_id = String(brainState.value.id);
-
 
     fetchUserDocument(state_id).then((result) => {
       console.log('fetchuserDocument result:', result);
