@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-import { AnnotationPropertySpec, AnnotationType } from "#/annotation";
-import { VertexAttributeInfo } from "#/skeleton/base";
-import { mat4 } from "#/util/geom";
+import type {
+  AnnotationPropertySpec,
+  AnnotationType,
+} from "#src/annotation/index.js";
+import type { VertexAttributeInfo } from "#src/skeleton/base.js";
+import type { mat4 } from "#src/util/geom.js";
 
 export enum VolumeChunkEncoding {
   RAW = 0,
@@ -24,6 +27,7 @@ export enum VolumeChunkEncoding {
   COMPRESSED_SEGMENTATION = 2,
   COMPRESSO = 3,
   PNG = 4,
+  JXL = 5,
 }
 
 export class VolumeChunkSourceParameters {

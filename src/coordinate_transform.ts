@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-import { WatchableValue, WatchableValueInterface } from "#/trackable_value";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
+import { WatchableValue } from "#src/trackable_value.js";
+import type { TypedArray } from "#src/util/array.js";
 import {
   arraysEqual,
   arraysEqualWithPredicate,
   getInsertPermutation,
-  TypedArray,
-} from "#/util/array";
+} from "#src/util/array.js";
 import {
   getDependentTransformInputDimensions,
   mat4,
   quat,
   vec3,
-} from "#/util/geom";
+} from "#src/util/geom.js";
 import {
   expectArray,
   parseArray,
@@ -40,12 +41,16 @@ import {
   verifyOptionalObjectProperty,
   verifyString,
   verifyStringArray,
-} from "#/util/json";
-import * as matrix from "#/util/matrix";
-import { scaleByExp10, supportedUnits, unitFromJson } from "#/util/si_units";
-import { NullarySignal } from "#/util/signal";
-import { Trackable } from "#/util/trackable";
-import * as vector from "#/util/vector";
+} from "#src/util/json.js";
+import * as matrix from "#src/util/matrix.js";
+import {
+  scaleByExp10,
+  supportedUnits,
+  unitFromJson,
+} from "#src/util/si_units.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type { Trackable } from "#src/util/trackable.js";
+import * as vector from "#src/util/vector.js";
 
 export type DimensionId = number;
 
@@ -1410,7 +1415,7 @@ export class CoordinateSpaceCombiner {
 
   private retainCount = 0;
 
-  private prevCombined: CoordinateSpace | undefined = this.combined.value;
+  private prevCombined: CoordinateSpace | undefined;
 
   dimensionRefCounts = new Map<string, number>();
 
@@ -1450,6 +1455,7 @@ export class CoordinateSpaceCombiner {
     includeDimensionPredicate: (name: string) => boolean,
   ) {
     this.includeDimensionPredicate_ = includeDimensionPredicate;
+    this.prevCombined = this.combined.value;
   }
 
   private update() {

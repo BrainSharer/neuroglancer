@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
-import {
-  clampAndRoundCoordinateToVoxelCenter,
+import type {
   CoordinateSpace,
   DimensionId,
+} from "#src/coordinate_transform.js";
+import {
+  clampAndRoundCoordinateToVoxelCenter,
   dimensionNamesFromJson,
   emptyInvalidCoordinateSpace,
   getBoundingBoxCenter,
   getCenterBound,
-} from "#/coordinate_transform";
-import { WatchableValueInterface } from "#/trackable_value";
-import { arraysEqual } from "#/util/array";
-import { Borrowed, Owned, RefCounted } from "#/util/disposable";
-import { mat3, mat4, quat, vec3 } from "#/util/geom";
+} from "#src/coordinate_transform.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
+import { arraysEqual } from "#src/util/array.js";
+import type { Borrowed, Owned } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { mat3, mat4, quat, vec3 } from "#src/util/geom.js";
 import {
   parseArray,
   parseFiniteVec,
@@ -37,11 +40,12 @@ import {
   verifyObject,
   verifyObjectProperty,
   verifyOptionalObjectProperty,
-} from "#/util/json";
-import { NullarySignal } from "#/util/signal";
-import { optionallyRestoreFromJsonMember, Trackable } from "#/util/trackable";
-import { TrackableEnum } from "#/util/trackable_enum";
-import * as vector from "#/util/vector";
+} from "#src/util/json.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type { Trackable } from "#src/util/trackable.js";
+import { optionallyRestoreFromJsonMember } from "#src/util/trackable.js";
+import { TrackableEnum } from "#src/util/trackable_enum.js";
+import * as vector from "#src/util/vector.js";
 
 export enum NavigationLinkType {
   LINKED = 0,
@@ -487,11 +491,12 @@ export class CoordinateSpacePlaybackVelocity extends RefCounted {
       velocities[index] = newVelocity;
       this.changed.dispatch();
     };
-    const prevVelocity = getVelocity();
+    let prevVelocity = getVelocity();
     owner.registerDisposer(
       this.changed.add(() => {
         const curVelocity = getVelocity();
         if (curVelocity !== prevVelocity) {
+          prevVelocity = curVelocity;
           changed.dispatch();
         }
       }),
@@ -540,7 +545,7 @@ export class CoordinateSpacePlaybackVelocity extends RefCounted {
       },
       set value(enabled: boolean) {
         self.modifyDimension(id, (oldInfo) =>
-          enabled ? oldInfo ?? new DimensionPlaybackVelocity() : undefined,
+          enabled ? (oldInfo ?? new DimensionPlaybackVelocity()) : undefined,
         );
       },
     };
@@ -670,15 +675,17 @@ export class CoordinateSpacePlaybackVelocity extends RefCounted {
 
 export class LinkedCoordinateSpacePlaybackVelocity extends RefCounted {
   changed = new NullarySignal();
-  velocity = this.registerDisposer(
-    new CoordinateSpacePlaybackVelocity(this.peer.coordinateSpace),
-  );
+  velocity: CoordinateSpacePlaybackVelocity;
 
   constructor(
     public peer: Owned<CoordinateSpacePlaybackVelocity>,
     public positionLink: TrackableLinkInterface,
   ) {
     super();
+    this.velocity = this.registerDisposer(
+      new CoordinateSpacePlaybackVelocity(peer.coordinateSpace),
+    );
+
     this.registerDisposer(peer);
     this.velocity.changed.add(() => {
       if (this.positionLink.value === NavigationLinkType.UNLINKED) {
@@ -1004,7 +1011,7 @@ export class OrientationState extends RefCounted {
     try {
       parseFiniteVec(this.orientation, obj);
       quat.normalize(this.orientation, this.orientation);
-    } catch (ignoredError) {
+    } catch {
       quat.identity(this.orientation);
     }
     this.changed.dispatch();
@@ -1428,19 +1435,25 @@ export function displayDimensionRenderInfosEqual(
   );
 }
 
+export function validateDisplayDimensionRenderInfoProperty(
+  obj: { displayDimensionRenderInfo: DisplayDimensionRenderInfo },
+  expected: DisplayDimensionRenderInfo,
+): boolean {
+  const actual = obj.displayDimensionRenderInfo;
+  if (actual === expected) return true;
+  if (displayDimensionRenderInfosEqual(actual, expected)) {
+    obj.displayDimensionRenderInfo = expected;
+    return true;
+  }
+  return false;
+}
+
 export class WatchableDisplayDimensionRenderInfo extends RefCounted {
   changed = new NullarySignal();
-  private curRelativeDisplayScales: RelativeDisplayScales =
-    this.relativeDisplayScales.value;
-  private curDisplayDimensions: DisplayDimensions =
-    this.displayDimensions.value;
-  private curCoordinateSpace: CoordinateSpace =
-    this.relativeDisplayScales.coordinateSpace.value;
-  private value_: DisplayDimensionRenderInfo = getDisplayDimensionRenderInfo(
-    this.curCoordinateSpace,
-    this.curDisplayDimensions,
-    this.curRelativeDisplayScales,
-  );
+  private curRelativeDisplayScales: RelativeDisplayScales;
+  private curDisplayDimensions: DisplayDimensions;
+  private curCoordinateSpace: CoordinateSpace;
+  private value_: DisplayDimensionRenderInfo;
   get value() {
     const {
       relativeDisplayScales: {
@@ -1478,6 +1491,15 @@ export class WatchableDisplayDimensionRenderInfo extends RefCounted {
     public displayDimensions: Owned<TrackableDisplayDimensions>,
   ) {
     super();
+    this.curRelativeDisplayScales = this.relativeDisplayScales.value;
+    this.curDisplayDimensions = this.displayDimensions.value;
+    this.curCoordinateSpace = this.relativeDisplayScales.coordinateSpace.value;
+    this.value_ = getDisplayDimensionRenderInfo(
+      this.curCoordinateSpace,
+      this.curDisplayDimensions,
+      this.curRelativeDisplayScales,
+    );
+
     this.registerDisposer(relativeDisplayScales);
     this.registerDisposer(displayDimensions);
     const maybeUpdateValue = () => {

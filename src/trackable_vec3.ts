@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { vec3 } from "#/util/geom";
-import { verify3dVec } from "#/util/json";
-import { NullarySignal } from "#/util/signal";
-import { Trackable } from "#/util/trackable";
+import { vec3 } from "#src/util/geom.js";
+import { verify3dVec } from "#src/util/json.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type { Trackable } from "#src/util/trackable.js";
 
 export function trackableVec3(defaultValue = vec3.create()) {
   return new TrackableVec3(defaultValue, defaultValue);
@@ -48,7 +48,7 @@ export class TrackableVec3 implements Trackable {
   restoreState(x: any) {
     try {
       this.value = verify3dVec(x.split(","));
-    } catch (e) {
+    } catch {
       this.value = this.defaultValue;
     }
   }

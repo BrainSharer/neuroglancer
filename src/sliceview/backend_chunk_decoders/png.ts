@@ -14,31 +14,31 @@
  * limitations under the License.
  */
 
-import { DATA_TYPE_BYTES } from "#/util/data_type";
-import { decodeRawChunk } from "#/sliceview/backend_chunk_decoders/raw";
-import { VolumeChunk } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { decodePng } from "#/async_computation/decode_png_request";
-import { requestAsyncComputation } from "#/async_computation/request";
+import { decodePng } from "#src/async_computation/decode_png_request.js";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import { decodeRawChunk } from "#src/sliceview/backend_chunk_decoders/raw.js";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
+import { DATA_TYPE_BYTES } from "#src/util/data_type.js";
 
 export async function decodePngChunk(
   chunk: VolumeChunk,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal,
   response: ArrayBuffer,
 ) {
   const chunkDataSize = chunk.chunkDataSize!;
   const dataType = chunk.source!.spec.dataType;
   const { uint8Array: image } = await requestAsyncComputation(
     decodePng,
-    cancellationToken,
+    abortSignal,
     [response],
     /*buffer=*/ new Uint8Array(response),
-    /*width=*/ chunkDataSize[0],
-    /*height=*/ chunkDataSize[1] * chunkDataSize[2],
+    /*width=*/ undefined,
+    /*height=*/ undefined,
+    /*area=*/ chunkDataSize[0] * chunkDataSize[1] * chunkDataSize[2],
     /*numComponents=*/ chunkDataSize[3] || 1,
     /*bytesPerPixel=*/ DATA_TYPE_BYTES[dataType],
     /*convertToGrayscale=*/ false,
   );
 
-  await decodeRawChunk(chunk, cancellationToken, image.buffer);
+  await decodeRawChunk(chunk, abortSignal, image.buffer);
 }

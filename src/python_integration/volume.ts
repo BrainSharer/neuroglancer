@@ -14,34 +14,28 @@
  * limitations under the License.
  */
 
-import debounce from "lodash/debounce";
+import { debounce } from "lodash-es";
+import type { CoordinateSpace } from "#src/coordinate_transform.js";
 import {
-  CoordinateSpace,
   coordinateSpaceFromJson,
   coordinateSpacesEqual,
   coordinateSpaceToJson,
   makeCoordinateSpace,
-} from "#/coordinate_transform";
-import { ImageUserLayer } from "#/image_user_layer";
-import { UserLayer } from "#/layer";
-import { RenderLayerTransform } from "#/render_coordinate_transform";
-import { SegmentationUserLayer } from "#/segmentation_user_layer";
-import { SliceViewSingleResolutionSource } from "#/sliceview/frontend";
-import {
-  getFillValueArray,
-  UncompressedVolumeChunk,
-} from "#/sliceview/uncompressed_chunk_format";
-import { VolumeChunkSource } from "#/sliceview/volume/frontend";
-import { SliceViewVolumeRenderLayer } from "#/sliceview/volume/renderlayer";
-import { TrackableValue } from "#/trackable_value";
-import { arraysEqual } from "#/util/array";
-import {
-  CancellationToken,
-  CancellationTokenSource,
-} from "#/util/cancellation";
-import { DataType } from "#/util/data_type";
-import { RefCounted } from "#/util/disposable";
-import { valueOrThrow } from "#/util/error";
+} from "#src/coordinate_transform.js";
+import { ImageUserLayer } from "#src/layer/image/index.js";
+import type { UserLayer } from "#src/layer/index.js";
+import { SegmentationUserLayer } from "#src/layer/segmentation/index.js";
+import type { RenderLayerTransform } from "#src/render_coordinate_transform.js";
+import type { SliceViewSingleResolutionSource } from "#src/sliceview/frontend.js";
+import type { UncompressedVolumeChunk } from "#src/sliceview/uncompressed_chunk_format.js";
+import { getFillValueArray } from "#src/sliceview/uncompressed_chunk_format.js";
+import type { VolumeChunkSource } from "#src/sliceview/volume/frontend.js";
+import { SliceViewVolumeRenderLayer } from "#src/sliceview/volume/renderlayer.js";
+import { TrackableValue } from "#src/trackable_value.js";
+import { arraysEqual } from "#src/util/array.js";
+import { DataType } from "#src/util/data_type.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { valueOrThrow } from "#src/util/error.js";
 import {
   parseArray,
   parseFixedLengthArray,
@@ -52,11 +46,11 @@ import {
   verifyObjectProperty,
   verifyOptionalObjectProperty,
   verifyString,
-} from "#/util/json";
-import * as matrix from "#/util/matrix";
-import { MessageSeverity } from "#/util/message_list";
-import { Signal } from "#/util/signal";
-import { Viewer } from "#/viewer";
+} from "#src/util/json.js";
+import * as matrix from "#src/util/matrix.js";
+import { MessageSeverity } from "#src/util/message_list.js";
+import { Signal } from "#src/util/signal.js";
+import type { Viewer } from "#src/viewer.js";
 
 enum RequestKind {
   VOLUME_CHUNK = 0,
@@ -378,7 +372,7 @@ export class VolumeRequestHandler extends RefCounted {
     (requestId: string, response: unknown) => void
   >();
 
-  private alreadyHandledRequests = new Map<string, CancellationTokenSource>();
+  private alreadyHandledRequests = new Map<string, AbortController>();
   private debouncedMaybeHandleRequests = this.registerCancellable(
     debounce(() => this.maybeHandleRequests(), 0),
   );
@@ -401,9 +395,9 @@ export class VolumeRequestHandler extends RefCounted {
       const { id } = request;
       seenRequests.add(id);
       if (alreadyHandledRequests.has(id)) continue;
-      const source = new CancellationTokenSource();
+      const abortController = new AbortController();
       try {
-        if (!this.maybeHandleRequest(request, source)) {
+        if (!this.maybeHandleRequest(request, abortController.signal)) {
           continue;
         }
       } catch (e) {
@@ -413,12 +407,12 @@ export class VolumeRequestHandler extends RefCounted {
           });
         }
       }
-      alreadyHandledRequests.set(id, source);
+      alreadyHandledRequests.set(id, abortController);
     }
 
-    for (const [requestId, cancellationSource] of alreadyHandledRequests) {
+    for (const [requestId, abortController] of alreadyHandledRequests) {
       if (!seenRequests.has(requestId)) {
-        cancellationSource.cancel();
+        abortController.abort();
         alreadyHandledRequests.delete(requestId);
       }
     }
@@ -426,7 +420,7 @@ export class VolumeRequestHandler extends RefCounted {
 
   private maybeHandleRequest(
     request: VolumeRequest,
-    cancellationToken: CancellationToken,
+    abortSignal: AbortSignal,
   ): boolean {
     const layer = this.viewer.layerManager.getLayerByName(request.layer);
     if (layer === undefined) {
@@ -451,7 +445,7 @@ export class VolumeRequestHandler extends RefCounted {
     ) {
       throw new Error(`Invalid layer type: ${userLayer!.type}`);
     }
-    const renderLayers = userLayer.renderLayers.filter(
+    const renderLayers = userLayer!.renderLayers.filter(
       (renderLayer) => renderLayer instanceof SliceViewVolumeRenderLayer,
     ) as SliceViewVolumeRenderLayer[];
     if (renderLayers.length !== 1) {
@@ -463,7 +457,7 @@ export class VolumeRequestHandler extends RefCounted {
     const renderLayer = renderLayers[0];
     const transform = valueOrThrow(renderLayer.transform.value);
     const renderLayerCoordinateSpace = getDefaultCoordinateSpace(
-      userLayer,
+      userLayer!,
       renderLayer,
     );
     const { multiscaleSource } = renderLayer;
@@ -592,7 +586,7 @@ export class VolumeRequestHandler extends RefCounted {
               order: info.order,
             };
           },
-          cancellationToken,
+          abortSignal,
         );
       } catch (e) {
         response = { error: e.message };

@@ -3,11 +3,13 @@ requires = [
     "setuptools>=64",
     "wheel",
     "setuptools_scm",
-    "oldest-supported-numpy",
+    "numpy>=2",
 ]
 
 [tool.ruff]
 target-version = "py39"
+
+[tool.ruff.lint]
 select = [
     "E", # pycodestyle
     "W", # pycodestyle

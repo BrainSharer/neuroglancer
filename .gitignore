@@ -1,4 +1,4 @@
-/node_modules/
+node_modules
 /dist/
 /trans
 /build/
@@ -17,8 +17,15 @@ tsconfig.tsbuildinfo
 .mypy_cache
 .nox
 .pytest_cache
+<<<<<<< HEAD
 ngauth_server/secrets/
 src/brainshare/firestore.ts
 src/brainshare/docs/sphinx/_build/
 src/brainshare/docs/typedoc
 src/brainshare/couchdb_store.ts
+=======
+/ngauth_server/secrets/
+.eslintcache
+/lib
+/.firebase
+>>>>>>> master

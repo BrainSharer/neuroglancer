@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-import { ChunkManager } from "#/chunk_manager/frontend";
-import { ChunkChannelAccessParameters } from "#/render_coordinate_transform";
-import { DataType, SliceViewChunkSpecification } from "#/sliceview/base";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import type { ChunkChannelAccessParameters } from "#src/render_coordinate_transform.js";
+import type {
+  DataType,
+  SliceViewChunkSpecification,
+} from "#src/sliceview/base.js";
 import {
   MultiscaleSliceViewChunkSource,
   SliceViewChunk,
   SliceViewChunkSource,
-} from "#/sliceview/frontend";
-import {
+} from "#src/sliceview/frontend.js";
+import type {
   VolumeChunkSource as VolumeChunkSourceInterface,
   VolumeChunkSpecification,
   VolumeSourceOptions,
   VolumeType,
-} from "#/sliceview/volume/base";
-import { Disposable } from "#/util/disposable";
-import { GL } from "#/webgl/context";
-import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
-import { getShaderType, glsl_mixLinear } from "#/webgl/shader_lib";
+} from "#src/sliceview/volume/base.js";
+import type { Disposable } from "#src/util/disposable.js";
+import type { GL } from "#src/webgl/context.js";
+import type { ShaderBuilder, ShaderProgram } from "#src/webgl/shader.js";
+import { getShaderType, glsl_mixLinear } from "#src/webgl/shader_lib.js";
 
 export type VolumeChunkKey = string;
 
@@ -49,7 +52,11 @@ export interface ChunkFormat {
    *
    * where value_type is `getShaderType(this.dataType)`.
    */
-  defineShader: (builder: ShaderBuilder, numChannelDimensions: number) => void;
+  defineShader: (
+    builder: ShaderBuilder,
+    numChannelDimensions: number,
+    inVertexShader?: boolean,
+  ) => void;
 
   /**
    * Called once per RenderLayer when starting to draw chunks, on the ChunkFormat of the first
@@ -261,9 +268,9 @@ export class VolumeChunkSource
 }
 
 export abstract class VolumeChunk extends SliceViewChunk {
-  source: VolumeChunkSource;
+  declare source: VolumeChunkSource;
   chunkDataSize: Uint32Array;
-  CHUNK_FORMAT_TYPE: ChunkFormat;
+  declare CHUNK_FORMAT_TYPE: ChunkFormat;
 
   get chunkFormat(): this["CHUNK_FORMAT_TYPE"] {
     return this.source.chunkFormat;

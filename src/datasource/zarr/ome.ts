@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { CoordinateSpace, makeCoordinateSpace } from "#/coordinate_transform";
+import type { CoordinateSpace } from "#src/coordinate_transform.js";
+import { makeCoordinateSpace } from "#src/coordinate_transform.js";
 import {
   parseArray,
   parseFixedLengthArray,
@@ -24,9 +25,9 @@ import {
   verifyObjectProperty,
   verifyOptionalObjectProperty,
   verifyString,
-} from "#/util/json";
-import * as matrix from "#/util/matrix";
-import { allSiPrefixes } from "#/util/si_units";
+} from "#src/util/json.js";
+import * as matrix from "#src/util/matrix.js";
+import { allSiPrefixes } from "#src/util/si_units.js";
 
 export interface OmeMultiscaleScale {
   url: string;
@@ -38,13 +39,14 @@ export interface OmeMultiscaleMetadata {
   coordinateSpace: CoordinateSpace;
 }
 
-const SUPPORTED_OME_MULTISCALE_VERSIONS = new Set(["0.4", "0.5-dev"]);
+const SUPPORTED_OME_MULTISCALE_VERSIONS = new Set(["0.4", "0.5-dev", "0.5"]);
 
 const OME_UNITS = new Map<string, { unit: string; scale: number }>([
   ["angstrom", { unit: "m", scale: 1e-10 }],
   ["foot", { unit: "m", scale: 0.3048 }],
   ["inch", { unit: "m", scale: 0.0254 }],
   ["mile", { unit: "m", scale: 1609.34 }],
+  // eslint-disable-next-line no-loss-of-precision
   ["parsec", { unit: "m", scale: 3.0856775814913673e16 }],
   ["yard", { unit: "m", scale: 0.9144 }],
   ["minute", { unit: "s", scale: 60 }],
@@ -136,7 +138,7 @@ const coordinateTransformParsers = new Map([
 function parseOmeCoordinateTransform(
   rank: number,
   transformJson: unknown,
-): Float64Array {
+): Float64Array<ArrayBuffer> {
   verifyObject(transformJson);
   const transformType = verifyObjectProperty(
     transformJson,
@@ -161,7 +163,7 @@ function parseOmeCoordinateTransforms(
   parseArray(transforms, (transformJson) => {
     const newTransform = parseOmeCoordinateTransform(rank, transformJson);
     transform = matrix.multiply(
-      new Float64Array(transform.length),
+      new Float64Array(transform.length) as Float64Array<ArrayBuffer>,
       rank + 1,
       newTransform,
       rank + 1,
@@ -209,7 +211,7 @@ function parseOmeMultiscale(
     parseArray(obj, (x) => {
       const scale = parseMultiscaleScale(rank, url, x);
       scale.transform = matrix.multiply(
-        new Float64Array((rank + 1) ** 2),
+        new Float64Array((rank + 1) ** 2) as Float64Array<ArrayBuffer>,
         rank + 1,
         transform,
         rank + 1,
@@ -263,8 +265,11 @@ function parseOmeMultiscale(
 export function parseOmeMetadata(
   url: string,
   attrs: any,
+  zarrVersion: number,
 ): OmeMultiscaleMetadata | undefined {
-  const multiscales = attrs.multiscales;
+  const ome = attrs.ome;
+  const multiscales = ome == undefined ? attrs.multiscales : ome.multiscales; // >0.4
+
   if (!Array.isArray(multiscales)) return undefined;
   const errors: string[] = [];
   for (const multiscale of multiscales) {
@@ -276,13 +281,23 @@ export function parseOmeMetadata(
       // Not valid OME multiscale spec.
       return undefined;
     }
-    const version = multiscale.version;
+
+    const version = ome == undefined ? multiscale.version : ome.version; // >0.4
+
     if (version === undefined) return undefined;
     if (!SUPPORTED_OME_MULTISCALE_VERSIONS.has(version)) {
       errors.push(
         `OME multiscale metadata version ${JSON.stringify(
           version,
         )} is not supported`,
+      );
+      continue;
+    }
+    if (version === "0.5" && zarrVersion !== 3) {
+      errors.push(
+        `OME multiscale metadata version ${JSON.stringify(
+          version,
+        )} is not supported for zarr v${zarrVersion}`,
       );
       continue;
     }

@@ -19,27 +19,27 @@
  * and GCS).
  */
 
-import { fetchWithOAuth2Credentials } from "#/credentials_provider/oauth2";
-import { CancellationToken } from "#/util/cancellation";
-import { BasicCompletionResult } from "#/util/completion";
-import { SpecialProtocolCredentialsProvider } from "#/util/special_protocol_request";
+import { fetchWithOAuth2Credentials } from "#src/credentials_provider/oauth2.js";
+import type { BasicCompletionResult } from "#src/util/completion.js";
+import type { SpecialProtocolCredentialsProvider } from "#src/util/special_protocol_request.js";
 
 export async function getS3BucketListing(
   credentialsProvider: SpecialProtocolCredentialsProvider,
   bucketUrl: string,
   prefix: string,
   delimiter: string,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal,
 ): Promise<string[]> {
   const response = await fetchWithOAuth2Credentials(
     credentialsProvider,
     `${bucketUrl}?prefix=${encodeURIComponent(prefix)}` +
       `&delimiter=${encodeURIComponent(delimiter)}`,
-    /*init=*/ {},
-    (x) => x.text(),
-    cancellationToken,
+    /*init=*/ { signal: abortSignal },
   );
-  const doc = new DOMParser().parseFromString(response, "application/xml");
+  const doc = new DOMParser().parseFromString(
+    await response.text(),
+    "application/xml",
+  );
   const commonPrefixNodes = doc.evaluate(
     '//*[name()="CommonPrefixes"]/*[name()="Prefix"]',
     doc,
@@ -69,7 +69,7 @@ export async function getS3CompatiblePathCompletions(
   enteredBucketUrl: string,
   bucketUrl: string,
   path: string,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal,
 ): Promise<BasicCompletionResult> {
   const prefix = path;
   if (!prefix.startsWith("/")) throw null;
@@ -78,7 +78,7 @@ export async function getS3CompatiblePathCompletions(
     bucketUrl,
     path.substring(1),
     "/",
-    cancellationToken,
+    abortSignal,
   );
   const offset = path.lastIndexOf("/");
   return {

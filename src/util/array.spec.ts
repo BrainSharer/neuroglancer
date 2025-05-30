@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { describe, it, expect } from "vitest";
 import {
   getInsertPermutation,
   getMergeSplices,
@@ -21,7 +22,8 @@ import {
   spliceArray,
   tile2dArray,
   transposeArray2d,
-} from "#/util/array";
+  findClosestMatchInSortedArray,
+} from "#src/util/array.js";
 
 describe("partitionArray", () => {
   it("basic test", () => {
@@ -203,5 +205,26 @@ describe("getMergeSplices", () => {
       { retainCount: 1, deleteCount: 0, insertCount: 0 },
       { retainCount: 0, deleteCount: 0, insertCount: 1 },
     ]);
+  });
+});
+
+describe("findClosestMatchInSortedArray", () => {
+  const compare = (a: number, b: number) => a - b;
+  it("works for empty array", () => {
+    expect(findClosestMatchInSortedArray([], 0, compare)).toEqual(-1);
+  });
+  it("works for simple examples", () => {
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 0, compare)).toEqual(0);
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 1, compare)).toEqual(1);
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 2, compare)).toEqual(2);
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 3, compare)).toEqual(3);
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 4, compare)).toEqual(3);
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], -1, compare)).toEqual(0);
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 1.5, compare)).toEqual(
+      1,
+    );
+    expect(findClosestMatchInSortedArray([0, 1, 2, 3], 1.6, compare)).toEqual(
+      2,
+    );
   });
 });

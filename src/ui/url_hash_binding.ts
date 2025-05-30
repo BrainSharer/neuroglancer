@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-import debounce from "lodash/debounce";
-import { CredentialsManager } from "#/credentials_provider";
-import { StatusMessage } from "#/status";
-import { WatchableValue } from "#/trackable_value";
-import { RefCounted } from "#/util/disposable";
-import { responseJson } from "#/util/http_request";
-import { urlSafeParse, verifyObject } from "#/util/json";
+import { debounce } from "lodash-es";
+import type { CredentialsManager } from "#src/credentials_provider/index.js";
+import { StatusMessage } from "#src/status.js";
+import { WatchableValue } from "#src/trackable_value.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { urlSafeParse, verifyObject } from "#src/util/json.js";
 import {
-  cancellableFetchSpecialOk,
+  fetchSpecialOk,
   parseSpecialUrl,
-} from "#/util/special_protocol_request";
-import { getCachedJson, Trackable } from "#/util/trackable";
+} from "#src/util/special_protocol_request.js";
+import type { Trackable } from "#src/util/trackable.js";
+import { getCachedJson } from "#src/util/trackable.js";
 
 /**
  * @file Implements a binding between a Trackable value and the URL hash state.
@@ -82,6 +82,7 @@ export class UrlHashBinding extends RefCounted {
     const throttledSetUrlHash = debounce(
       () => this.setUrlHash(),
       updateDelayMilliseconds,
+      { maxWait: updateDelayMilliseconds * 2 },
     );
     this.registerDisposer(root.changed.add(throttledSetUrlHash));
     this.registerDisposer(() => throttledSetUrlHash.cancel());
@@ -127,16 +128,13 @@ export class UrlHashBinding extends RefCounted {
           this.credentialsManager,
         );
         StatusMessage.forPromise(
-          cancellableFetchSpecialOk(
-            credentialsProvider,
-            parsedUrl,
-            {},
-            responseJson,
-          ).then((json) => {
-            verifyObject(json);
-            this.root.reset();
-            this.root.restoreState(json);
-          }),
+          fetchSpecialOk(credentialsProvider, parsedUrl, {})
+            .then((response) => response.json())
+            .then((json) => {
+              verifyObject(json);
+              this.root.reset();
+              this.root.restoreState(json);
+            }),
           {
             initialMessage: `Loading state from ${url}`,
             errorPrefix: "Error loading state:",

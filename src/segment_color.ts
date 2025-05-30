@@ -14,28 +14,30 @@
  * limitations under the License.
  */
 
-import { hashCombine } from "#/gpu_hash/hash_function";
+import { hashCombine } from "#src/gpu_hash/hash_function.js";
+import type { HashTableBase } from "#src/gpu_hash/hash_table.js";
+import type { GPUHashTable } from "#src/gpu_hash/shader.js";
 import {
   glsl_hashCombine,
   HashMapShaderManager,
-  GPUHashTable,
-} from "#/gpu_hash/shader";
-import { HashTableBase } from "#/gpu_hash/hash_table";
-import { hsvToRgb } from "#/util/colorspace";
-import { NullarySignal } from "#/util/signal";
-import { Uint64 } from "#/util/uint64";
-import { GL } from "#/webgl/context";
-import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
-import { glsl_hsvToRgb, glsl_uint64 } from "#/webgl/shader_lib";
-import { getRandomUint32 } from "./util/random";
-import { Trackable } from "./util/trackable";
+} from "#src/gpu_hash/shader.js";
+import { hsvToRgb } from "#src/util/colorspace.js";
+import { getRandomUint32 } from "#src/util/random.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type { Trackable } from "#src/util/trackable.js";
+import type { Uint64 } from "#src/util/uint64.js";
+import type { GL } from "#src/webgl/context.js";
+import type { ShaderBuilder, ShaderProgram } from "#src/webgl/shader.js";
+import { glsl_hsvToRgb, glsl_uint64 } from "#src/webgl/shader_lib.js";
 
 const NUM_COMPONENTS = 2;
 
 export class SegmentColorShaderManager {
-  seedName = this.prefix + "_seed";
+  seedName: string;
 
-  constructor(public prefix: string) {}
+  constructor(public prefix: string) {
+    this.seedName = prefix + "_seed";
+  }
 
   defineShader(builder: ShaderBuilder) {
     const { seedName } = this;

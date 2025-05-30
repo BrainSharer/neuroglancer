@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import { CodecKind } from "#/datasource/zarr/codec";
-import type { Configuration } from "#/datasource/zarr/codec/crc32c/resolve";
-import { registerCodec } from "#/datasource/zarr/codec/decode";
-import { CancellationToken } from "#/util/cancellation";
+import type { Configuration } from "#src/datasource/zarr/codec/crc32c/resolve.js";
+import { registerCodec } from "#src/datasource/zarr/codec/decode.js";
+import { CodecKind } from "#src/datasource/zarr/codec/index.js";
 
 const checksumSize = 4;
 
@@ -26,11 +25,11 @@ registerCodec({
   kind: CodecKind.bytesToBytes,
   async decode(
     configuration: Configuration,
-    encoded: Uint8Array,
-    cancellationToken: CancellationToken,
-  ): Promise<Uint8Array> {
+    encoded,
+    abortSignal: AbortSignal,
+  ) {
     configuration;
-    cancellationToken;
+    abortSignal;
     if (encoded.length < checksumSize) {
       throw new Error(
         `Expected buffer of size at least ${checksumSize} bytes but received: ${encoded.length} bytes`,

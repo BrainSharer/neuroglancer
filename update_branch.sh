@@ -8,5 +8,6 @@ git pull
 git checkout polygon-tool
 git merge master 
 rm -rf node_modules
-nvm install stable
+#nvm install stable
+npm install typescript-cookie
 npm i

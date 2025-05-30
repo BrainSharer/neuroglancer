@@ -40,6 +40,7 @@ export class Signal<Callable extends Function = () => void> {
     this.dispatch = <Callable>(<Function>function (this: any) {
       ++obj.count;
       obj.handlers.forEach((handler) => {
+        // eslint-disable-next-line prefer-rest-params
         handler.apply(this, arguments);
       });
     });
@@ -58,6 +59,15 @@ export class Signal<Callable extends Function = () => void> {
     return () => {
       return this.remove(handler);
     };
+  }
+
+  addOnce(handler: Callable): void {
+    const { handlers } = this;
+    function onceWrapper(...args: any) {
+      handlers.delete(onceWrapper as any);
+      handler(...args);
+    }
+    handlers.add(onceWrapper as any);
   }
 
   /**
@@ -116,6 +126,7 @@ export class NullarySignal extends Signal<() => void> {}
 export interface ReadonlySignal<Callable extends Function> {
   readonly count: number;
   add(handler: Callable): () => void;
+  addOnce(handler: Callable): void;
   remove(handler: Callable): boolean;
 }
 
@@ -126,6 +137,7 @@ export const neverSignal: NullaryReadonlySignal = {
   add(_handler: any) {
     return () => {};
   },
+  addOnce(_handler: any) {},
   remove(_handler: any) {
     return false;
   },

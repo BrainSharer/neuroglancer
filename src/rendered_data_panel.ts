@@ -14,71 +14,45 @@
  * limitations under the License.
  */
 
-import "#/rendered_data_panel.css";
-import "#/noselect.css";
-
+import "#src/rendered_data_panel.css";
+import "#src/noselect.css";
 /* BRAINSHARE STARTS */
 /*
 import { Annotation } from "#/annotation";
 */
-import { 
-  Annotation, 
-  AnnotationReference, 
-  AnnotationType, 
-  Line 
-} from '#/annotation';
-/* BRAINSHARE ENDS */
-import { getAnnotationTypeRenderHandler } from "#/annotation/type_handler";
-import { DisplayContext, RenderedPanel } from "#/display_context";
-import { NavigationState } from "#/navigation_state";
-import { PickIDManager } from "#/object_picking";
+
+import type { Annotation } from "#src/annotation/index.js";
+import { getAnnotationTypeRenderHandler } from "#src/annotation/type_handler.js";
+import type { DisplayContext } from "#src/display_context.js";
+import { RenderedPanel } from "#src/display_context.js";
+import type { NavigationState } from "#src/navigation_state.js";
+import { PickIDManager } from "#src/object_picking.js";
 import {
   displayToLayerCoordinates,
   layerToDisplayCoordinates,
-  /* BRAINSHARE STARTS */
-  getChunkPositionFromCombinedGlobalLocalPositions,
-  /* BRAINSHARE ENDS */
-} from "#/render_coordinate_transform";
-import { AutomaticallyFocusedElement } from "#/util/automatic_focus";
-import { Borrowed } from "#/util/disposable";
-import {
+} from "#src/render_coordinate_transform.js";
+import { AutomaticallyFocusedElement } from "#src/util/automatic_focus.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import type {
   ActionEvent,
   EventActionMap,
-  registerActionListener,
-} from "#/util/event_action_map";
-import { AXES_NAMES, kAxes, mat4, vec2, vec3 } from "#/util/geom";
-import { KeyboardEventBinder } from "#/util/keyboard_bindings";
-import * as matrix from "#/util/matrix";
-import { MouseEventBinder } from "#/util/mouse_bindings";
-import { startRelativeMouseDrag } from "#/util/mouse_drag";
-import {
-  TouchEventBinder,
+} from "#src/util/event_action_map.js";
+import { registerActionListener } from "#src/util/event_action_map.js";
+import { AXES_NAMES, kAxes, mat4, vec2, vec3 } from "#src/util/geom.js";
+import { KeyboardEventBinder } from "#src/util/keyboard_bindings.js";
+import * as matrix from "#src/util/matrix.js";
+import { MouseEventBinder } from "#src/util/mouse_bindings.js";
+import { startRelativeMouseDrag } from "#src/util/mouse_drag.js";
+import type {
   TouchPinchInfo,
   TouchTranslateInfo,
   /* BRAINSHARE STARTS */
   TouchRotateInfo
   /* BRAINSHARE ENDS */
-} from "#/util/touch_bindings";
-import { getWheelZoomAmount } from "#/util/wheel_zoom";
-import { ViewerState } from "#/viewer_state";
-/* BRAINSHARE STARTS */
-import { 
-  PlaceCollectionAnnotationTool, 
-  UserLayerWithAnnotations 
-} from './ui/annotations';
-import { 
-  getZCoordinate,
-  isPointUniqueInPolygon,
-  polygonRotateAngle, 
-  polygonScalePercentage, 
-  rotatePolygon, 
-  scalePolygon 
-} from './annotation/polygon';
-import { StatusMessage } from './status';
-import { isCornerPicked } from "./annotation/line";
-import * as vector from "#/util/vector";
-import { getPolygonByZIndex } from "./annotation/volume";
-/* BRAINSHARE ENDS */
+} from "#src/util/touch_bindings.js";
+import { TouchEventBinder } from "#src/util/touch_bindings.js";
+import { getWheelZoomAmount } from "#src/util/wheel_zoom.js";
+import type { ViewerState } from "#src/viewer_state.js";
 
 declare let NEUROGLANCER_SHOW_OBJECT_SELECTION_TOOLTIP: boolean | undefined;
 
@@ -198,6 +172,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
   pickRequestPending = false;
 
   private mouseStateForcer = () => this.blockOnPickRequest();
+  protected isMovingToMousePosition: boolean = false;
 
   inputEventMap: EventActionMap;
 
@@ -479,6 +454,8 @@ export abstract class RenderedDataPanel extends RenderedPanel {
     this.attemptToIssuePickRequest();
   }
 
+  protected isMovingToMousePositionOnPick = false;
+
   constructor(
     context: Borrowed<DisplayContext>,
     element: HTMLElement,
@@ -538,18 +515,22 @@ export abstract class RenderedDataPanel extends RenderedPanel {
     });
 
     registerActionListener(element, "zoom-in", () => {
+      this.context.flagContinuousCameraMotion();
       this.navigationState.zoomBy(0.5);
     });
 
     registerActionListener(element, "zoom-out", () => {
+      this.context.flagContinuousCameraMotion();
       this.navigationState.zoomBy(2.0);
     });
 
     registerActionListener(element, "depth-range-decrease", () => {
+      this.context.flagContinuousCameraMotion();
       this.navigationState.depthRange.value *= 0.5;
     });
 
     registerActionListener(element, "depth-range-increase", () => {
+      this.context.flagContinuousCameraMotion();
       this.navigationState.depthRange.value *= 2;
     });
 
@@ -561,11 +542,13 @@ export abstract class RenderedDataPanel extends RenderedPanel {
           element,
           `rotate-relative-${axisName}${signStr}`,
           () => {
+            this.context.flagContinuousCameraMotion();
             this.navigationState.pose.rotateRelative(kAxes[axis], sign * 0.1);
           },
         );
         const tempOffset = vec3.create();
         registerActionListener(element, `${axisName}${signStr}`, () => {
+          this.context.flagContinuousCameraMotion();
           const { navigationState } = this;
           const offset = tempOffset;
           offset[0] = 0;
@@ -581,6 +564,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       element,
       "zoom-via-wheel",
       (event: ActionEvent<WheelEvent>) => {
+        this.context.flagContinuousCameraMotion();
         const e = event.detail;
         this.onMousemove(e, false);
         this.zoomByMouse(getWheelZoomAmount(e));
@@ -591,6 +575,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       element,
       "adjust-depth-range-via-wheel",
       (event: ActionEvent<WheelEvent>) => {
+        this.context.flagContinuousCameraMotion();
         const e = event.detail;
         this.navigationState.depthRange.value *= getWheelZoomAmount(e);
       },
@@ -601,6 +586,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       "translate-via-mouse-drag",
       (e: ActionEvent<MouseEvent>) => {
         startRelativeMouseDrag(e.detail, (_event, deltaX, deltaY) => {
+          this.context.flagContinuousCameraMotion();
           this.translateByViewportPixels(deltaX, deltaY);
         });
       },
@@ -610,6 +596,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       element,
       "translate-in-plane-via-touchtranslate",
       (e: ActionEvent<TouchTranslateInfo>) => {
+        this.context.flagContinuousCameraMotion();
         const { detail } = e;
         this.translateByViewportPixels(detail.deltaX, detail.deltaY);
       },
@@ -619,6 +606,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       element,
       "translate-z-via-touchtranslate",
       (e: ActionEvent<TouchTranslateInfo>) => {
+        this.context.flagContinuousCameraMotion();
         const { detail } = e;
         const { navigationState } = this;
         const offset = tempVec3;
@@ -634,6 +622,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
         element,
         `z+${amount}-via-wheel`,
         (event: ActionEvent<WheelEvent>) => {
+          this.context.flagContinuousCameraMotion();
           const e = event.detail;
           const { navigationState } = this;
           const offset = tempVec3;
@@ -865,6 +854,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       element,
       "zoom-via-touchpinch",
       (e: ActionEvent<TouchPinchInfo>) => {
+        this.context.flagContinuousCameraMotion();
         const { detail } = e;
         this.handleMouseMove(detail.centerX, detail.centerY);
         const ratio = detail.prevDistance / detail.distance;

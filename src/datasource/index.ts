@@ -14,35 +14,39 @@
  * limitations under the License.
  */
 
-import { AnnotationSource } from "#/annotation";
-import { MultiscaleAnnotationSource } from "#/annotation/frontend_source";
-import { ChunkManager } from "#/chunk_manager/frontend";
-import {
+import type { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
+import type { AnnotationSource } from "#src/annotation/index.js";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import type {
   CoordinateSpace,
   CoordinateSpaceTransform,
   CoordinateTransformSpecification,
+} from "#src/coordinate_transform.js";
+import {
   emptyValidCoordinateSpace,
   makeCoordinateSpace,
   makeIdentityTransform,
-} from "#/coordinate_transform";
-import { CredentialsManager } from "#/credentials_provider";
-import { MeshSource, MultiscaleMeshSource } from "#/mesh/frontend";
-import { SegmentPropertyMap } from "#/segmentation_display_state/property_map";
-import { SegmentationGraphSource } from "#/segmentation_graph/source";
-import { SingleMeshSource } from "#/single_mesh/frontend";
-import { SkeletonSource } from "#/skeleton/frontend";
-import { MultiscaleVolumeChunkSource } from "#/sliceview/volume/frontend";
-import { WatchableValueInterface } from "#/trackable_value";
-import { CancellationToken, uncancelableToken } from "#/util/cancellation";
-import {
-  applyCompletionOffset,
+} from "#src/coordinate_transform.js";
+import type { CredentialsManager } from "#src/credentials_provider/index.js";
+import type { MeshSource, MultiscaleMeshSource } from "#src/mesh/frontend.js";
+import type { SegmentPropertyMap } from "#src/segmentation_display_state/property_map.js";
+import type { SegmentationGraphSource } from "#src/segmentation_graph/source.js";
+import type { SingleMeshSource } from "#src/single_mesh/frontend.js";
+import type { SkeletonSource } from "#src/skeleton/frontend.js";
+import type { MultiscaleVolumeChunkSource } from "#src/sliceview/volume/frontend.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
+import type {
   BasicCompletionResult,
   CompletionWithDescription,
+} from "#src/util/completion.js";
+import {
+  applyCompletionOffset,
   getPrefixMatchesWithDescriptions,
-} from "#/util/completion";
-import { Owned, RefCounted } from "#/util/disposable";
-import { createIdentity } from "#/util/matrix";
-import { Trackable } from "#/util/trackable";
+} from "#src/util/completion.js";
+import type { Owned } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { createIdentity } from "#src/util/matrix.js";
+import type { Trackable } from "#src/util/trackable.js";
 
 export type CompletionResult = BasicCompletionResult<CompletionWithDescription>;
 
@@ -91,7 +95,7 @@ export function suggestLayerNameBasedOnSeparator(
 
 export interface GetDataSourceOptionsBase {
   chunkManager: ChunkManager;
-  cancellationToken?: CancellationToken;
+  abortSignal?: AbortSignal;
   url: string;
   transform: CoordinateTransformSpecification | undefined;
   globalCoordinateSpace: WatchableValueInterface<CoordinateSpace>;
@@ -101,7 +105,7 @@ export interface GetDataSourceOptionsBase {
 export interface GetDataSourceOptions extends GetDataSourceOptionsBase {
   registry: DataSourceProviderRegistry;
   providerUrl: string;
-  cancellationToken: CancellationToken;
+  abortSignal: AbortSignal;
   providerProtocol: string;
   credentialsManager: CredentialsManager;
 }
@@ -145,14 +149,14 @@ export interface DataSubsource {
 
 export interface CompleteUrlOptionsBase {
   url: string;
-  cancellationToken?: CancellationToken;
+  abortSignal?: AbortSignal;
   chunkManager: ChunkManager;
 }
 
 export interface CompleteUrlOptions extends CompleteUrlOptionsBase {
   registry: DataSourceProviderRegistry;
   providerUrl: string;
-  cancellationToken: CancellationToken;
+  abortSignal: AbortSignal;
   credentialsManager: CredentialsManager;
 }
 
@@ -194,6 +198,7 @@ export interface DataSource {
   state?: Trackable;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface DataSourceProvider {
   /**
    * Returns a suggested layer name for the given volume source.
@@ -228,6 +233,7 @@ export function makeEmptyDataSourceSpecification(): DataSourceSpecification {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export abstract class DataSourceProvider extends RefCounted {
   abstract description?: string;
 
@@ -374,7 +380,7 @@ export class DataSourceProviderRegistry extends RefCounted {
 
   async get(options: GetDataSourceOptionsBase): Promise<DataSource> {
     const redirectLog = new Set<string>();
-    const { cancellationToken = uncancelableToken } = options;
+    const { abortSignal } = options;
     let url: string = options.url;
     while (true) {
       const [provider, providerUrl, providerProtocol] = this.getProvider(
@@ -388,7 +394,7 @@ export class DataSourceProviderRegistry extends RefCounted {
           providerProtocol,
           providerUrl,
           registry: this,
-          cancellationToken,
+          abortSignal: abortSignal ?? new AbortController().signal,
           credentialsManager: this.credentialsManager,
         });
       } catch (e) {
@@ -452,7 +458,7 @@ export class DataSourceProviderRegistry extends RefCounted {
     options: CompleteUrlOptionsBase,
   ): Promise<CompletionResult> {
     // Check if url matches a protocol.  Note that protocolPattern always matches.
-    const { url, cancellationToken = uncancelableToken } = options;
+    const { url, abortSignal } = options;
     const protocolMatch = url.match(protocolPattern)!;
     const protocol = protocolMatch[1];
     if (protocol === undefined) {
@@ -473,7 +479,7 @@ export class DataSourceProviderRegistry extends RefCounted {
         url,
         providerUrl: protocolMatch[2],
         chunkManager: options.chunkManager,
-        cancellationToken,
+        abortSignal: abortSignal ?? new AbortController().signal,
         credentialsManager: this.credentialsManager,
       });
       return applyCompletionOffset(protocol.length + 3, completions);

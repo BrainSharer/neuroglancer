@@ -14,70 +14,76 @@
  * limitations under the License.
  */
 
-import "./position_widget.css";
+import "#src/widget/position_widget.css";
 
-import svg_pause from "ikonate/icons/pause.svg";
-import svg_play from "ikonate/icons/play.svg";
-import svg_video from "ikonate/icons/video.svg";
-import {
-  clampAndRoundCoordinateToVoxelCenter,
+import svg_pause from "ikonate/icons/pause.svg?raw";
+import svg_play from "ikonate/icons/play.svg?raw";
+import svg_video from "ikonate/icons/video.svg?raw";
+import type {
   CoordinateArray,
   CoordinateSpace,
   CoordinateSpaceCombiner,
   DimensionId,
+  TrackableCoordinateSpace,
+} from "#src/coordinate_transform.js";
+import {
+  clampAndRoundCoordinateToVoxelCenter,
   emptyInvalidCoordinateSpace,
   insertDimensionAt,
   makeCoordinateSpace,
-} from "#/coordinate_transform";
-import { MouseSelectionState, UserLayer } from "#/layer";
-import { LayerGroupViewer } from "#/layer_group_viewer";
-import {
+} from "#src/coordinate_transform.js";
+import type { MouseSelectionState, UserLayer } from "#src/layer/index.js";
+import type { LayerGroupViewer } from "#src/layer_group_viewer.js";
+import type {
   CoordinateSpacePlaybackVelocity,
   Position,
-  VelocityBoundaryBehavior,
-} from "#/navigation_state";
-import { StatusMessage } from "#/status";
+} from "#src/navigation_state.js";
+import { VelocityBoundaryBehavior } from "#src/navigation_state.js";
+import { StatusMessage } from "#src/status.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
 import {
   makeCachedDerivedWatchableValue,
   WatchableValue,
-  WatchableValueInterface,
-} from "#/trackable_value";
+} from "#src/trackable_value.js";
+import { popDragStatus, pushDragStatus } from "#src/ui/drag_and_drop.js";
+import type { LocalToolBinder, ToolActivation } from "#src/ui/tool.js";
 import {
-  LocalToolBinder,
   makeToolActivationStatusMessage,
   makeToolButton,
   registerTool,
   Tool,
-  ToolActivation,
-} from "#/ui/tool";
-import { animationFrameDebounce } from "#/util/animation_frame_debounce";
-import { arraysEqual, binarySearch } from "#/util/array";
-import { setClipboard } from "#/util/clipboard";
-import { Borrowed, RefCounted } from "#/util/disposable";
+} from "#src/ui/tool.js";
+import type { ToolDragSource } from "#src/ui/tool_drag_and_drop.js";
+import { beginToolDrag, endToolDrag } from "#src/ui/tool_drag_and_drop.js";
+import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
+import { arraysEqual, binarySearch } from "#src/util/array.js";
+import { setClipboard } from "#src/util/clipboard.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
 import {
   removeFromParent,
   updateChildren,
   updateInputFieldWidth,
-} from "#/util/dom";
-import { vec3 } from "#/util/geom";
-import { verifyObjectProperty, verifyString } from "#/util/json";
+} from "#src/util/dom.js";
+import { vec3 } from "#src/util/geom.js";
+import { verifyObjectProperty, verifyString } from "#src/util/json.js";
+import type { ActionEvent } from "#src/util/keyboard_bindings.js";
 import {
-  ActionEvent,
   KeyboardEventBinder,
   registerActionListener,
-} from "#/util/keyboard_bindings";
-import { EventActionMap, MouseEventBinder } from "#/util/mouse_bindings";
-import { formatScaleWithUnit, parseScale } from "#/util/si_units";
-import { TrackableEnum } from "#/util/trackable_enum";
-import { getWheelZoomAmount } from "#/util/wheel_zoom";
-import { Viewer } from "#/viewer";
-import { CheckboxIcon } from "#/widget/checkbox_icon";
-import { makeCopyButton } from "#/widget/copy_button";
-import { DependentViewWidget } from "#/widget/dependent_view_widget";
-import { EnumSelectWidget } from "#/widget/enum_widget";
-import { makeIcon } from "#/widget/icon";
-import { NumberInputWidget } from "#/widget/number_input_widget";
-import { PositionPlot } from "#/widget/position_plot";
+} from "#src/util/keyboard_bindings.js";
+import { EventActionMap, MouseEventBinder } from "#src/util/mouse_bindings.js";
+import { formatScaleWithUnit, parseScale } from "#src/util/si_units.js";
+import { TrackableEnum } from "#src/util/trackable_enum.js";
+import { getWheelZoomAmount } from "#src/util/wheel_zoom.js";
+import type { Viewer } from "#src/viewer.js";
+import { CheckboxIcon } from "#src/widget/checkbox_icon.js";
+import { makeCopyButton } from "#src/widget/copy_button.js";
+import { DependentViewWidget } from "#src/widget/dependent_view_widget.js";
+import { EnumSelectWidget } from "#src/widget/enum_widget.js";
+import { makeIcon } from "#src/widget/icon.js";
+import { NumberInputWidget } from "#src/widget/number_input_widget.js";
+import { PositionPlot } from "#src/widget/position_plot.js";
 
 export const positionDragType = "neuroglancer-position";
 
@@ -149,6 +155,8 @@ class DimensionWidget {
   draggingPosition = false;
   hasFocus = false;
 
+  dimensionIndex: number;
+
   constructor(
     public coordinateSpace: CoordinateSpace,
     public id: DimensionId,
@@ -173,6 +181,7 @@ class DimensionWidget {
       container.draggable = true;
       container.tabIndex = -1;
     }
+    this.dimensionIndex = initialDimensionIndex;
     container.appendChild(nameContainer);
     container.appendChild(scaleElement);
     nameContainer.appendChild(nameElement);
@@ -228,15 +237,17 @@ class DimensionWidget {
     );
 
     if (allowFocus) {
-      nameContainer.addEventListener("dblclick", () => {
+      nameContainer.addEventListener("dblclick", (event) => {
         nameElement.disabled = false;
         nameElement.focus();
         nameElement.select();
+        event.stopPropagation();
       });
-      scaleContainer.addEventListener("dblclick", () => {
+      scaleContainer.addEventListener("dblclick", (event) => {
         scaleElement.disabled = false;
         scaleElement.focus();
         scaleElement.select();
+        event.stopPropagation();
       });
       coordinate.addEventListener("focus", () => {
         coordinate.select();
@@ -291,6 +302,7 @@ export class PositionWidget extends RefCounted {
   private getToolBinder: (() => LocalToolBinder | undefined) | undefined;
   private allowFocus: boolean;
   private showPlayback: boolean;
+  private showDropdown: boolean;
 
   private dimensionWidgets = new Map<DimensionId, DimensionWidget>();
   private dimensionWidgetList: DimensionWidget[] = [];
@@ -468,11 +480,11 @@ export class PositionWidget extends RefCounted {
       dropdown.appendChild(entryElement);
       entries.push({ entryElement, coordinateElement, labelElement });
     }
-    // const dropdownOwner = widget.dropdownOwner!;
   }
 
   private openDropdown(widget: DimensionWidget) {
     if (widget.dropdownOwner !== undefined) return;
+    if (!this.showDropdown) return;
     const dimensionIndex = this.getDimensionIndex(widget.id);
     if (dimensionIndex === -1) return;
     this.closeDropdown();
@@ -589,13 +601,43 @@ export class PositionWidget extends RefCounted {
       coordinateSpace,
       id,
       initialDimensionIndex,
-      { allowFocus: this.allowFocus, showPlayback: this.showPlayback },
+      {
+        allowFocus: this.allowFocus,
+        showPlayback: this.showPlayback,
+      },
     );
+    let toolDragSource: ToolDragSource | undefined;
+    const localBinder = this.getToolBinder?.();
+    if (localBinder !== undefined) {
+      const self = this;
+      toolDragSource = {
+        localBinder,
+        get toolJson() {
+          return {
+            type: DIMENSION_TOOL_ID,
+            dimension:
+              self.position.coordinateSpace.value.names[
+                self.getDimensionIndex(id)
+              ],
+          };
+        },
+      };
+    }
     if (this.singleDimensionId === undefined) {
       widget.container.addEventListener("dragstart", (event: DragEvent) => {
         this.dragSource = widget;
         event.stopPropagation();
         event.dataTransfer!.setData("neuroglancer-dimension", "");
+        pushDragStatus(
+          event,
+          widget.container,
+          "drag",
+          "Drag to reorder dimensions, to an existing tool palette, or to the " +
+            "left/right/top/bottom of another panel to create a new tool palette",
+        );
+        if (toolDragSource !== undefined) {
+          beginToolDrag(toolDragSource);
+        }
       });
       widget.container.addEventListener("dragenter", (event: DragEvent) => {
         const { dragSource } = this;
@@ -608,9 +650,12 @@ export class PositionWidget extends RefCounted {
         this.reorderDimensionTo(targetIndex, sourceIndex);
       });
       widget.container.addEventListener("dragend", (event: DragEvent) => {
-        event;
         if (this.dragSource === widget) {
           this.dragSource = undefined;
+        }
+        popDragStatus(event, widget.container, "drag");
+        if (toolDragSource !== undefined) {
+          endToolDrag(toolDragSource);
         }
       });
     }
@@ -640,7 +685,7 @@ export class PositionWidget extends RefCounted {
         if (selectionStart !== 0 || selectionEnd !== value.length) {
           if (selectionStart == null) selectionStart = 0;
           if (selectionEnd == null) selectionEnd = 0;
-          const invalidMatch = text.match(/[^\-0-9\.]/);
+          const invalidMatch = text.match(/[^\-0-9.]/);
           if (invalidMatch !== null) {
             text = text.substring(0, invalidMatch.index);
           }
@@ -661,7 +706,7 @@ export class PositionWidget extends RefCounted {
         if (selectionStart === null) selectionStart = 0;
         if (selectionEnd === null) selectionEnd = selectionStart;
         let newValue = "";
-        const invalidPattern = /[^\-0-9\.]/g;
+        const invalidPattern = /[^\-0-9.]/g;
         newValue += value
           .substring(0, selectionStart)
           .replace(invalidPattern, "");
@@ -830,7 +875,7 @@ export class PositionWidget extends RefCounted {
         coordinateSpace: { value: coordinateSpace },
       },
     } = this;
-    if (!coordinateSpace.valid) {
+    if (!coordinateSpace.valid && this.singleDimensionId === undefined) {
       coordinateSpace = emptyInvalidCoordinateSpace;
     }
     this.coordinateSpace = coordinateSpace;
@@ -858,6 +903,7 @@ export class PositionWidget extends RefCounted {
         widget.maxPositionWidthSeen = maxPositionWidth;
       } else {
         widget.coordinateSpace = coordinateSpace;
+        widget.dimensionIndex = i;
       }
       widget.maxPositionWidth = maxPositionWidth;
       const name = names[i];
@@ -967,12 +1013,14 @@ export class PositionWidget extends RefCounted {
 
   private updateNameValidity() {
     const { dimensionWidgetList } = this;
-    const names = dimensionWidgetList.map((w) => w.nameElement.value);
-    const rank = names.length;
+    const names = Array.from(this.position.coordinateSpace.value.names);
+    for (const widget of dimensionWidgetList) {
+      names[widget.dimensionIndex] = widget.nameElement.value;
+    }
     const isValid = this.combiner.getRenameValidity(names);
-    for (let i = 0; i < rank; ++i) {
-      dimensionWidgetList[i].nameElement.dataset.isValid =
-        isValid[i] === false ? "false" : "true";
+    for (const widget of dimensionWidgetList) {
+      widget.nameElement.dataset.isValid =
+        isValid[widget.dimensionIndex] === false ? "false" : "true";
     }
   }
 
@@ -991,6 +1039,7 @@ export class PositionWidget extends RefCounted {
       getToolBinder = undefined,
       allowFocus = true,
       showPlayback = true,
+      showDropdown = true,
     }: {
       copyButton?: boolean;
       velocity?: CoordinateSpacePlaybackVelocity;
@@ -998,6 +1047,7 @@ export class PositionWidget extends RefCounted {
       getToolBinder?: (() => LocalToolBinder | undefined) | undefined;
       allowFocus?: boolean;
       showPlayback?: boolean;
+      showDropdown?: boolean;
     } = {},
   ) {
     super();
@@ -1007,6 +1057,7 @@ export class PositionWidget extends RefCounted {
     this.getToolBinder = getToolBinder;
     this.allowFocus = allowFocus;
     this.showPlayback = showPlayback;
+    this.showDropdown = showDropdown;
     this.registerDisposer(
       position.coordinateSpace.changed.add(
         this.registerCancellable(
@@ -1115,15 +1166,13 @@ export class PositionWidget extends RefCounted {
 
   private updatePosition() {
     if (!this.allowFocus) return;
-    const { dimensionWidgetList } = this;
     const { position } = this;
     const { value: voxelCoordinates } = position;
     const coordinateSpace = position.coordinateSpace.value;
     if (voxelCoordinates === undefined) return;
-    const rank = dimensionWidgetList.length;
     let modified = false;
-    for (let i = 0; i < rank; ++i) {
-      const widget = dimensionWidgetList[i];
+    for (const widget of this.dimensionWidgetList) {
+      const { dimensionIndex } = widget;
       if (!widget.modified) continue;
       widget.modified = false;
       modified = true;
@@ -1135,11 +1184,11 @@ export class PositionWidget extends RefCounted {
         Number.isInteger(value) &&
         !valueString.includes(".") &&
         coordinateSpace !== undefined &&
-        !coordinateSpace.bounds.voxelCenterAtIntegerCoordinates[i]
+        !coordinateSpace.bounds.voxelCenterAtIntegerCoordinates[dimensionIndex]
       ) {
         value += 0.5;
       }
-      voxelCoordinates[i] = value;
+      voxelCoordinates[dimensionIndex] = value;
     }
     if (modified) {
       position.value = voxelCoordinates;
@@ -1153,7 +1202,10 @@ export class PositionWidget extends RefCounted {
       position: { coordinateSpace },
     } = this;
     const existing = coordinateSpace.value;
-    const names = dimensionWidgetList.map((x) => x.nameElement.value);
+    const names = Array.from(existing.names);
+    for (const widget of dimensionWidgetList) {
+      names[widget.dimensionIndex] = widget.nameElement.value;
+    }
     if (this.combiner.getRenameValidity(names).includes(false)) return false;
     const existingNames = existing.names;
     if (arraysEqual(existingNames, names)) return false;
@@ -1172,17 +1224,18 @@ export class PositionWidget extends RefCounted {
       position: { coordinateSpace },
     } = this;
     const existing = coordinateSpace.value;
-    const scalesAndUnits = dimensionWidgetList.map((x) =>
-      parseScale(x.scaleElement.value),
-    );
-    if (scalesAndUnits.includes(undefined)) {
+    const { scales, units } = existing;
+    const newScales = Float64Array.from(scales);
+    const newUnits = Array.from(units);
+    for (const { dimensionIndex, scaleElement } of dimensionWidgetList) {
+      const result = parseScale(scaleElement.value);
+      if (result === undefined) return false;
+      newScales[dimensionIndex] = result.scale;
+      newUnits[dimensionIndex] = result.unit;
+    }
+    if (arraysEqual(scales, newScales) && arraysEqual(units, newUnits)) {
       return false;
     }
-    const newScales = Float64Array.from(scalesAndUnits, (x) => x!.scale);
-    const newUnits = Array.from(scalesAndUnits, (x) => x!.unit);
-    const { scales, units } = existing;
-    if (arraysEqual(scales, newScales) && arraysEqual(units, newUnits))
-      return false;
     const timestamps = existing.timestamps.map((t, i) =>
       newScales[i] === scales[i] && newUnits[i] === units[i] ? t : Date.now(),
     );
@@ -1213,22 +1266,23 @@ export class PositionWidget extends RefCounted {
     this.updateDimensions();
     const {
       position: { value: voxelCoordinates },
-      dimensionWidgetList,
     } = this;
-    const rank = dimensionWidgetList.length;
     if (voxelCoordinates === undefined) {
       return;
     }
     const coordinateSpace = this.coordinateSpace!;
     const { velocity } = this;
-    for (let i = 0; i < rank; ++i) {
-      const widget = dimensionWidgetList[i];
+    for (const widget of this.dimensionWidgetList) {
+      const { dimensionIndex } = widget;
       const inputElement = widget.coordinate;
-      const newCoord = Math.floor(voxelCoordinates[i]);
+      const newCoord = Math.floor(voxelCoordinates[dimensionIndex]);
       const newValue = newCoord.toString();
       updateCoordinateFieldWidth(widget, newValue);
       inputElement.value = newValue;
-      const coordinateArray = getCoordinateArray(coordinateSpace, i);
+      const coordinateArray = getCoordinateArray(
+        coordinateSpace,
+        dimensionIndex,
+      );
       let label = "";
       if (coordinateArray != null) {
         const { coordinates } = coordinateArray;
@@ -1240,7 +1294,7 @@ export class PositionWidget extends RefCounted {
       const labelElement = widget.coordinateLabel;
       labelElement.textContent = label;
       if (this.showPlayback) {
-        const velocityInfo = velocity?.value?.[i];
+        const velocityInfo = velocity?.value?.[dimensionIndex];
         if (velocityInfo !== undefined) {
           const paused = velocityInfo.paused;
           widget.playButton.style.display = paused ? "" : "none";
@@ -1301,7 +1355,7 @@ export class MousePositionWidget extends RefCounted {
 
 const DIMENSION_TOOL_ID = "dimension";
 
-interface SupportsDimensionTool<ToolContext extends Object = Object> {
+interface SupportsDimensionTool<ToolContext extends object = object> {
   position: Position;
   velocity: CoordinateSpacePlaybackVelocity;
   coordinateSpaceCombiner: CoordinateSpaceCombiner;
@@ -1315,7 +1369,7 @@ const TOOL_INPUT_EVENT_MAP = EventActionMap.fromObject({
   "at:shift?+alt?+mousedown0": { action: "toggle-playback" },
 });
 
-class DimensionTool<Viewer extends Object> extends Tool<Viewer> {
+class DimensionTool<Viewer extends object> extends Tool<Viewer> {
   get position() {
     return this.viewer.position;
   }
@@ -1329,26 +1383,12 @@ class DimensionTool<Viewer extends Object> extends Tool<Viewer> {
   activate(activation: ToolActivation<this>) {
     const { viewer } = this;
     const { content } = makeToolActivationStatusMessage(activation);
-    content.classList.add("neuroglancer-position-tool");
+    const { positionWidget } = this.makeTool(
+      activation,
+      content,
+      /*inPalette=*/ false,
+    );
     activation.bindInputEventMap(TOOL_INPUT_EVENT_MAP);
-    const positionWidget = new PositionWidget(
-      viewer.position,
-      viewer.coordinateSpaceCombiner,
-      {
-        velocity: viewer.velocity,
-        singleDimensionId: this.dimensionId,
-        copyButton: false,
-        allowFocus: false,
-        showPlayback: false,
-      },
-    );
-    positionWidget.element.style.userSelect = "none";
-    content.appendChild(activation.registerDisposer(positionWidget).element);
-    const plot = activation.registerDisposer(
-      new PositionPlot(viewer.position, this.dimensionId, "row"),
-    );
-    plot.element.style.flex = "1";
-    content.appendChild(plot.element);
     activation.bindAction<WheelEvent>(
       "adjust-position-via-wheel",
       (actionEvent) => {
@@ -1364,6 +1404,56 @@ class DimensionTool<Viewer extends Object> extends Tool<Viewer> {
         );
       },
     );
+    activation.bindAction<WheelEvent>(
+      "adjust-velocity-via-wheel",
+      (actionEvent) => {
+        actionEvent.stopPropagation();
+        const factor = getWheelZoomAmount(actionEvent.detail);
+        viewer.velocity.multiplyVelocity(this.dimensionId, factor);
+      },
+    );
+    activation.bindAction<WheelEvent>("toggle-playback", (event) => {
+      event.stopPropagation();
+      viewer.velocity.togglePlayback(this.dimensionId);
+    });
+  }
+
+  renderInPalette(context: RefCounted) {
+    const content = document.createElement("div");
+    this.makeTool(context, content, /*inPalette=*/ true);
+    return content;
+  }
+
+  private makeTool(
+    activation: RefCounted,
+    content: HTMLElement,
+    inPalette: boolean,
+  ) {
+    const { viewer } = this;
+    if (inPalette) {
+      content.classList.add("neuroglancer-position-tool-in-palette");
+    } else {
+      content.classList.add("neuroglancer-position-tool");
+    }
+    const positionWidget = new PositionWidget(
+      viewer.position,
+      viewer.coordinateSpaceCombiner,
+      {
+        velocity: viewer.velocity,
+        singleDimensionId: this.dimensionId,
+        copyButton: false,
+        allowFocus: inPalette,
+        showPlayback: false,
+        showDropdown: false,
+      },
+    );
+    positionWidget.element.style.userSelect = "none";
+    content.appendChild(activation.registerDisposer(positionWidget).element);
+    const plot = activation.registerDisposer(
+      new PositionPlot(viewer.position, this.dimensionId, "row"),
+    );
+    plot.element.style.flex = "1";
+    content.appendChild(plot.element);
 
     const watchableVelocity = this.velocity.dimensionVelocity(
       activation,
@@ -1467,50 +1557,39 @@ class DimensionTool<Viewer extends Object> extends Tool<Viewer> {
         }),
       ).element,
     );
+    return { positionWidget };
+  }
 
-    activation.bindAction<WheelEvent>(
-      "adjust-velocity-via-wheel",
-      (actionEvent) => {
-        actionEvent.stopPropagation();
-        const factor = getWheelZoomAmount(actionEvent.detail);
-        viewer.velocity.multiplyVelocity(this.dimensionId, factor);
-      },
-    );
-    activation.bindAction<WheelEvent>("toggle-playback", (event) => {
-      event.stopPropagation();
-      viewer.velocity.togglePlayback(this.dimensionId);
-    });
+  private savedDimensionName: string = "";
+
+  get dimensionName(): string | undefined {
+    const { dimensionId } = this;
+    const coordinateSpace = this.coordinateSpace.value;
+    const i = coordinateSpace.ids.indexOf(dimensionId);
+    if (i === -1) return undefined;
+    return coordinateSpace.names[i];
   }
 
   get description() {
     return `dim ${this.dimensionName}`;
   }
 
-  dimensionIndex: number;
-  dimensionName: string;
-
   constructor(
     public viewer: SupportsDimensionTool<Viewer>,
     public dimensionId: DimensionId,
   ) {
     super(viewer.toolBinder);
-    const coordinateSpace = this.coordinateSpace.value;
-    const i = (this.dimensionIndex = coordinateSpace.ids.indexOf(dimensionId));
-    this.dimensionName = coordinateSpace.names[i];
+    this.savedDimensionName = this.dimensionName!;
     this.registerDisposer(
       this.coordinateSpace.changed.add(() => {
-        const coordinateSpace = this.coordinateSpace.value;
-        const i = (this.dimensionIndex =
-          this.coordinateSpace.value.ids.indexOf(dimensionId));
-        if (i === -1) {
+        const dimensionName = this.dimensionName;
+        if (dimensionName === undefined) {
           this.unbind();
           return;
         }
-        const newName = coordinateSpace.names[i];
-        if (this.dimensionName !== newName) {
-          this.dimensionName = newName;
-          this.changed.dispatch();
-        }
+        if (dimensionName === this.savedDimensionName) return;
+        this.savedDimensionName = dimensionName;
+        this.changed.dispatch();
       }),
     );
   }
@@ -1533,40 +1612,72 @@ function makeDimensionTool(viewer: SupportsDimensionTool, obj: unknown) {
   return new DimensionTool(viewer, coordinateSpace.ids[dimensionIndex]);
 }
 
-registerTool(Viewer, DIMENSION_TOOL_ID, (viewer, obj) =>
-  makeDimensionTool(
-    {
-      position: viewer.position,
-      velocity: viewer.velocity,
-      coordinateSpaceCombiner:
-        viewer.layerSpecification.coordinateSpaceCombiner,
-      toolBinder: viewer.toolBinder,
-    },
-    obj,
-  ),
-);
+function listDimensionTools(
+  coordinateSpace: TrackableCoordinateSpace,
+  onChange?: () => void,
+) {
+  if (onChange !== undefined) {
+    coordinateSpace.changed.addOnce(onChange);
+  }
+  return coordinateSpace.value.names.map((name) => ({
+    type: DIMENSION_TOOL_ID,
+    dimension: name,
+  }));
+}
 
-registerTool(UserLayer, DIMENSION_TOOL_ID, (layer, obj) =>
-  makeDimensionTool(
-    {
-      position: layer.localPosition,
-      velocity: layer.localVelocity,
-      coordinateSpaceCombiner: layer.localCoordinateSpaceCombiner,
-      toolBinder: layer.toolBinder,
-    },
-    obj,
-  ),
-);
+export function registerDimensionToolForViewer(contextType: typeof Viewer) {
+  registerTool(
+    contextType,
+    DIMENSION_TOOL_ID,
+    (viewer, obj) =>
+      makeDimensionTool(
+        {
+          position: viewer.position,
+          velocity: viewer.velocity,
+          coordinateSpaceCombiner:
+            viewer.layerSpecification.coordinateSpaceCombiner,
+          toolBinder: viewer.toolBinder,
+        },
+        obj,
+      ),
+    (viewer, onChange) => listDimensionTools(viewer.coordinateSpace, onChange),
+  );
+}
 
-registerTool(LayerGroupViewer, DIMENSION_TOOL_ID, (layerGroupViewer, obj) =>
-  makeDimensionTool(
-    {
-      position: layerGroupViewer.viewerNavigationState.position.value,
-      velocity: layerGroupViewer.viewerNavigationState.velocity.velocity,
-      coordinateSpaceCombiner:
-        layerGroupViewer.layerSpecification.root.coordinateSpaceCombiner,
-      toolBinder: layerGroupViewer.toolBinder,
-    },
-    obj,
-  ),
-);
+export function registerDimensionToolForUserLayer(
+  contextType: typeof UserLayer,
+) {
+  registerTool(
+    contextType,
+    DIMENSION_TOOL_ID,
+    (layer, obj) =>
+      makeDimensionTool(
+        {
+          position: layer.localPosition,
+          velocity: layer.localVelocity,
+          coordinateSpaceCombiner: layer.localCoordinateSpaceCombiner,
+          toolBinder: layer.toolBinder,
+        },
+        obj,
+      ),
+    (layer, onChange) =>
+      listDimensionTools(layer.localCoordinateSpace, onChange),
+  );
+}
+
+export function registerDimensionToolForLayerGroupViewer(
+  contextType: typeof LayerGroupViewer,
+) {
+  registerTool(contextType, DIMENSION_TOOL_ID, (layerGroupViewer, obj) =>
+    makeDimensionTool(
+      {
+        position: layerGroupViewer.viewerNavigationState.position.value,
+        velocity: layerGroupViewer.viewerNavigationState.velocity.velocity,
+        coordinateSpaceCombiner:
+          layerGroupViewer.layerSpecification.root.coordinateSpaceCombiner,
+        toolBinder: layerGroupViewer.toolBinder,
+      },
+      obj,
+    ),
+  );
+}

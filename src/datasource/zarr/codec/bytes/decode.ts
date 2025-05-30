@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { CodecArrayInfo, CodecKind } from "#/datasource/zarr/codec";
-import type { Configuration } from "#/datasource/zarr/codec/bytes/resolve";
-import { registerCodec } from "#/datasource/zarr/codec/decode";
-import { CancellationToken } from "#/util/cancellation";
-import { DATA_TYPE_BYTES, makeDataTypeArrayView } from "#/util/data_type";
-import { convertEndian } from "#/util/endian";
+import type { Configuration } from "#src/datasource/zarr/codec/bytes/resolve.js";
+import { registerCodec } from "#src/datasource/zarr/codec/decode.js";
+import type { CodecArrayInfo } from "#src/datasource/zarr/codec/index.js";
+import { CodecKind } from "#src/datasource/zarr/codec/index.js";
+import { DATA_TYPE_BYTES, makeDataTypeArrayView } from "#src/util/data_type.js";
+import { convertEndian } from "#src/util/endian.js";
 
 registerCodec({
   name: "bytes",
@@ -27,10 +27,10 @@ registerCodec({
   async decode(
     configuration: Configuration,
     decodedArrayInfo: CodecArrayInfo,
-    encoded: Uint8Array,
-    cancellationToken: CancellationToken,
-  ): Promise<ArrayBufferView> {
-    cancellationToken;
+    encoded,
+    abortSignal: AbortSignal,
+  ) {
+    abortSignal;
     const { dataType, chunkShape } = decodedArrayInfo;
     const numElements = chunkShape.reduce((a, b) => a * b, 1);
     const bytesPerElement = DATA_TYPE_BYTES[dataType];

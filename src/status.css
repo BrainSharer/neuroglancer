@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#statusContainer {
+#neuroglancer-status-container {
   position: absolute;
   bottom: 0px;
   z-index: 100;
@@ -25,7 +25,7 @@
   font: 10pt sans-serif;
 }
 
-#statusContainer li {
+#neuroglancer-status-container li {
   width: 100vw;
   max-height: 25vh;
   overflow-y: auto;
@@ -37,4 +37,42 @@
   font-weight: bold;
   background-color: #333;
   padding: 2px;
+}
+
+#neuroglancer-status-container-modal {
+  pointer-events: none;
+  position: absolute;
+  z-index: 100;
+  color: white;
+  margin: 0px;
+  padding: 0px;
+  font: 10pt sans-serif;
+
+  display: grid;
+  align-content: center;
+  justify-content: center;
+  height: 100vh;
+  width: 80vw;
+  left: 10vw;
+  grid-row-gap: 10px;
+}
+
+#neuroglancer-status-container-modal > div {
+  pointer-events: initial;
+  position: relative;
+  background-color: #808080;
+  padding: 20px;
+  padding-top: 30px;
+}
+
+#neuroglancer-status-container-modal > div > div:first-child {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin: 0;
+  padding: 0;
+}
+
+#neuroglancer-status-container-modal li {
+  display: block;
 }

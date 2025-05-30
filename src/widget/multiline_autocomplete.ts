@@ -14,31 +14,30 @@
  * limitations under the License.
  */
 
-import "./multiline_autocomplete.css";
+import "#src/widget/multiline_autocomplete.css";
 
-import debounce from "lodash/debounce";
-import {
-  CancellationToken,
-  CancellationTokenSource,
-} from "#/util/cancellation";
-import {
+import { debounce } from "lodash-es";
+import type {
   BasicCompletionResult,
   Completion,
   CompletionWithDescription,
-} from "#/util/completion";
-import { RefCounted } from "#/util/disposable";
-import { removeChildren, removeFromParent } from "#/util/dom";
-import { positionDropdown } from "#/util/dropdown";
+} from "#src/util/completion.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { removeChildren, removeFromParent } from "#src/util/dom.js";
+import { positionDropdown } from "#src/util/dropdown.js";
 import {
   EventActionMap,
   KeyboardEventBinder,
   registerActionListener,
-} from "#/util/keyboard_bindings";
-import { longestCommonPrefix } from "#/util/longest_common_prefix";
-import { Signal } from "#/util/signal";
-import { VirtualList } from "#/widget/virtual_list";
+} from "#src/util/keyboard_bindings.js";
+import { longestCommonPrefix } from "#src/util/longest_common_prefix.js";
+import { Signal } from "#src/util/signal.js";
+import { VirtualList } from "#src/widget/virtual_list.js";
 
-export type { Completion, CompletionWithDescription } from "#/util/completion";
+export type {
+  Completion,
+  CompletionWithDescription,
+} from "#src/util/completion.js";
 
 const ACTIVE_COMPLETION_CLASS_NAME =
   "neuroglancer-multiline-autocomplete-completion-active";
@@ -95,9 +94,13 @@ const keyMap = EventActionMap.fromObject({
   escape: { action: "cancel", preventDefault: false, stopPropagation: false },
 });
 
+export interface CompletionRequest {
+  value: string;
+  selectionRange?: { begin: number; end: number } | undefined;
+}
 export type Completer = (
-  value: string,
-  cancellationToken: CancellationToken,
+  request: CompletionRequest,
+  abortSignal: AbortSignal,
 ) => Promise<CompletionResult> | null;
 
 const DEFAULT_COMPLETION_DELAY = 200; // milliseconds
@@ -112,9 +115,8 @@ export class AutocompleteTextInput extends RefCounted {
   private prevInputValue: string | undefined = "";
   private completionsVisible = false;
   private activeCompletionPromise: Promise<CompletionResult> | null = null;
-  private activeCompletionCancellationToken:
-    | CancellationTokenSource
-    | undefined = undefined;
+  private activeCompletionAbortController: AbortController | undefined =
+    undefined;
   private hasFocus = false;
   private completionResult: CompletionResult | null = null;
   private dropdownContentsStale = true;
@@ -227,10 +229,16 @@ export class AutocompleteTextInput extends RefCounted {
 
     const debouncedCompleter = (this.scheduleUpdateCompletions = debounce(
       () => {
-        const cancellationToken = (this.activeCompletionCancellationToken =
-          new CancellationTokenSource());
+        const abortController = (this.activeCompletionAbortController =
+          new AbortController());
         const activeCompletionPromise = (this.activeCompletionPromise =
-          this.completer(this.value, cancellationToken));
+          this.completer(
+            {
+              value: this.value,
+              selectionRange: this.getSelectionRange(),
+            },
+            abortController.signal,
+          ));
         if (activeCompletionPromise !== null) {
           activeCompletionPromise.then((completionResult) => {
             if (this.activeCompletionPromise === activeCompletionPromise) {
@@ -763,11 +771,8 @@ export class AutocompleteTextInput extends RefCounted {
 
   private cancelActiveCompletion() {
     this.prevInputValue = undefined;
-    const token = this.activeCompletionCancellationToken;
-    if (token !== undefined) {
-      token.cancel();
-    }
-    this.activeCompletionCancellationToken = undefined;
+    this.activeCompletionAbortController?.abort();
+    this.activeCompletionAbortController = undefined;
     this.activeCompletionPromise = null;
   }
 

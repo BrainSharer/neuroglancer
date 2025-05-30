@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import svg_bin from "ikonate/icons/download.svg";
-import { makeIcon, MakeIconOptions } from "#/widget/icon";
+import svg_bin from "ikonate/icons/download.svg?raw";
+import { makeIcon, MakeIconOptions } from "#src/widget/icon.js";
 
 export function makeSegmentationButton(options: MakeIconOptions = {}) {
   const icon = makeIcon({ svg: svg_bin, ...options });

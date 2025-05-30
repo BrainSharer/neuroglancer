@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-import {
-  Annotation,
-  AnnotationId,
-  fixAnnotationAfterStructuredCloning,
-  SerializedAnnotations,
-} from "#/annotation";
+import type { AnnotationGeometryChunkSpecification } from "#src/annotation/base.js";
 import {
   ANNOTATION_COMMIT_UPDATE_RESULT_RPC_ID,
   ANNOTATION_COMMIT_UPDATE_RPC_ID,
@@ -31,57 +26,59 @@ import {
   ANNOTATION_RENDER_LAYER_UPDATE_SEGMENTATION_RPC_ID,
   ANNOTATION_SPATIALLY_INDEXED_RENDER_LAYER_RPC_ID,
   ANNOTATION_SUBSET_GEOMETRY_CHUNK_SOURCE_RPC_ID,
-  AnnotationGeometryChunkSpecification,
   forEachVisibleAnnotationChunk,
-} from "#/annotation/base";
+} from "#src/annotation/base.js";
+import type {
+  Annotation,
+  AnnotationId,
+  SerializedAnnotations,
+} from "#src/annotation/index.js";
+import { fixAnnotationAfterStructuredCloning } from "#src/annotation/index.js";
+import type { ChunkManager } from "#src/chunk_manager/backend.js";
 import {
   Chunk,
-  ChunkManager,
   ChunkRenderLayerBackend,
   ChunkSource,
   withChunkManager,
-} from "#/chunk_manager/backend";
-import { ChunkPriorityTier, ChunkState } from "#/chunk_manager/base";
-import {
-  DisplayDimensionRenderInfo,
-  displayDimensionRenderInfosEqual,
-} from "#/navigation_state";
-import {
+} from "#src/chunk_manager/backend.js";
+import { ChunkPriorityTier, ChunkState } from "#src/chunk_manager/base.js";
+import type { DisplayDimensionRenderInfo } from "#src/navigation_state.js";
+import { validateDisplayDimensionRenderInfoProperty } from "#src/navigation_state.js";
+import type {
   RenderedViewBackend,
-  RenderLayerBackend,
   RenderLayerBackendAttachment,
-} from "#/render_layer_backend";
-import { receiveVisibleSegmentsState } from "#/segmentation_display_state/backend";
+} from "#src/render_layer_backend.js";
+import { RenderLayerBackend } from "#src/render_layer_backend.js";
+import { receiveVisibleSegmentsState } from "#src/segmentation_display_state/backend.js";
+import type { VisibleSegmentsState } from "#src/segmentation_display_state/base.js";
 import {
   forEachVisibleSegment,
   getObjectKey,
   onTemporaryVisibleSegmentsStateChanged,
   onVisibleSegmentsStateChanged,
-  VisibleSegmentsState,
-} from "#/segmentation_display_state/base";
-import { SharedWatchableValue } from "#/shared_watchable_value";
+} from "#src/segmentation_display_state/base.js";
+import type { SharedWatchableValue } from "#src/shared_watchable_value.js";
 import {
   deserializeTransformedSources,
   SCALE_PRIORITY_MULTIPLIER,
   SliceViewChunk,
   SliceViewChunkSourceBackend,
-} from "#/sliceview/backend";
-import { TransformedSource } from "#/sliceview/base";
-import { registerNested, WatchableValue } from "#/trackable_value";
-import { CancellationToken } from "#/util/cancellation";
-import { Borrowed } from "#/util/disposable";
-import { Uint64 } from "#/util/uint64";
+} from "#src/sliceview/backend.js";
+import type { TransformedSource } from "#src/sliceview/base.js";
+import { registerNested, WatchableValue } from "#src/trackable_value.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import type { Uint64 } from "#src/util/uint64.js";
 import {
   getBasePriority,
   getPriorityTier,
   withSharedVisibility,
-} from "#/visibility_priority/backend";
+} from "#src/visibility_priority/backend.js";
+import type { RPC } from "#src/worker_rpc.js";
 import {
   registerRPC,
   registerSharedObject,
-  RPC,
   SharedObjectCounterpart,
-} from "#/worker_rpc";
+} from "#src/worker_rpc.js";
 
 const ANNOTATION_METADATA_CHUNK_PRIORITY = 200;
 const ANNOTATION_SEGMENT_FILTERED_CHUNK_PRIORITY = 60;
@@ -102,7 +99,7 @@ export class AnnotationMetadataChunk extends Chunk {
 }
 
 export class AnnotationGeometryData implements SerializedAnnotations {
-  data: Uint8Array;
+  data: Uint8Array<ArrayBuffer>;
   typeToOffset: number[];
   typeToIds: string[][];
   typeToIdMaps: Map<string, number>[];
@@ -151,11 +148,11 @@ function GeometryChunkMixin<TBase extends { new (...args: any[]): Chunk }>(
 export class AnnotationGeometryChunk extends GeometryChunkMixin(
   SliceViewChunk,
 ) {
-  source: AnnotationGeometryChunkSourceBackend;
+  declare source: AnnotationGeometryChunkSourceBackend;
 }
 
 export class AnnotationSubsetGeometryChunk extends GeometryChunkMixin(Chunk) {
-  source: AnnotationSubsetGeometryChunkSource;
+  declare source: AnnotationSubsetGeometryChunkSource;
   objectId: Uint64;
 }
 
@@ -173,11 +170,8 @@ class AnnotationMetadataChunkSource extends ChunkSource {
     return chunk;
   }
 
-  download(
-    chunk: AnnotationMetadataChunk,
-    cancellationToken: CancellationToken,
-  ) {
-    return this.parent!.downloadMetadata(chunk, cancellationToken);
+  download(chunk: AnnotationMetadataChunk, abortSignal: AbortSignal) {
+    return this.parent!.downloadMetadata(chunk, abortSignal);
   }
 }
 
@@ -197,7 +191,7 @@ AnnotationGeometryChunkSourceBackend.prototype.chunkConstructor =
 @registerSharedObject(ANNOTATION_SUBSET_GEOMETRY_CHUNK_SOURCE_RPC_ID)
 class AnnotationSubsetGeometryChunkSource extends ChunkSource {
   parent: Borrowed<AnnotationSource> | undefined = undefined;
-  chunks: Map<string, AnnotationSubsetGeometryChunk>;
+  declare chunks: Map<string, AnnotationSubsetGeometryChunk>;
   relationshipIndex: number;
   getChunk(objectId: Uint64) {
     const key = getObjectKey(objectId);
@@ -211,32 +205,31 @@ class AnnotationSubsetGeometryChunkSource extends ChunkSource {
     }
     return chunk;
   }
-  download(
-    chunk: AnnotationSubsetGeometryChunk,
-    cancellationToken: CancellationToken,
-  ) {
+  download(chunk: AnnotationSubsetGeometryChunk, abortSignal: AbortSignal) {
     return this.parent!.downloadSegmentFilteredGeometry(
       chunk,
       this.relationshipIndex,
-      cancellationToken,
+      abortSignal,
     );
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface AnnotationSource {
   // TODO(jbms): Move this declaration to class definition below and declare abstract once
   // TypeScript supports mixins with abstract classes.
   downloadMetadata(
     chunk: AnnotationMetadataChunk,
-    cancellationToken: CancellationToken,
+    abortSignal: AbortSignal,
   ): Promise<void>;
   downloadSegmentFilteredGeometry(
     chunk: AnnotationSubsetGeometryChunk,
     relationshipIndex: number,
-    cancellationToken: CancellationToken,
+    abortSignal: AbortSignal,
   ): Promise<void>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class AnnotationSource extends SharedObjectCounterpart {
   references = new Set<AnnotationId>();
   chunkManager: Borrowed<ChunkManager>;
@@ -412,22 +405,15 @@ class AnnotationSpatiallyIndexedRenderLayerBackend extends withChunkManager(
       }
       const attachmentState =
         attachment.state! as AnnotationRenderLayerAttachmentState;
-      const { transformedSources, displayDimensionRenderInfo } =
-        attachmentState;
-      if (transformedSources.length === 0) continue;
-      const viewDisplayDimensionRenderInfo =
-        view.projectionParameters.value.displayDimensionRenderInfo;
-      if (displayDimensionRenderInfo !== viewDisplayDimensionRenderInfo) {
-        if (
-          !displayDimensionRenderInfosEqual(
-            displayDimensionRenderInfo,
-            viewDisplayDimensionRenderInfo,
-          )
-        ) {
-          continue;
-        }
-        attachmentState.displayDimensionRenderInfo =
-          viewDisplayDimensionRenderInfo;
+      const { transformedSources } = attachmentState;
+      if (
+        transformedSources.length === 0 ||
+        !validateDisplayDimensionRenderInfoProperty(
+          attachmentState,
+          view.projectionParameters.value.displayDimensionRenderInfo,
+        )
+      ) {
+        continue;
       }
       const priorityTier = getPriorityTier(visibility);
       const basePriority = getBasePriority(visibility);

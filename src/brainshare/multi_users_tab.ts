@@ -1,16 +1,17 @@
 import "./multi_users_tab.css";
 
 import debounce from "lodash/debounce";
-import svg_swap_horizontal from "ikonate/icons/swap-horizontal.svg";
-import { RefCounted } from "#/util/disposable";
-import { getCachedJson, Trackable } from "#/util/trackable";
-import { makeIcon } from "#/widget/icon";
-import { Tab } from "#/widget/tab_view";
-import { WatchableValue } from "#/trackable_value";
+// Update the path below to the actual location of swap-horizontal.svg in your project
+// import svg_swap_horizontal from "../../assets/icons/swap-horizontal.svg";
+import { RefCounted } from "#src/util/disposable.js";
+import { getCachedJson, Trackable } from "#src/util/trackable.js";
+import { makeIcon } from "#src/widget/icon.js";
+import { Tab } from "#src/widget/tab_view.js";
+import { WatchableValue } from "#src/trackable_value.js";
 import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, 
-  listenToDocumentChanges } from "./state_utils";
-import { verifyObject } from "src/util/json";
-import { APIs } from "./service";
+  listenToDocumentChanges } from "./state_utils.ts";
+import { verifyObject } from "#src/util/json.js";
+import { APIs } from "./service.ts";
 
 enum MultiUsersStatus {
   disabled = 1,

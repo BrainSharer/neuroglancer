@@ -14,15 +14,22 @@
  * limitations under the License.
  */
 
-import { FrameNumberCounter } from "#/chunk_manager/frontend";
-import { TrackableValue } from "#/trackable_value";
-import { animationFrameDebounce } from "#/util/animation_frame_debounce";
-import { Borrowed, RefCounted } from "#/util/disposable";
-import { mat4 } from "#/util/geom";
-import { parseFixedLengthArray, verifyFloat01 } from "#/util/json";
-import { NullarySignal } from "#/util/signal";
-import { WatchableVisibilityPriority } from "#/visibility_priority/frontend";
-import { GL, initializeWebGL } from "#/webgl/context";
+import { debounce } from "lodash-es";
+
+import type { FrameNumberCounter } from "#src/chunk_manager/frontend.js";
+import { TrackableValue } from "#src/trackable_value.js";
+import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { FramerateMonitor } from "#src/util/framerate.js";
+import type { mat4 } from "#src/util/geom.js";
+import { parseFixedLengthArray, verifyFloat01 } from "#src/util/json.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type { WatchableVisibilityPriority } from "#src/visibility_priority/frontend.js";
+import type { GL } from "#src/webgl/context.js";
+import { initializeWebGL } from "#src/webgl/context.js";
+
+const DELAY_AFTER_CONTINUOUS_CAMERA_MOTION_MS = 300;
 
 export class RenderViewport {
   // Width of visible portion of panel in canvas pixels.
@@ -108,7 +115,7 @@ export abstract class RenderedPanel extends RefCounted {
 
   renderViewport = new RenderViewport();
 
-  private monitorState: PanelMonitorState = {};
+  private monitorState: PanelMonitorState = { isIntersecting: true };
 
   constructor(
     public context: Borrowed<DisplayContext>,
@@ -379,6 +386,13 @@ interface PanelMonitorState {
   // detections due to normalization that the browser may do.
   intersectionObserverMargin?: string;
 
+  // Indicates that the element is intersecting the viewport at all. If `true`,
+  // then the intersection observer margin is set normally to detect any
+  // changes. If `false`, then the intersection observer margin is set to cover
+  // the entire viewport in order to detect when the panel becomes visible
+  // again.
+  isIntersecting: boolean;
+
   // Indicates that the panel element was added to the resize observer.
   addedToResizeObserver?: boolean;
 }
@@ -388,12 +402,18 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
   gl: GL;
   updateStarted = new NullarySignal();
   updateFinished = new NullarySignal();
+  continuousCameraMotionStarted = new NullarySignal();
+  continuousCameraMotionFinished = new NullarySignal();
   changed = this.updateFinished;
   panels = new Set<RenderedPanel>();
   canvasRect: DOMRect | undefined;
   rootRect: DOMRect | undefined;
   resizeGeneration = 0;
   boundsGeneration = -1;
+  force3DHistogramForAutoRange = false;
+  private framerateMonitor = new FramerateMonitor();
+
+  private continuousCameraMotionInProgress = false;
 
   // Panels ordered by `drawOrder`.  If length is 0, needs to be recomputed.
   private orderedPanels: RenderedPanel[] = [];
@@ -417,21 +437,37 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
       this.resizeObserver.observe(element);
       state.addedToResizeObserver = true;
     }
-    const rootRect = this.rootRect!;
-    const marginTop = rootRect.top - elementClientRect.top;
-    const marginLeft = rootRect.left - elementClientRect.left;
-    const marginRight = elementClientRect.right - rootRect.right;
-    const marginBottom = elementClientRect.bottom - rootRect.bottom;
-    const margin = `${marginTop}px ${marginRight}px ${marginBottom}px ${marginLeft}px`;
+    let margin: string;
+    if (state.isIntersecting) {
+      const rootRect = this.rootRect!;
+      const marginTop = rootRect.top - elementClientRect.top;
+      const marginLeft = rootRect.left - elementClientRect.left;
+      const marginRight = elementClientRect.right - rootRect.right;
+      const marginBottom = elementClientRect.bottom - rootRect.bottom;
+      margin = `${marginTop}px ${marginRight}px ${marginBottom}px ${marginLeft}px`;
+    } else {
+      margin = "";
+    }
     if (state.intersectionObserverMargin !== margin) {
       state.intersectionObserverMargin = margin;
       state.intersectionObserver?.disconnect();
+      const thresholds = new Array(101);
+      for (let i = 0; i <= 100; ++i) {
+        thresholds[i] = 0.01 * i;
+      }
       const intersectionObserver = (state.intersectionObserver =
-        new IntersectionObserver(this.resizeCallback, {
-          root: this.container,
-          rootMargin: margin,
-          threshold: [0.99, 1],
-        }));
+        new IntersectionObserver(
+          (entries) => {
+            const lastEntry = entries[entries.length - 1];
+            state.isIntersecting = lastEntry.isIntersecting;
+            this.resizeCallback();
+          },
+          {
+            root: this.container,
+            rootMargin: margin,
+            threshold: thresholds,
+          },
+        ));
       intersectionObserver.observe(element);
     }
   }
@@ -444,6 +480,25 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
   }
 
   private resizeObserver = new ResizeObserver(this.resizeCallback);
+
+  private debouncedEndContinuousCameraMotion = this.registerCancellable(
+    debounce(() => {
+      this.continuousCameraMotionInProgress = false;
+      this.continuousCameraMotionFinished.dispatch();
+    }, DELAY_AFTER_CONTINUOUS_CAMERA_MOTION_MS),
+  );
+
+  flagContinuousCameraMotion() {
+    if (!this.continuousCameraMotionInProgress) {
+      this.continuousCameraMotionStarted.dispatch();
+    }
+    this.continuousCameraMotionInProgress = true;
+    this.debouncedEndContinuousCameraMotion();
+  }
+
+  get isContinuousCameraMotionInProgress() {
+    return this.continuousCameraMotionInProgress;
+  }
 
   constructor(public container: HTMLElement) {
     super();
@@ -555,6 +610,8 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
     ++this.frameNumber;
     this.updateStarted.dispatch();
     const gl = this.gl;
+    const ext = this.framerateMonitor.getTimingExtension(gl);
+    this.framerateMonitor.startFrameTimeQuery(gl, ext, this.frameNumber);
     this.ensureBoundsUpdated();
     this.gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -578,6 +635,8 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
     gl.clear(gl.COLOR_BUFFER_BIT);
     this.gl.colorMask(true, true, true, true);
     this.updateFinished.dispatch();
+    this.framerateMonitor.endLastTimeQuery(gl, ext);
+    this.framerateMonitor.grabAnyFinishedQueryResults(gl);
   }
 
   getDepthArray(): Float32Array {
@@ -604,5 +663,9 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
       }
     }
     return depthArray;
+  }
+
+  getLastFrameTimesInMs(numberOfFrames: number = 10) {
+    return this.framerateMonitor.getLastFrameTimesInMs(numberOfFrames);
   }
 }

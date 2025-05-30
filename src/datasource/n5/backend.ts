@@ -14,30 +14,28 @@
  * limitations under the License.
  */
 
-import { decodeBlosc } from "#/async_computation/decode_blosc_request";
-import { decodeZstd } from "#/async_computation/decode_zstd_request";
-import { decodeGzip } from "#/async_computation/decode_gzip_request";
-import { requestAsyncComputation } from "#/async_computation/request";
-import { WithParameters } from "#/chunk_manager/backend";
-import { WithSharedCredentialsProviderCounterpart } from "#/credentials_provider/shared_counterpart";
+import { decodeBlosc } from "#src/async_computation/decode_blosc_request.js";
+import { decodeZstd } from "#src/async_computation/decode_zstd_request.js";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import { WithParameters } from "#src/chunk_manager/backend.js";
+import { WithSharedCredentialsProviderCounterpart } from "#src/credentials_provider/shared_counterpart.js";
 import {
   VolumeChunkEncoding,
   VolumeChunkSourceParameters,
-} from "#/datasource/n5/base";
-import { decodeRawChunk } from "#/sliceview/backend_chunk_decoders/raw";
-import { VolumeChunk, VolumeChunkSource } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { Endianness } from "#/util/endian";
-import { isNotFoundError, responseArrayBuffer } from "#/util/http_request";
-import {
-  cancellableFetchSpecialOk,
-  SpecialProtocolCredentials,
-} from "#/util/special_protocol_request";
-import { registerSharedObject } from "#/worker_rpc";
+} from "#src/datasource/n5/base.js";
+import { decodeRawChunk } from "#src/sliceview/backend_chunk_decoders/raw.js";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
+import { VolumeChunkSource } from "#src/sliceview/volume/backend.js";
+import { Endianness } from "#src/util/endian.js";
+import { decodeGzip } from "#src/util/gzip.js";
+import { isNotFoundError } from "#src/util/http_request.js";
+import type { SpecialProtocolCredentials } from "#src/util/special_protocol_request.js";
+import { fetchSpecialOk } from "#src/util/special_protocol_request.js";
+import { registerSharedObject } from "#src/worker_rpc.js";
 
 async function decodeChunk(
   chunk: VolumeChunk,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal,
   response: ArrayBuffer,
   encoding: VolumeChunkEncoding,
 ) {
@@ -59,18 +57,16 @@ async function decodeChunk(
   chunk.chunkDataSize = shape;
   let buffer = new Uint8Array(response, offset);
   switch (encoding) {
+    case VolumeChunkEncoding.ZLIB:
+      buffer = new Uint8Array(await decodeGzip(buffer, "deflate"));
+      break;
     case VolumeChunkEncoding.GZIP:
-      buffer = await requestAsyncComputation(
-        decodeGzip,
-        cancellationToken,
-        [buffer.buffer],
-        buffer,
-      );
+      buffer = new Uint8Array(await decodeGzip(buffer, "gzip"));
       break;
     case VolumeChunkEncoding.BLOSC:
       buffer = await requestAsyncComputation(
         decodeBlosc,
-        cancellationToken,
+        abortSignal,
         [buffer.buffer],
         buffer,
       );
@@ -78,7 +74,7 @@ async function decodeChunk(
     case VolumeChunkEncoding.ZSTD:
       buffer = await requestAsyncComputation(
         decodeZstd,
-        cancellationToken,
+        abortSignal,
         [buffer.buffer],
         buffer,
       );
@@ -86,7 +82,7 @@ async function decodeChunk(
   }
   await decodeRawChunk(
     chunk,
-    cancellationToken,
+    abortSignal,
     buffer.buffer,
     Endianness.BIG,
     buffer.byteOffset,
@@ -101,7 +97,7 @@ export class PrecomputedVolumeChunkSource extends WithParameters(
   ),
   VolumeChunkSourceParameters,
 ) {
-  async download(chunk: VolumeChunk, cancellationToken: CancellationToken) {
+  async download(chunk: VolumeChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     const { chunkGridPosition } = chunk;
     let url = parameters.url;
@@ -110,17 +106,13 @@ export class PrecomputedVolumeChunkSource extends WithParameters(
       url += `/${chunkGridPosition[i]}`;
     }
     try {
-      const response = await cancellableFetchSpecialOk(
-        this.credentialsProvider,
-        url,
-        {},
-        responseArrayBuffer,
-        cancellationToken,
-      );
+      const response = await fetchSpecialOk(this.credentialsProvider, url, {
+        signal: abortSignal,
+      });
       await decodeChunk(
         chunk,
-        cancellationToken,
-        response,
+        abortSignal,
+        await response.arrayBuffer(),
         parameters.encoding,
       );
     } catch (e) {

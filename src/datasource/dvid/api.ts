@@ -18,15 +18,8 @@
  * limitations under the License.
  */
 
-import { CredentialsProvider } from "#/credentials_provider";
-import { fetchWithCredentials } from "#/credentials_provider/http_request";
-import { CancellationToken, uncancelableToken } from "#/util/cancellation";
-import {
-  cancellableFetchOk,
-  responseArrayBuffer,
-  responseJson,
-  ResponseTransform,
-} from "#/util/http_request";
+import { fetchWithCredentials } from "#src/credentials_provider/http_request.js";
+import type { CredentialsProvider } from "#src/credentials_provider/index.js";
 
 export interface DVIDToken {
   // If token is undefined, it indicates anonymous credentials that may be retried.
@@ -34,12 +27,6 @@ export interface DVIDToken {
 }
 
 export const credentialsKey = "DVID";
-
-interface HttpCall {
-  method: "GET" | "POST" | "DELETE" | "HEAD";
-  url: string;
-  payload?: string;
-}
 
 export class DVIDInstance {
   constructor(
@@ -84,91 +71,15 @@ export function appendQueryStringForDvid(
   return url;
 }
 
-export function responseText(response: Response): Promise<any> {
-  return response.text();
-}
-
-export function makeRequest(
-  httpCall: HttpCall & { responseType: "arraybuffer" },
-  cancellationToken?: CancellationToken,
-): Promise<ArrayBuffer>;
-
-export function makeRequest(
-  httpCall: HttpCall & { responseType: "json" },
-  cancellationToken?: CancellationToken,
-): Promise<any>;
-
-export function makeRequest(
-  httpCall: HttpCall & { responseType: "" },
-  cancellationToken?: CancellationToken,
-): Promise<any>;
-
-export function makeRequest(
-  httpCall: HttpCall & { responseType: XMLHttpRequestResponseType },
-  cancellationToken: CancellationToken = uncancelableToken,
-): any {
-  const requestInfo = `${httpCall.url}`;
-  const init = { method: httpCall.method, body: httpCall.payload };
-
-  if (httpCall.responseType === "") {
-    return cancellableFetchOk(
-      requestInfo,
-      init,
-      responseText,
-      cancellationToken,
-    );
-  }
-  return cancellableFetchOk(requestInfo, init, responseJson, cancellationToken);
-}
-
-export function makeRequestWithCredentials(
-  credentialsProvider: CredentialsProvider<DVIDToken>,
-  httpCall: HttpCall & { responseType: "arraybuffer" },
-  cancellationToken?: CancellationToken,
-): Promise<ArrayBuffer>;
-
-export function makeRequestWithCredentials(
-  credentialsProvider: CredentialsProvider<DVIDToken>,
-  httpCall: HttpCall & { responseType: "json" },
-  cancellationToken?: CancellationToken,
-): Promise<any>;
-
-export function makeRequestWithCredentials(
-  credentialsProvider: CredentialsProvider<DVIDToken>,
-  httpCall: HttpCall & { responseType: "" },
-  cancellationToken?: CancellationToken,
-): Promise<any>;
-
-export function makeRequestWithCredentials(
-  credentialsProvider: CredentialsProvider<DVIDToken>,
-  httpCall: HttpCall & { responseType: XMLHttpRequestResponseType },
-  cancellationToken: CancellationToken = uncancelableToken,
-): Promise<any> {
-  return fetchWithDVIDCredentials(
-    credentialsProvider,
-    httpCall.url,
-    { method: httpCall.method, body: httpCall.payload },
-    httpCall.responseType === ""
-      ? responseText
-      : httpCall.responseType === "json"
-        ? responseJson
-        : responseArrayBuffer,
-    cancellationToken,
-  );
-}
-
-export function fetchWithDVIDCredentials<T>(
+export function fetchWithDVIDCredentials(
   credentialsProvider: CredentialsProvider<DVIDToken>,
   input: string,
   init: RequestInit,
-  transformResponse: ResponseTransform<T>,
-  cancellationToken: CancellationToken = uncancelableToken,
-): Promise<T> {
+): Promise<Response> {
   return fetchWithCredentials(
     credentialsProvider,
     input,
     init,
-    transformResponse,
     (credentials: DVIDToken, init: RequestInit) => {
       const newInit: RequestInit = { ...init };
       if (credentials.token) {
@@ -187,6 +98,5 @@ export function fetchWithDVIDCredentials<T>(
       }
       throw error;
     },
-    cancellationToken,
   );
 }

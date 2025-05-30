@@ -18,15 +18,20 @@
  * @file Basic annotation data structures.
  */
 
-import {
+import type {
   BoundingBox,
   CoordinateSpaceTransform,
   WatchableCoordinateSpaceTransform,
+<<<<<<< HEAD
   /* BRAINSHARE STARTS */
   CoordinateSpace
   /* BRAINSHARE ENDS */
 } from "#/coordinate_transform";
 import { arraysEqual } from "#/util/array";
+=======
+} from "#src/coordinate_transform.js";
+import { arraysEqual } from "#src/util/array.js";
+>>>>>>> master
 import {
   packColor,
   parseRGBAColorSpecification,
@@ -34,10 +39,11 @@ import {
   serializeColor,
   unpackRGB,
   unpackRGBA,
-} from "#/util/color";
-import { DataType } from "#/util/data_type";
-import { Borrowed, RefCounted } from "#/util/disposable";
-import { Endianness, ENDIANNESS } from "#/util/endian";
+} from "#src/util/color.js";
+import { DataType } from "#src/util/data_type.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { Endianness, ENDIANNESS } from "#src/util/endian.js";
 import {
   expectArray,
   parseArray,
@@ -52,6 +58,7 @@ import {
   verifyOptionalObjectProperty,
   verifyOptionalString,
   verifyString,
+<<<<<<< HEAD
   /* BRAINSHARE STARTS */
   verifyBoolean,
   verifyStringArray,
@@ -67,6 +74,13 @@ import * as vector from "#/util/vector";
 import { MultiscaleAnnotationSource } from "#/annotation/frontend_source";
 import { getZCoordinate } from "#/annotation/polygon";
 /* BRAINSHARE ENDS */
+=======
+} from "#src/util/json.js";
+import { parseDataTypeValue } from "#src/util/lerp.js";
+import { getRandomHexString } from "#src/util/random.js";
+import { NullarySignal, Signal } from "#src/util/signal.js";
+import { Uint64 } from "#src/util/uint64.js";
+>>>>>>> master
 
 export type AnnotationId = string;
 
@@ -2194,7 +2208,7 @@ export function makeDataBoundsBoundingBoxAnnotationSet(
 }
 
 export interface SerializedAnnotations {
-  data: Uint8Array;
+  data: Uint8Array<ArrayBuffer>;
   typeToIds: string[][];
   typeToOffset: number[];
   typeToIdMaps: Map<string, number>[];

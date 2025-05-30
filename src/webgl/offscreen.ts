@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { RefCounted } from "#/util/disposable";
-import { identityMat4 } from "#/util/geom";
-import { getObjectId } from "#/util/object_id";
-import { GL } from "#/webgl/context";
-import { ShaderModule, ShaderProgram } from "#/webgl/shader";
-import { getSquareCornersBuffer } from "#/webgl/square_corners_buffer";
-import { resizeTexture } from "#/webgl/texture";
+import { RefCounted } from "#src/util/disposable.js";
+import { identityMat4 } from "#src/util/geom.js";
+import { getObjectId } from "#src/util/object_id.js";
+import type { GL } from "#src/webgl/context.js";
+import type { ShaderModule, ShaderProgram } from "#src/webgl/shader.js";
+import { getSquareCornersBuffer } from "#src/webgl/square_corners_buffer.js";
+import { resizeTexture } from "#src/webgl/texture.js";
 import {
   defineCopyFragmentShader,
   elementWiseTextureShader,
-} from "#/webgl/trivial_shaders";
+} from "#src/webgl/trivial_shaders.js";
 
 export abstract class SizeManaged extends RefCounted {
   width = Number.NaN;
@@ -110,9 +110,10 @@ export class DepthStencilRenderbuffer extends DepthRenderbuffer {
 export const StencilRenderbuffer = DepthStencilRenderbuffer;
 
 export class Framebuffer extends RefCounted {
-  framebuffer = this.gl.createFramebuffer();
+  framebuffer;
   constructor(public gl: GL) {
     super();
+    this.framebuffer = gl.createFramebuffer();
   }
   disposed() {
     const { gl } = this;
@@ -219,7 +220,7 @@ export class FramebufferConfiguration<
   depthBuffer: DepthBuffer | undefined;
   fullAttachmentList = new Array<number>();
   private attachmentVerified = false;
-  singleAttachmentList = [this.gl.COLOR_ATTACHMENT0];
+  singleAttachmentList = [WebGL2RenderingContext.COLOR_ATTACHMENT0];
 
   constructor(
     public gl: GL,
@@ -352,9 +353,11 @@ export class OffscreenCopyHelper extends RefCounted {
   ) {
     super();
     this.registerDisposer(shader);
+    this.copyVertexPositionsBuffer = getSquareCornersBuffer(gl);
+    this.copyTexCoordsBuffer = getSquareCornersBuffer(gl, 0, 0, 1, 1);
   }
-  private copyVertexPositionsBuffer = getSquareCornersBuffer(this.gl);
-  private copyTexCoordsBuffer = getSquareCornersBuffer(this.gl, 0, 0, 1, 1);
+  private copyVertexPositionsBuffer;
+  private copyTexCoordsBuffer;
 
   draw(...textures: (WebGLTexture | null)[]) {
     const { gl, shader } = this;

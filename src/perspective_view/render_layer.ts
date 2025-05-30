@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import { VisibleLayerInfo } from "#/layer";
-import { PerspectivePanel } from "#/perspective_view/panel";
-import {
+import type { VisibleLayerInfo } from "#src/layer/index.js";
+import type { PerspectivePanel } from "#src/perspective_view/panel.js";
+import type {
   ThreeDimensionalReadyRenderContext,
   ThreeDimensionalRenderContext,
-  VisibilityTrackedRenderLayer,
-} from "#/renderlayer";
-import { vec3 } from "#/util/geom";
-import { ShaderModule } from "#/webgl/shader";
-import { SharedObject } from "#/worker_rpc";
+} from "#src/renderlayer.js";
+import { VisibilityTrackedRenderLayer } from "#src/renderlayer.js";
+import type { vec3 } from "#src/util/geom.js";
+import type { ShaderBuilder, ShaderModule } from "#src/webgl/shader.js";
+import type { SharedObject } from "#src/worker_rpc.js";
 
 export type PerspectiveViewReadyRenderContext =
   ThreeDimensionalReadyRenderContext;
@@ -55,8 +55,40 @@ export interface PerspectiveViewRenderContext
    * Specifies the ID of the depth frame buffer texture to query during rendering.
    */
   depthBufferTexture?: WebGLTexture | null;
+
+  /**
+   * Specifies if there are any slice views
+   */
+  sliceViewsPresent: boolean;
+
+  /**
+   * Specifies if the camera is moving
+   */
+  isContinuousCameraMotionInProgress: boolean;
+
+  /**
+   * Usually, the histogram in 3D is disabled during camera movement
+   * This flag is used to force 3D histogram rendering during camera movement
+   */
+  force3DHistogramForAutoRange: boolean;
+
+  /**
+   * Specifices how to bind the max projection buffer
+   */
+  bindMaxProjectionBuffer?: () => void | undefined;
+
+  /**
+   * Specifies how to bind the volume rendering buffer
+   */
+  bindVolumeRenderingBuffer?: () => void | undefined;
+
+  /**
+   * Specifies how to assign the max projection emitter
+   */
+  maxProjectionEmit?: (builder: ShaderBuilder) => void | undefined;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class PerspectiveViewRenderLayer<
   AttachmentState = unknown,
 > extends VisibilityTrackedRenderLayer {
@@ -83,8 +115,10 @@ export class PerspectiveViewRenderLayer<
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface PerspectiveViewRenderLayer<AttachmentState = unknown> {
   isTransparent: boolean | undefined;
   isAnnotation: boolean | undefined;
   backend: SharedObject | undefined;
+  isVolumeRendering: boolean | undefined;
 }

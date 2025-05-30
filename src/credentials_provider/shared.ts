@@ -18,23 +18,21 @@
  * @file Permits a CredentialsProvider to be shared with another thread.
  */
 
+import type {
+  CredentialsProvider,
+  CredentialsWithGeneration,
+} from "#src/credentials_provider/index.js";
 import {
   CREDENTIALS_PROVIDER_RPC_ID,
   CREDENTIALS_PROVIDER_GET_RPC_ID,
-} from "#/credentials_provider/shared_common";
-import {
-  CredentialsProvider,
-  CredentialsWithGeneration,
-} from "#/credentials_provider";
-import { CancellationToken } from "#/util/cancellation";
-import { Owned } from "#/util/disposable";
+} from "#src/credentials_provider/shared_common.js";
+import type { Owned } from "#src/util/disposable.js";
+import type { RPC, RPCPromise } from "#src/worker_rpc.js";
 import {
   registerPromiseRPC,
   registerSharedObjectOwner,
-  RPC,
-  RPCPromise,
   SharedObject,
-} from "#/worker_rpc";
+} from "#src/worker_rpc.js";
 
 @registerSharedObjectOwner(CREDENTIALS_PROVIDER_RPC_ID)
 export class SharedCredentialsProvider<Credentials>
@@ -52,9 +50,9 @@ export class SharedCredentialsProvider<Credentials>
 
   get(
     invalidCredentials?: CredentialsWithGeneration<Credentials>,
-    cancellationToken?: CancellationToken,
+    abortSignal?: AbortSignal,
   ): Promise<CredentialsWithGeneration<Credentials>> {
-    return this.provider.get(invalidCredentials, cancellationToken);
+    return this.provider.get(invalidCredentials, abortSignal);
   }
 }
 
@@ -63,13 +61,11 @@ registerPromiseRPC(
   function (
     this: RPC,
     x: { providerId: number; invalidCredentials: any },
-    cancellationToken: CancellationToken,
+    abortSignal: AbortSignal,
   ): RPCPromise<CredentialsWithGeneration<any>> {
     const obj = <SharedCredentialsProvider<any>>this.get(x.providerId);
-    return obj
-      .get(x.invalidCredentials, cancellationToken)
-      .then((credentials) => ({
-        value: credentials,
-      }));
+    return obj.get(x.invalidCredentials, abortSignal).then((credentials) => ({
+      value: credentials,
+    }));
   },
 );

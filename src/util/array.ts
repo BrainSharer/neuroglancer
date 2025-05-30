@@ -63,35 +63,42 @@ export function filterArrayInplace<T>(
   array.length = outIndex;
 }
 
-export type TypedArrayConstructor =
-  | typeof Int8Array
-  | typeof Uint8Array
-  | typeof Int16Array
-  | typeof Uint16Array
-  | typeof Int32Array
-  | typeof Uint32Array
-  | typeof Float32Array
-  | typeof Float64Array;
+export type TypedArrayConstructor<
+  TArrayBuffer extends ArrayBufferLike = ArrayBufferLike,
+> = (
+  | typeof Int8Array<TArrayBuffer>
+  | typeof Uint8Array<TArrayBuffer>
+  | typeof Int16Array<TArrayBuffer>
+  | typeof Uint16Array<TArrayBuffer>
+  | typeof Int32Array<TArrayBuffer>
+  | typeof Uint32Array<TArrayBuffer>
+  | typeof Float32Array<TArrayBuffer>
+  | typeof Float64Array<TArrayBuffer>
+) &
+  (TArrayBuffer extends ArrayBuffer
+    ? { new (count: number): TypedArray<ArrayBuffer> }
+    : Record<string, never>);
 
-export type TypedArray =
-  | Int8Array
-  | Uint8Array
-  | Int16Array
-  | Uint16Array
-  | Int32Array
-  | Uint32Array
-  | Float32Array
-  | Float64Array;
+export type TypedArray<TArrayBuffer extends ArrayBufferLike = ArrayBufferLike> =
+
+    | Int8Array<TArrayBuffer>
+    | Uint8Array<TArrayBuffer>
+    | Int16Array<TArrayBuffer>
+    | Uint16Array<TArrayBuffer>
+    | Int32Array<TArrayBuffer>
+    | Uint32Array<TArrayBuffer>
+    | Float32Array<TArrayBuffer>
+    | Float64Array<TArrayBuffer>;
 
 /**
  * Returns an array of size newSize that starts with the contents of array.
  * Either returns array if it has the correct size, or a new array with zero
  * padding at the end.
  */
-export function maybePadArray<T extends TypedArray>(
-  array: T,
-  newSize: number,
-): T {
+export function maybePadArray<
+  TArrayBuffer extends ArrayBufferLike,
+  T extends TypedArray<TArrayBuffer>,
+>(array: T, newSize: number): T {
   if (array.length === newSize) {
     return array;
   }
@@ -182,6 +189,39 @@ export function binarySearch<T>(
     }
   }
   return ~low;
+}
+
+/**
+ * Returns the index of the element in `haystack` that is closest to `needle`, according to
+ * `compare`.  If there are multiple elements that are equally close, the index of the first such
+ * element encountered is returned.  If `haystack` is empty, returns -1.
+ */
+export function findClosestMatchInSortedArray<T>(
+  haystack: ArrayLike<T>,
+  needle: T,
+  compare: (a: T, b: T) => number,
+  low = 0,
+  high = haystack.length,
+): number {
+  let bestIndex = -1;
+  let bestDistance = Infinity;
+  while (low < high) {
+    const mid = (low + high - 1) >> 1;
+    const compareResult = compare(needle, haystack[mid]);
+    if (compareResult > 0) {
+      low = mid + 1;
+    } else if (compareResult < 0) {
+      high = mid;
+    } else {
+      return mid;
+    }
+    const distance = Math.abs(compareResult);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = mid;
+    }
+  }
+  return bestIndex;
 }
 
 /**

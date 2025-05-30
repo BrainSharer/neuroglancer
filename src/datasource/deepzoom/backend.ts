@@ -14,24 +14,22 @@
  * limitations under the License.
  */
 
-import { WithParameters } from "#/chunk_manager/backend";
-import { WithSharedCredentialsProviderCounterpart } from "#/credentials_provider/shared_counterpart";
+import { decodeJpeg } from "#src/async_computation/decode_jpeg_request.js";
+import { decodePng } from "#src/async_computation/decode_png_request.js";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import { WithParameters } from "#src/chunk_manager/backend.js";
+import { WithSharedCredentialsProviderCounterpart } from "#src/credentials_provider/shared_counterpart.js";
 import {
   ImageTileEncoding,
   ImageTileSourceParameters,
-} from "#/datasource/deepzoom/base";
-import { VolumeChunk, VolumeChunkSource } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { isNotFoundError, responseArrayBuffer } from "#/util/http_request";
-import {
-  cancellableFetchSpecialOk,
-  SpecialProtocolCredentials,
-} from "#/util/special_protocol_request";
-import { registerSharedObject } from "#/worker_rpc";
-import { decodeJpeg } from "#/async_computation/decode_jpeg_request";
-import { decodePng } from "#/async_computation/decode_png_request";
-import { requestAsyncComputation } from "#/async_computation/request";
-import { transposeArray2d } from "#/util/array";
+} from "#src/datasource/deepzoom/base.js";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
+import { VolumeChunkSource } from "#src/sliceview/volume/backend.js";
+import { transposeArray2d } from "#src/util/array.js";
+import { isNotFoundError } from "#src/util/http_request.js";
+import type { SpecialProtocolCredentials } from "#src/util/special_protocol_request.js";
+import { fetchSpecialOk } from "#src/util/special_protocol_request.js";
+import { registerSharedObject } from "#src/worker_rpc.js";
 
 /* This is enough if support for these aren't needed:
  * - Firefox before 105 (OffscreenCanvas, 2022-09-20)
@@ -55,10 +53,7 @@ export class DeepzoomImageTileSource extends WithParameters(
     return gridShape;
   })();
 
-  async download(
-    chunk: VolumeChunk,
-    cancellationToken: CancellationToken,
-  ): Promise<void> {
+  async download(chunk: VolumeChunk, abortSignal: AbortSignal): Promise<void> {
     const { parameters } = this;
 
     // /* This block is enough if support for these aren't needed:
@@ -68,7 +63,7 @@ export class DeepzoomImageTileSource extends WithParameters(
     // const {tilesize, overlap} = parameters;
     // const [x, y] = chunk.chunkGridPosition;
     // const url = `${parameters.url}/${x}_${y}.${ImageTileEncoding[parameters.encoding].toLowerCase()}`;
-    // const response: Blob = await cancellableFetchSpecialOk(this.credentialsProvider, url, {}, response => response.blob(), cancellationToken);
+    // const response: Blob = await (await fetchSpecialOk(this.credentialsProvider, url, {signal: abortSignal})).blob();
     // const tile = await createImageBitmap(response);
     // const canvas = new OffscreenCanvas(tilesize, tilesize);
     // const ctx = canvas.getContext("2d")!;
@@ -89,13 +84,11 @@ export class DeepzoomImageTileSource extends WithParameters(
     const oy = y === 0 ? 0 : overlap;
     const url = `${parameters.url}/${x}_${y}.${parameters.format}`;
     try {
-      const responseBuffer = await cancellableFetchSpecialOk(
-        this.credentialsProvider,
-        url,
-        {},
-        responseArrayBuffer,
-        cancellationToken,
-      );
+      const responseBuffer = await (
+        await fetchSpecialOk(this.credentialsProvider, url, {
+          signal: abortSignal,
+        })
+      ).arrayBuffer();
 
       let tilewidth = 0;
       let tileheight = 0;
@@ -104,9 +97,10 @@ export class DeepzoomImageTileSource extends WithParameters(
         case ImageTileEncoding.PNG: {
           const pngbitmap = await requestAsyncComputation(
             decodePng,
-            cancellationToken,
+            abortSignal,
             [responseBuffer],
             new Uint8Array(responseBuffer),
+            undefined,
             undefined,
             undefined,
             3,
@@ -126,9 +120,10 @@ export class DeepzoomImageTileSource extends WithParameters(
         case ImageTileEncoding.JPEG: {
           const jpegbitmap = await requestAsyncComputation(
             decodeJpeg,
-            cancellationToken,
+            abortSignal,
             [responseBuffer],
             new Uint8Array(responseBuffer),
+            undefined,
             undefined,
             undefined,
             3,

@@ -24,20 +24,20 @@
  * rendering point primitives.
  */
 
-import { WatchableValueInterface } from "#/trackable_value";
-import { RefCounted } from "#/util/disposable";
-import { DataTypeInterval } from "#/util/lerp";
-import { VisibilityPriorityAggregator } from "#/visibility_priority/frontend";
-import { getMemoizedBuffer } from "#/webgl/buffer";
-import { GL } from "#/webgl/context";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
+import { RefCounted } from "#src/util/disposable.js";
+import type { DataTypeInterval } from "#src/util/lerp.js";
+import { VisibilityPriorityAggregator } from "#src/visibility_priority/frontend.js";
+import { getMemoizedBuffer } from "#src/webgl/buffer.js";
+import type { GL } from "#src/webgl/context.js";
+import type { TextureBuffer } from "#src/webgl/offscreen.js";
 import {
   FramebufferConfiguration,
   makeTextureBuffers,
-  TextureBuffer,
-} from "#/webgl/offscreen";
-import { ShaderBuilder } from "#/webgl/shader";
-import { glsl_simpleFloatHash } from "#/webgl/shader_lib";
-import { setRawTextureParameters } from "#/webgl/texture";
+} from "#src/webgl/offscreen.js";
+import { ShaderBuilder } from "#src/webgl/shader.js";
+import { glsl_simpleFloatHash } from "#src/webgl/shader_lib.js";
+import { setRawTextureParameters } from "#src/webgl/texture.js";
 
 const DEBUG_HISTOGRAMS = false;
 
@@ -105,24 +105,30 @@ const histogramSamples = 2 ** 14;
  * Generates a histogram from a single-channel uint8 texture.
  */
 export class TextureHistogramGenerator extends RefCounted {
-  private shader = this.registerDisposer(
-    (() => {
-      const builder = new ShaderBuilder(this.gl);
-      builder.addOutputBuffer("vec4", "outputValue", 0);
-      builder.addAttribute("float", "aInput1");
-      builder.addTextureSampler(
-        "sampler2D",
-        "uDataSampler",
-        histogramDataSamplerTextureUnit,
-      );
-      builder.addTextureSampler(
-        "sampler2D",
-        "uDepthSampler",
-        histogramDepthTextureUnit,
-      );
-      // builder.addUniform('float', 'uRandomSeed');
-      builder.addVertexCode(glsl_simpleFloatHash);
-      builder.setVertexMain(`
+  private shader;
+  private inputIndexBuffer;
+
+  constructor(public gl: GL) {
+    super();
+
+    this.shader = this.registerDisposer(
+      (() => {
+        const builder = new ShaderBuilder(this.gl);
+        builder.addOutputBuffer("vec4", "outputValue", 0);
+        builder.addAttribute("float", "aInput1");
+        builder.addTextureSampler(
+          "sampler2D",
+          "uDataSampler",
+          histogramDataSamplerTextureUnit,
+        );
+        builder.addTextureSampler(
+          "sampler2D",
+          "uDepthSampler",
+          histogramDepthTextureUnit,
+        );
+        // builder.addUniform('float', 'uRandomSeed');
+        builder.addVertexCode(glsl_simpleFloatHash);
+        builder.setVertexMain(`
 float uRandomSeed = 0.0;
 vec2 p = vec2(simpleFloatHash(vec2(aInput1 + float(gl_VertexID), uRandomSeed + float(gl_InstanceID))),
               simpleFloatHash(vec2(aInput1 + float(gl_VertexID) + 10.0, 5.0 + uRandomSeed + float(gl_InstanceID))));
@@ -135,23 +141,20 @@ if (stencilValue == 1.0) {
 }
 gl_PointSize = 1.0;
 `);
-      builder.setFragmentMain(`
+        builder.setFragmentMain(`
 outputValue = vec4(1.0, 1.0, 1.0, 1.0);
 `);
-      return builder.build();
-    })(),
-  );
+        return builder.build();
+      })(),
+    );
 
-  private inputIndexBuffer = this.registerDisposer(
-    getMemoizedBuffer(
-      this.gl,
-      WebGL2RenderingContext.ARRAY_BUFFER,
-      () => new Uint8Array(histogramSamplesPerInstance),
-    ),
-  );
-
-  constructor(public gl: GL) {
-    super();
+    this.inputIndexBuffer = this.registerDisposer(
+      getMemoizedBuffer(
+        this.gl,
+        WebGL2RenderingContext.ARRAY_BUFFER,
+        () => new Uint8Array(histogramSamplesPerInstance),
+      ),
+    );
   }
 
   static get(gl: GL) {
@@ -209,23 +212,28 @@ outputValue = vec4(1.0, 1.0, 1.0, 1.0);
       );
 
       if (DEBUG_HISTOGRAMS) {
-        const tempBuffer = new Float32Array(256 * 4);
-        gl.readPixels(
-          0,
-          0,
-          256,
-          1,
-          WebGL2RenderingContext.RGBA,
-          WebGL2RenderingContext.FLOAT,
-          tempBuffer,
-        );
-        const tempBuffer2 = new Float32Array(256);
-        for (let j = 0; j < 256; ++j) {
-          tempBuffer2[j] = tempBuffer[j * 4];
-        }
-        console.log("histogram", tempBuffer2.join(" "));
+        const tempBuffer = copyHistogramToCPU(gl);
+        console.log("histogram", tempBuffer.join(" "));
       }
     }
     gl.disable(WebGL2RenderingContext.BLEND);
   }
+}
+
+export function copyHistogramToCPU(gl: GL) {
+  const tempBuffer = new Float32Array(256 * 4);
+  gl.readPixels(
+    0,
+    0,
+    256,
+    1,
+    WebGL2RenderingContext.RGBA,
+    WebGL2RenderingContext.FLOAT,
+    tempBuffer,
+  );
+  const tempBuffer2 = new Float32Array(256);
+  for (let j = 0; j < 256; ++j) {
+    tempBuffer2[j] = tempBuffer[j * 4];
+  }
+  return tempBuffer2;
 }

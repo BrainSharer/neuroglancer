@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-import { VolumeChunk } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
 
 export async function decodeCompressedSegmentationChunk(
   chunk: VolumeChunk,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal,
   response: ArrayBuffer,
 ) {
-  cancellationToken;
+  abortSignal;
   chunk.data = new Uint32Array(response);
 }

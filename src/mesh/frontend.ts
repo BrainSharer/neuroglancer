@@ -14,49 +14,49 @@
  * limitations under the License.
  */
 
-import { ChunkState } from "#/chunk_manager/base";
-import { Chunk, ChunkManager, ChunkSource } from "#/chunk_manager/frontend";
-import { VisibleLayerInfo } from "#/layer";
-import {
+import { ChunkState } from "#src/chunk_manager/base.js";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import { Chunk, ChunkSource } from "#src/chunk_manager/frontend.js";
+import type { VisibleLayerInfo } from "#src/layer/index.js";
+import type {
   EncodedMeshData,
+  MultiscaleFragmentFormat,
+} from "#src/mesh/base.js";
+import {
   FRAGMENT_SOURCE_RPC_ID,
   MESH_LAYER_RPC_ID,
   MULTISCALE_FRAGMENT_SOURCE_RPC_ID,
   MULTISCALE_MESH_LAYER_RPC_ID,
-  MultiscaleFragmentFormat,
   VertexPositionFormat,
-} from "#/mesh/base";
+} from "#src/mesh/base.js";
+import type { MultiscaleMeshManifest } from "#src/mesh/multiscale.js";
 import {
   getMultiscaleChunksToDraw,
   getMultiscaleFragmentKey,
-  MultiscaleMeshManifest,
   validateOctree,
-} from "#/mesh/multiscale";
-import { PerspectivePanel } from "#/perspective_view/panel";
-import {
+} from "#src/mesh/multiscale.js";
+import type { PerspectivePanel } from "#src/perspective_view/panel.js";
+import type {
   PerspectiveViewReadyRenderContext,
   PerspectiveViewRenderContext,
-  PerspectiveViewRenderLayer,
-} from "#/perspective_view/render_layer";
-import {
-  ThreeDimensionalRenderLayerAttachmentState,
-  update3dRenderLayerAttachment,
-} from "#/renderlayer";
+} from "#src/perspective_view/render_layer.js";
+import { PerspectiveViewRenderLayer } from "#src/perspective_view/render_layer.js";
+import type { ThreeDimensionalRenderLayerAttachmentState } from "#src/renderlayer.js";
+import { update3dRenderLayerAttachment } from "#src/renderlayer.js";
 import {
   forEachVisibleSegment,
   getObjectKey,
-} from "#/segmentation_display_state/base";
+} from "#src/segmentation_display_state/base.js";
+import type { SegmentationDisplayState3D } from "#src/segmentation_display_state/frontend.js";
 import {
   forEachVisibleSegmentToDraw,
   registerRedrawWhenSegmentationDisplayState3DChanged,
-  SegmentationDisplayState3D,
   SegmentationLayerSharedObject,
-} from "#/segmentation_display_state/frontend";
-import {
-  makeCachedDerivedWatchableValue,
-  WatchableValueInterface,
-} from "#/trackable_value";
-import { Borrowed, RefCounted } from "#/util/disposable";
+} from "#src/segmentation_display_state/frontend.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
+import { makeCachedDerivedWatchableValue } from "#src/trackable_value.js";
+import type { Borrowed, RefCounted } from "#src/util/disposable.js";
+import type { vec4 } from "#src/util/geom.js";
 import {
   getFrustrumPlanes,
   mat3,
@@ -64,15 +64,15 @@ import {
   mat4,
   scaleMat3Output,
   vec3,
-  vec4,
-} from "#/util/geom";
-import * as matrix from "#/util/matrix";
-import { Uint64 } from "#/util/uint64";
-import { Buffer } from "#/webgl/buffer";
-import { GL } from "#/webgl/context";
-import { parameterizedEmitterDependentShaderGetter } from "#/webgl/dynamic_shader";
-import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
-import { registerSharedObjectOwner, RPC } from "#/worker_rpc";
+} from "#src/util/geom.js";
+import * as matrix from "#src/util/matrix.js";
+import type { Uint64 } from "#src/util/uint64.js";
+import { Buffer } from "#src/webgl/buffer.js";
+import type { GL } from "#src/webgl/context.js";
+import { parameterizedEmitterDependentShaderGetter } from "#src/webgl/dynamic_shader.js";
+import type { ShaderBuilder, ShaderProgram } from "#src/webgl/shader.js";
+import type { RPC } from "#src/worker_rpc.js";
+import { registerSharedObjectOwner } from "#src/worker_rpc.js";
 
 const tempMat4 = mat4.create();
 const tempMat3 = mat3.create();
@@ -240,12 +240,13 @@ highp vec3 getVertexPosition() {
 
 export class MeshShaderManager {
   private tempLightVec = new Float32Array(4);
-  private vertexPositionHandler =
-    vertexPositionHandlers[this.vertexPositionFormat];
+  private vertexPositionHandler: VertexPositionFormatHandler;
   constructor(
     public fragmentRelativeVertices: boolean,
     public vertexPositionFormat: VertexPositionFormat,
-  ) {}
+  ) {
+    this.vertexPositionHandler = vertexPositionHandlers[vertexPositionFormat];
+  }
 
   beginLayer(
     gl: GL,
@@ -412,11 +413,8 @@ export interface MeshDisplayState extends SegmentationDisplayState3D {
 }
 
 export class MeshLayer extends PerspectiveViewRenderLayer<ThreeDimensionalRenderLayerAttachmentState> {
-  protected meshShaderManager = new MeshShaderManager(
-    /*fragmentRelativeVertices=*/ false,
-    VertexPositionFormat.float32,
-  );
-  private getShader = this.meshShaderManager.makeGetter(this);
+  protected meshShaderManager;
+  private getShader;
   backend: SegmentationLayerSharedObject;
 
   constructor(
@@ -425,6 +423,11 @@ export class MeshLayer extends PerspectiveViewRenderLayer<ThreeDimensionalRender
     public displayState: MeshDisplayState,
   ) {
     super();
+    this.meshShaderManager = new MeshShaderManager(
+      /*fragmentRelativeVertices=*/ false,
+      VertexPositionFormat.float32,
+    );
+    this.getShader = this.meshShaderManager.makeGetter(this);
 
     registerRedrawWhenSegmentationDisplayState3DChanged(displayState, this);
     this.registerDisposer(
@@ -582,6 +585,88 @@ export class MeshLayer extends PerspectiveViewRenderLayer<ThreeDimensionalRender
     );
     return ready;
   }
+
+  getObjectPosition(
+    id: Uint64,
+    nearestTo: Float32Array,
+  ): Float32Array | undefined {
+    const transform = this.displayState.transform.value;
+    if (transform.error !== undefined) return undefined;
+    const key = getObjectKey(id);
+    const chunk = this.source.chunks.get(key);
+    if (chunk === undefined) return undefined;
+    const { rank } = transform;
+    const inverseModelToRenderLayerTransform = new Float32Array(
+      transform.modelToRenderLayerTransform.length,
+    );
+    matrix.inverse(
+      inverseModelToRenderLayerTransform,
+      rank + 1,
+      transform.modelToRenderLayerTransform,
+      rank + 1,
+      rank + 1,
+    );
+    const nearestPositionInModal = new Float32Array(rank);
+    matrix.transformPoint(
+      nearestPositionInModal,
+      inverseModelToRenderLayerTransform,
+      rank + 1,
+      nearestTo,
+      rank,
+    );
+    const { fragmentIds } = chunk;
+    let vertexCount = 0;
+    const fragmentChunks: FragmentChunk[] = [];
+    for (const fragmentId of fragmentIds) {
+      const { key: fragmentKey } = this.source.getFragmentKey(key, fragmentId);
+      const fragmentChunk = this.source.fragmentSource.chunks.get(fragmentKey);
+      if (fragmentChunk === undefined) continue;
+      const { state, meshData } = fragmentChunk;
+      if (
+        state !== ChunkState.SYSTEM_MEMORY &&
+        state !== ChunkState.GPU_MEMORY
+      ) {
+        continue;
+      }
+      vertexCount += meshData.vertexPositions.length / rank;
+      fragmentChunks.push(fragmentChunk);
+    }
+    // Only check up to ~100,000 vertices.
+    // Not exact because it restarts the interval for each fragment chunk.
+    const TARGET_VERTEX_COUNT = 100 * 1000;
+    const sampleRate = TARGET_VERTEX_COUNT / vertexCount;
+    const sampleInterval = Math.max(1, Math.floor(1 / sampleRate));
+    const closestVertex = new Float32Array(rank);
+    let closestDistanceSq = Number.POSITIVE_INFINITY;
+    for (const fragmentChunk of fragmentChunks) {
+      const { meshData } = fragmentChunk;
+      const { vertexPositions } = meshData;
+      if (vertexPositions.length < rank) continue;
+      for (let i = 0; i < vertexPositions.length; i += rank * sampleInterval) {
+        let distanceSq = 0;
+        for (let j = 0; j < rank; j++) {
+          distanceSq +=
+            (vertexPositions[i + j] - nearestPositionInModal[j]) ** 2;
+        }
+        if (distanceSq < closestDistanceSq) {
+          closestDistanceSq = distanceSq;
+          for (let j = 0; j < rank; j++) {
+            closestVertex[j] = vertexPositions[i + j];
+          }
+        }
+      }
+    }
+    if (closestDistanceSq === Number.POSITIVE_INFINITY) return undefined;
+    const layerCenter = new Float32Array(rank);
+    matrix.transformPoint(
+      layerCenter,
+      transform.modelToRenderLayerTransform,
+      rank + 1,
+      closestVertex,
+      rank,
+    );
+    return layerCenter;
+  }
 }
 
 export class ManifestChunk extends Chunk {
@@ -594,7 +679,7 @@ export class ManifestChunk extends Chunk {
 }
 
 export class FragmentChunk extends Chunk {
-  source: FragmentSource;
+  declare source: FragmentSource;
   vertexBuffer: Buffer;
   indexBuffer: Buffer;
   normalBuffer: Buffer;
@@ -616,13 +701,13 @@ export class FragmentChunk extends Chunk {
   }
 }
 
-export type MeshSourceOptions = {};
+export type MeshSourceOptions = object;
 
 export class MeshSource extends ChunkSource {
   fragmentSource = this.registerDisposer(
     new FragmentSource(this.chunkManager, this),
   );
-  chunks: Map<string, ManifestChunk>;
+  declare chunks: Map<string, ManifestChunk>;
 
   initializeCounterpart(rpc: RPC, options: any) {
     this.fragmentSource.initializeCounterpart(this.chunkManager.rpc!, {});
@@ -639,7 +724,7 @@ export class MeshSource extends ChunkSource {
 
 @registerSharedObjectOwner(FRAGMENT_SOURCE_RPC_ID)
 export class FragmentSource extends ChunkSource {
-  chunks: Map<string, FragmentChunk>;
+  declare chunks: Map<string, FragmentChunk>;
   get key() {
     return this.meshSource.key;
   }
@@ -669,11 +754,8 @@ function hasFragmentChunk(
 }
 
 export class MultiscaleMeshLayer extends PerspectiveViewRenderLayer<ThreeDimensionalRenderLayerAttachmentState> {
-  protected meshShaderManager = new MeshShaderManager(
-    /*fragmentRelativeVertices=*/ this.source.format.fragmentRelativeVertices,
-    this.source.format.vertexPositionFormat,
-  );
-  private getShader = this.meshShaderManager.makeGetter(this);
+  protected meshShaderManager: MeshShaderManager;
+  private getShader;
   backend: SegmentationLayerSharedObject;
 
   constructor(
@@ -682,6 +764,11 @@ export class MultiscaleMeshLayer extends PerspectiveViewRenderLayer<ThreeDimensi
     public displayState: MeshDisplayState,
   ) {
     super();
+    this.meshShaderManager = new MeshShaderManager(
+      /*fragmentRelativeVertices=*/ source.format.fragmentRelativeVertices,
+      source.format.vertexPositionFormat,
+    );
+    this.getShader = this.meshShaderManager.makeGetter(this);
 
     registerRedrawWhenSegmentationDisplayState3DChanged(displayState, this);
     this.registerDisposer(
@@ -1001,7 +1088,7 @@ export class MultiscaleMeshLayer extends PerspectiveViewRenderLayer<ThreeDimensi
 
 export class MultiscaleManifestChunk extends Chunk {
   manifest: MultiscaleMeshManifest;
-  source: MultiscaleMeshSource;
+  declare source: MultiscaleMeshSource;
 
   constructor(source: MultiscaleMeshSource, x: any) {
     super(source);
@@ -1011,7 +1098,7 @@ export class MultiscaleManifestChunk extends Chunk {
 
 export class MultiscaleFragmentChunk extends Chunk {
   meshData: EncodedMeshData & { subChunkOffsets: Uint32Array };
-  source: MultiscaleFragmentSource;
+  declare source: MultiscaleFragmentSource;
   vertexBuffer: Buffer;
   indexBuffer: Buffer;
   normalBuffer: Buffer;
@@ -1037,11 +1124,11 @@ export interface MultiscaleMeshSourceOptions extends MeshSourceOptions {
 }
 
 export class MultiscaleMeshSource extends ChunkSource {
-  OPTIONS: MultiscaleMeshSourceOptions;
+  declare OPTIONS: MultiscaleMeshSourceOptions;
   fragmentSource = this.registerDisposer(
     new MultiscaleFragmentSource(this.chunkManager, this),
   );
-  chunks: Map<string, MultiscaleManifestChunk>;
+  declare chunks: Map<string, MultiscaleManifestChunk>;
   format: MultiscaleFragmentFormat;
   constructor(
     chunkManager: Borrowed<ChunkManager>,
@@ -1068,7 +1155,7 @@ export class MultiscaleMeshSource extends ChunkSource {
 
 @registerSharedObjectOwner(MULTISCALE_FRAGMENT_SOURCE_RPC_ID)
 export class MultiscaleFragmentSource extends ChunkSource {
-  chunks: Map<string, MultiscaleFragmentChunk>;
+  declare chunks: Map<string, MultiscaleFragmentChunk>;
   get key() {
     return this.meshSource.key;
   }

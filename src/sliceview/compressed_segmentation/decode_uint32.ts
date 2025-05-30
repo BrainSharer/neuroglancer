@@ -1,5 +1,4 @@
-// DO NOT EDIT.  Generated from
-// templates/neuroglancer/sliceview/compressed_segmentation/decode.template.ts.
+// DO NOT EDIT.  Generated from templates/sliceview/compressed_segmentation/decode.template.ts.
 /**
  * @license
  * Copyright 2016 Google Inc.
@@ -21,7 +20,7 @@
  * Support for decompressing uint64 segment label chunks.
  */
 
-import { decodeValueOffset } from "#/sliceview/compressed_segmentation/decode_common";
+import { decodeValueOffset } from "#src/sliceview/compressed_segmentation/decode_common.js";
 
 /**
  * Reads the single value at the specified dataPosition in a single-channel compressed segmentation.

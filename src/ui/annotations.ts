@@ -18,21 +18,28 @@
  * @file User interface for display and editing annotations.
  */
 
-import "./annotations.css";
-
+import svg_help from "ikonate/icons/help.svg?raw";
+import "#src/ui/annotations.css";
 import {
+  AnnotationDisplayState,
+  AnnotationLayerState,
+} from "#src/annotation/annotation_layer_state.js";
+import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
+import type {
   Annotation,
   AnnotationId,
-  AnnotationPropertySerializer,
   AnnotationReference,
+  AxisAlignedBoundingBox,
+  Ellipsoid,
+  Line,
+} from "#src/annotation/index.js";
+import {
+  AnnotationPropertySerializer,
   AnnotationSource,
   annotationToJson,
   AnnotationType,
   annotationTypeHandlers,
-  AxisAlignedBoundingBox,
-  Ellipsoid,
   formatNumericProperty,
-  Line,
   /* BRAINSHARE STARTS */
   Polygon,
   Volume,
@@ -42,19 +49,19 @@ import {
   Cloud,
   AnnotationNumericPropertySpec,
   /* BRAINSHARE ENDS */
-} from "#/annotation";
+} from "#src/annotation/index.js";
 import {
   AnnotationDisplayState,
   AnnotationLayerState,
-} from "#/annotation/annotation_layer_state";
-import { MultiscaleAnnotationSource } from "#/annotation/frontend_source";
+} from "#src/annotation/annotation_layer_state.js";
+import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
 import {
   AnnotationLayer,
   PerspectiveViewAnnotationLayer,
   SliceViewAnnotationLayer,
   SpatiallyIndexedPerspectiveViewAnnotationLayer,
   SpatiallyIndexedSliceViewAnnotationLayer,
-} from "#/annotation/renderlayer";
+} from "#src/annotation/renderlayer.js";
 /* BRAINSHARE STARTS */
 /*
 import { CoordinateSpace } from "#/coordinate_transform";
@@ -62,101 +69,78 @@ import { CoordinateSpace } from "#/coordinate_transform";
 import {
   CoordinateSpace,
   CoordinateTransformSpecification,
-} from "#/coordinate_transform";
+} from "#src/coordinate_transform.js";
 /* BRAINSHARE ENDS */
-import { MouseSelectionState, UserLayer, makeLayer } from "#/layer";
-import { LayerDataSource, LoadedDataSubsource } from "#/layer_data_source";
-import {
-  ChunkTransformParameters,
-  getChunkPositionFromCombinedGlobalLocalPositions,
-} from "#/render_coordinate_transform";
+
+import type { MouseSelectionState, UserLayer } from "#src/layer/index.js";
+import type { LoadedDataSubsource } from "#src/layer/layer_data_source.js";
+import type { ChunkTransformParameters } from "#src/render_coordinate_transform.js";
+import { getChunkPositionFromCombinedGlobalLocalPositions } from "#src/render_coordinate_transform.js";
 import {
   RenderScaleHistogram,
   trackableRenderScaleTarget,
-} from "#/render_scale_statistics";
-import { RenderLayerRole } from "#/renderlayer";
+} from "#src/render_scale_statistics.js";
+import { RenderLayerRole } from "#src/renderlayer.js";
+import type { SegmentationDisplayState } from "#src/segmentation_display_state/frontend.js";
 import {
   bindSegmentListWidth,
   registerCallbackWhenSegmentationDisplayStateChanged,
-  SegmentationDisplayState,
   SegmentWidgetFactory,
-} from "#/segmentation_display_state/frontend";
-import { ElementVisibilityFromTrackableBoolean } from "#/trackable_boolean";
+} from "#src/segmentation_display_state/frontend.js";
+import { ElementVisibilityFromTrackableBoolean } from "#src/trackable_boolean.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
 import {
   AggregateWatchableValue,
   makeCachedLazyDerivedWatchableValue,
   registerNested,
   WatchableValue,
-  WatchableValueInterface,
-} from "#/trackable_value";
-import { getDefaultAnnotationListBindings } from "#/ui/default_input_event_bindings";
-import { LegacyTool, registerLegacyTool } from "#/ui/tool";
-import { animationFrameDebounce } from "#/util/animation_frame_debounce";
-import { arraysEqual, ArraySpliceOp } from "#/util/array";
-import { setClipboard } from "#/util/clipboard";
+} from "#src/trackable_value.js";
+import { getDefaultAnnotationListBindings } from "#src/ui/default_input_event_bindings.js";
+import { LegacyTool, registerLegacyTool } from "#src/ui/tool.js";
+import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
+import type { ArraySpliceOp } from "#src/util/array.js";
+import { arraysEqual } from "#src/util/array.js";
+import { setClipboard } from "#src/util/clipboard.js";
 import {
   serializeColor,
   unpackRGB,
-  /* BRAINSHARE STARTS */
-  /*
-  unpackRGBA,
   useWhiteBackground,
-  */
   packColor,
   parseRGBColorSpecification,
-  /* BRAINSHARE ENDS */
-} from "#/util/color";
-import { Borrowed, disposableOnce, RefCounted } from "#/util/disposable";
-import { removeChildren } from "#/util/dom";
-import { Endianness, ENDIANNESS } from "#/util/endian";
-import { ValueOrError } from "#/util/error";
-import { vec3 } from "#/util/geom";
+} from "#src/util/color.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import { disposableOnce, RefCounted } from "#src/util/disposable.js";
+import { removeChildren } from "#src/util/dom.js";
+import { Endianness, ENDIANNESS } from "#src/util/endian.js";
+import type { ValueOrError } from "#src/util/error.js";
+import { vec3 } from "#src/util/geom.js";
+import { parseUint64 } from "#src/util/json.js";
 import {
   EventActionMap,
   KeyboardEventBinder,
   registerActionListener,
-} from "#/util/keyboard_bindings";
-import * as matrix from "#/util/matrix";
-import { MouseEventBinder } from "#/util/mouse_bindings";
-import { formatScaleWithUnitAsString } from "#/util/si_units";
-import { NullarySignal, Signal } from "#/util/signal";
-import { Uint64 } from "#/util/uint64";
-import * as vector from "#/util/vector";
-import { makeAddButton } from "#/widget/add_button";
-import { ColorWidget } from "#/widget/color";
-import { makeCopyButton } from "#/widget/copy_button";
-import { makeDeleteButton } from "#/widget/delete_button";
+} from "#src/util/keyboard_bindings.js";
+import * as matrix from "#src/util/matrix.js";
+import { MouseEventBinder } from "#src/util/mouse_bindings.js";
+import { formatScaleWithUnitAsString } from "#src/util/si_units.js";
+import { NullarySignal, Signal } from "#src/util/signal.js";
+import { Uint64 } from "#src/util/uint64.js";
+import * as vector from "#src/util/vector.js";
+import { makeAddButton } from "#src/widget/add_button.js";
+import { ColorWidget } from "#src/widget/color.js";
+import { makeCopyButton } from "#src/widget/copy_button.js";
+import { makeDeleteButton } from "#src/widget/delete_button.js";
 /* BRAINSHARE STARTS */
-  import { makeSegmentationButton } from "#/widget/segmentation_button";
+  import { makeSegmentationButton } from "#src/widget/segmentation_button.ts";
 /* BRAINSHARE ENDS */
-import {
-  DependentViewContext,
-  DependentViewWidget,
-} from "#/widget/dependent_view_widget";
-import { makeIcon } from "#/widget/icon";
-import { makeMoveToButton } from "#/widget/move_to_button";
-import { Tab } from "#/widget/tab_view";
-import { VirtualList, VirtualListSource } from "#/widget/virtual_list";
-/* BRAINSHARE STARTS */
-import { StatusMessage } from '#/status';
-import {
-  getZCoordinate,
-  isPointUniqueInPolygon,
-} from '#/annotation/polygon';
-import { getPolygonsByVolumeId, isSectionValid } from '#/annotation/volume';
-import {
-  AutocompleteTextInput,
-  Completer,
-  Completion,
-  CompletionResult,
-  CompletionWithDescription
-} from "#/widget/multiline_autocomplete";
-import { CancellationToken } from "#/util/cancellation";
-import { fetchOk } from "#/util/http_request";
-import { brainState, userState } from "src/brainshare/state_utils";
-import { APIs } from "src/brainshare/service";
-import svg_clipBoard from "ikonate/icons/clipboard.svg";
-/* BRAINSHARE ENDS */
+
+import type { DependentViewContext } from "#src/widget/dependent_view_widget.js";
+import { DependentViewWidget } from "#src/widget/dependent_view_widget.js";
+import { makeIcon } from "#src/widget/icon.js";
+import { makeMoveToButton } from "#src/widget/move_to_button.js";
+import { Tab } from "#src/widget/tab_view.js";
+import type { VirtualListSource } from "#src/widget/virtual_list.js";
+import { VirtualList } from "#src/widget/virtual_list.js";
 
 export class MergedAnnotationStates
   extends RefCounted
@@ -745,6 +729,29 @@ export class AnnotationLayerView extends Tab {
   ) {
     super();
     this.element.classList.add("neuroglancer-annotation-layer-view");
+    this.selectedAnnotationState = makeCachedLazyDerivedWatchableValue(
+      (selectionState, pin) => {
+        if (selectionState === undefined) return undefined;
+        const { layer } = this;
+        const layerSelectionState = selectionState.layers.find(
+          (s) => s.layer === layer,
+        )?.state;
+        if (layerSelectionState === undefined) return undefined;
+        const { annotationId } = layerSelectionState;
+        if (annotationId === undefined) return undefined;
+        const annotationLayerState = this.annotationStates.states.find(
+          (x) =>
+            x.sourceIndex === layerSelectionState.annotationSourceIndex &&
+            (layerSelectionState.annotationSubsource === undefined ||
+              x.subsourceId === layerSelectionState.annotationSubsource),
+        );
+        if (annotationLayerState === undefined) return undefined;
+        return { annotationId, annotationLayerState, pin };
+      },
+      layer.manager.root.selectionState,
+      layer.manager.root.selectionState.pin,
+    );
+
     this.registerDisposer(this.visibility.changed.add(() => this.updateView()));
     this.registerDisposer(
       this.annotationStates.changed.add(() =>
@@ -1078,28 +1085,7 @@ export class AnnotationLayerView extends Tab {
     }
   }
 
-  private selectedAnnotationState = makeCachedLazyDerivedWatchableValue(
-    (selectionState, pin) => {
-      if (selectionState === undefined) return undefined;
-      const { layer } = this;
-      const layerSelectionState = selectionState.layers.find(
-        (s) => s.layer === layer,
-      )?.state;
-      if (layerSelectionState === undefined) return undefined;
-      const { annotationId } = layerSelectionState;
-      if (annotationId === undefined) return undefined;
-      const annotationLayerState = this.annotationStates.states.find(
-        (x) =>
-          x.sourceIndex === layerSelectionState.annotationSourceIndex &&
-          (layerSelectionState.annotationSubsource === undefined ||
-            x.subsourceId === layerSelectionState.annotationSubsource),
-      );
-      if (annotationLayerState === undefined) return undefined;
-      return { annotationId, annotationLayerState, pin };
-    },
-    this.layer.manager.root.selectionState,
-    this.layer.manager.root.selectionState.pin,
-  );
+  private selectedAnnotationState;
 
   private updateSelectionView() {
     const selectionState = this.selectedAnnotationState.value;
@@ -1585,11 +1571,13 @@ export class AnnotationLayerView extends Tab {
 }
 
 export class AnnotationTab extends Tab {
-  private layerView = this.registerDisposer(
-    new AnnotationLayerView(this.layer, this.layer.annotationDisplayState),
-  );
+  private layerView: AnnotationLayerView;
   constructor(public layer: Borrowed<UserLayerWithAnnotations>) {
     super();
+    this.layerView = this.registerDisposer(
+      new AnnotationLayerView(layer, layer.annotationDisplayState),
+    );
+
     const { element } = this;
     element.classList.add("neuroglancer-annotations-tab");
     element.appendChild(this.layerView.element);
@@ -1626,7 +1614,7 @@ function getSelectedAssociatedSegments(
 }
 
 abstract class PlaceAnnotationTool extends LegacyTool {
-  layer: UserLayerWithAnnotations;
+  declare layer: UserLayerWithAnnotations;
   constructor(layer: UserLayerWithAnnotations, options: any) {
     super(layer);
     options;
@@ -1845,7 +1833,7 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
 }
 
 abstract class PlaceTwoCornerAnnotationTool extends TwoStepAnnotationTool {
-  annotationType:
+  declare annotationType:
     | AnnotationType.LINE
     | AnnotationType.AXIS_ALIGNED_BOUNDING_BOX;
 
@@ -3336,6 +3324,23 @@ export function UserLayerWithAnnotationsMixin<
                 /*
                 const { relationships, properties } = annotationLayer.source;
                 const sourceReadonly = annotationLayer.source.readonly;
+
+                // Add the ID to the annotation details.
+                const label = document.createElement("label");
+                label.classList.add("neuroglancer-annotation-property");
+                const idElement = document.createElement("span");
+                idElement.classList.add(
+                  "neuroglancer-annotation-property-label",
+                );
+                idElement.textContent = "ID";
+                label.appendChild(idElement);
+                const valueElement = document.createElement("span");
+                valueElement.classList.add(
+                  "neuroglancer-annotation-property-value",
+                );
+                valueElement.textContent = reference.id;
+                label.appendChild(valueElement);
+                parent.appendChild(label);
 
                 for (let i = 0, count = properties.length; i < count; ++i) {
                   const property = properties[i];

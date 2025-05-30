@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-import { ChunkManager } from "#/chunk_manager/backend";
-import { SimpleAsyncCache } from "#/chunk_manager/generic_file_source";
-import { CodecKind } from "#/datasource/zarr/codec";
-import { decodeArray, registerCodec } from "#/datasource/zarr/codec/decode";
+import type { ChunkManager } from "#src/chunk_manager/backend.js";
+import { SimpleAsyncCache } from "#src/chunk_manager/generic_file_source.js";
 import {
-  Configuration,
-  ShardIndexLocation,
-} from "#/datasource/zarr/codec/sharding_indexed/resolve";
-import {
+  decodeArray,
+  registerCodec,
+} from "#src/datasource/zarr/codec/decode.js";
+import { CodecKind } from "#src/datasource/zarr/codec/index.js";
+import type { Configuration } from "#src/datasource/zarr/codec/sharding_indexed/resolve.js";
+import { ShardIndexLocation } from "#src/datasource/zarr/codec/sharding_indexed/resolve.js";
+import type {
   ByteRangeRequest,
-  composeByteRangeRequest,
   ReadableKvStore,
   ReadOptions,
   ReadResponse,
-} from "#/kvstore";
-import { CancellationToken, uncancelableToken } from "#/util/cancellation";
-import { Owned, RefCounted } from "#/util/disposable";
+} from "#src/kvstore/index.js";
+import { composeByteRangeRequest } from "#src/kvstore/index.js";
+import type { Owned } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
 
 type ShardIndex = BigUint64Array | undefined;
 
@@ -50,7 +51,7 @@ class ShardedKvStore<BaseKey>
     super();
     this.indexCache = this.registerDisposer(
       new SimpleAsyncCache(chunkManager.addRef(), {
-        get: async (key: BaseKey, cancellationToken: CancellationToken) => {
+        get: async (key: BaseKey, abortSignal: AbortSignal) => {
           const { indexCodecs } = configuration;
           const encodedSize =
             indexCodecs.encodedSize[indexCodecs.encodedSize.length - 1];
@@ -64,7 +65,7 @@ class ShardedKvStore<BaseKey>
               break;
           }
           const response = await base.read(key, {
-            cancellationToken,
+            abortSignal,
             byteRange,
           });
           if (response === undefined) {
@@ -73,7 +74,7 @@ class ShardedKvStore<BaseKey>
           const index = await decodeArray(
             configuration.indexCodecs,
             response.data,
-            cancellationToken,
+            abortSignal,
           );
           return {
             size: index.byteLength,
@@ -108,10 +109,7 @@ class ShardedKvStore<BaseKey>
     key: { base: BaseKey; subChunk: number[] },
     options: ReadOptions,
   ): Promise<ReadResponse | undefined> {
-    const shardIndex = await this.indexCache.get(
-      key.base,
-      options.cancellationToken ?? uncancelableToken,
-    );
+    const shardIndex = await this.indexCache.get(key.base, options.abortSignal);
     if (shardIndex === undefined) {
       // Shard not present.
       return undefined;
@@ -144,7 +142,7 @@ class ShardedKvStore<BaseKey>
       };
     }
     const response = await this.base.read(key.base, {
-      cancellationToken: options.cancellationToken,
+      abortSignal: options.abortSignal,
       byteRange: outerByteRange,
     });
     if (response === undefined) {

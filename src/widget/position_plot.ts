@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-import "./position_plot.css";
+import "#src/widget/position_plot.css";
 
-import {
-  computeCombinedLowerUpperBound,
+import type {
   CoordinateSpace,
   DimensionId,
+} from "#src/coordinate_transform.js";
+import {
+  computeCombinedLowerUpperBound,
   getDisplayLowerUpperBounds,
-} from "#/coordinate_transform";
-import { Position } from "#/navigation_state";
-import { WatchableValue } from "#/trackable_value";
-import { animationFrameDebounce } from "#/util/animation_frame_debounce";
-import { filterArrayInplace } from "#/util/array";
-import { RefCounted } from "#/util/disposable";
-import { startRelativeMouseDrag } from "#/util/mouse_drag";
+} from "#src/coordinate_transform.js";
+import type { Position } from "#src/navigation_state.js";
+import { WatchableValue } from "#src/trackable_value.js";
+import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
+import { filterArrayInplace } from "#src/util/array.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { startRelativeMouseDrag } from "#src/util/mouse_drag.js";
 
 interface NormalizedDimensionBounds {
   lowerBound: number;
@@ -96,9 +98,9 @@ export class PositionPlot extends RefCounted {
   visible = true;
   dragging = new WatchableValue(false);
 
-  tickWidth: number = this.orientation === "column" ? 10 : 5;
-  barWidth: number = this.orientation === "column" ? 15 : 10;
-  barRightMargin: number = this.orientation === "column" ? 10 : 2;
+  tickWidth: number;
+  barWidth: number;
+  barRightMargin: number;
   canvasWidth: number;
 
   constructor(
@@ -107,6 +109,10 @@ export class PositionPlot extends RefCounted {
     public orientation: "row" | "column" = "column",
   ) {
     super();
+    this.tickWidth = orientation === "column" ? 10 : 5;
+    this.barWidth = orientation === "column" ? 15 : 10;
+    this.barRightMargin = orientation === "column" ? 10 : 2;
+
     this.canvasWidth = this.tickWidth + this.barWidth + this.barRightMargin;
     const plotElement = this.element;
     plotElement.classList.add("neuroglancer-position-dimension-plot");
@@ -171,6 +177,7 @@ export class PositionPlot extends RefCounted {
         this.visible = false;
         return;
       }
+      this.element.style.display = "";
       this.visible = true;
 
       const { lowerBound, upperBound } = normalizedDimensionBounds;

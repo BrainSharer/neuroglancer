@@ -14,20 +14,26 @@
  * limitations under the License.
  */
 
-import { CodecKind } from "#/datasource/zarr/codec";
-import { registerCodec } from "#/datasource/zarr/codec/resolve";
-import { verifyInt, verifyObject, verifyObjectProperty } from "#/util/json";
+import { CodecKind } from "#src/datasource/zarr/codec/index.js";
+import { registerCodec } from "#src/datasource/zarr/codec/resolve.js";
+import {
+  verifyInt,
+  verifyObject,
+  verifyObjectProperty,
+} from "#src/util/json.js";
 
 export interface Configuration {
   level: number;
 }
 
-registerCodec({
-  name: "gzip",
-  kind: CodecKind.bytesToBytes,
-  resolve(configuration: unknown): { configuration: Configuration } {
-    verifyObject(configuration);
-    const level = verifyObjectProperty(configuration, "level", verifyInt);
-    return { configuration: { level } };
-  },
-});
+for (const name of ["gzip", "zlib"]) {
+  registerCodec({
+    name,
+    kind: CodecKind.bytesToBytes,
+    resolve(configuration: unknown): { configuration: Configuration } {
+      verifyObject(configuration);
+      const level = verifyObjectProperty(configuration, "level", verifyInt);
+      return { configuration: { level } };
+    },
+  });
+}

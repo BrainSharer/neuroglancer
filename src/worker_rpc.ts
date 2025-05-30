@@ -14,14 +14,8 @@
  * limitations under the License.
  */
 
-import {
-  CANCELED,
-  CancellationToken,
-  CancellationTokenSource,
-  makeCancelablePromise,
-  uncancelableToken,
-} from "#/util/cancellation";
-import { RefCounted } from "#/util/disposable";
+import { promiseWithResolversAndAbortCallback } from "#src/util/abort.js";
+import { RefCounted } from "#src/util/disposable.js";
 
 export type RPCHandler = (this: RPC, x: any) => void;
 
@@ -35,6 +29,7 @@ const DEBUG_MESSAGES = false;
 
 const PROMISE_RESPONSE_ID = "rpc.promise.response";
 const PROMISE_CANCEL_ID = "rpc.promise.cancel";
+const READY_ID = "rpc.ready";
 
 const handlers = new Map<string, RPCHandler>();
 
@@ -55,17 +50,17 @@ export class RPCError extends Error {
 
 export function registerPromiseRPC<T>(
   key: string,
-  handler: (
-    this: RPC,
-    x: any,
-    cancellationToken: CancellationToken,
-  ) => RPCPromise<T>,
+  handler: (this: RPC, x: any, abortSignal: AbortSignal) => RPCPromise<T>,
 ) {
   registerRPC(key, function (this: RPC, x: any) {
     const id = <number>x.id;
-    const cancellationToken = new CancellationTokenSource();
-    const promise = handler.call(this, x, cancellationToken) as RPCPromise<T>;
-    this.set(id, { promise, cancellationToken });
+    const abortController = new AbortController();
+    const promise = handler.call(
+      this,
+      x,
+      abortController.signal,
+    ) as RPCPromise<T>;
+    this.set(id, { promise, abortController });
     promise.then(
       ({ value, transfers }) => {
         this.delete(id);
@@ -87,8 +82,8 @@ registerRPC(PROMISE_CANCEL_ID, function (this: RPC, x: any) {
   const id = <number>x.id;
   const request = this.get(id);
   if (request !== undefined) {
-    const { cancellationToken } = request;
-    cancellationToken.cancel();
+    const { abortController } = request;
+    abortController.abort();
   }
 });
 
@@ -99,13 +94,13 @@ registerRPC(PROMISE_RESPONSE_ID, function (this: RPC, x: any) {
   if (Object.prototype.hasOwnProperty.call(x, "value")) {
     resolve(x.value);
   } else {
-    const errorName = x.errorName;
-    if (errorName === CANCELED.name) {
-      reject(CANCELED);
-    } else {
-      reject(new RPCError(x.errorName, x.error));
-    }
+    reject(new RPCError(x.errorName, x.error));
   }
+});
+
+registerRPC(READY_ID, function (this: RPC, x: any) {
+  x;
+  this.onPeerReady();
 });
 
 interface RPCTarget {
@@ -118,7 +113,14 @@ const INITIAL_RPC_ID = IS_WORKER ? -1 : 0;
 export class RPC {
   private objects = new Map<RpcId, any>();
   private nextId: RpcId = INITIAL_RPC_ID;
-  constructor(public target: RPCTarget) {
+  private queue: { data: any; transfers?: any[] }[] | undefined;
+  constructor(
+    public target: RPCTarget,
+    waitUntilReady: boolean,
+  ) {
+    if (waitUntilReady) {
+      this.queue = [];
+    }
     target.onmessage = (e) => {
       const data = e.data;
       if (DEBUG_MESSAGES) {
@@ -126,6 +128,19 @@ export class RPC {
       }
       handlers.get(data.functionName)!.call(this, data);
     };
+  }
+
+  sendReady() {
+    this.invoke(READY_ID, {});
+  }
+
+  onPeerReady() {
+    const { queue } = this;
+    if (queue === undefined) return;
+    this.queue = undefined;
+    for (const { data, transfers } of queue) {
+      this.target.postMessage(data, transfers);
+    }
   }
 
   get numObjects() {
@@ -167,27 +182,35 @@ export class RPC {
     if (DEBUG_MESSAGES) {
       console.trace("Sending message", x);
     }
+    const { queue } = this;
+    if (queue !== undefined) {
+      queue.push({ data: x, transfers });
+      return;
+    }
     this.target.postMessage(x, transfers);
   }
 
   promiseInvoke<T>(
     name: string,
     x: any,
-    cancellationToken = uncancelableToken,
+    abortSignal?: AbortSignal | undefined,
     transfers?: any[],
   ): Promise<T> {
-    return makeCancelablePromise<T>(
-      cancellationToken,
-      (resolve, reject, token) => {
-        const id = (x.id = this.newId());
-        this.set(id, { resolve, reject });
-        this.invoke(name, x, transfers);
-        token.add(() => {
-          this.invoke(PROMISE_CANCEL_ID, { id: id });
-        });
-      },
-    );
+    if (abortSignal?.aborted) {
+      return Promise.reject(abortSignal.reason);
+    }
+    const id = (x.id = this.newId());
+    this.invoke(name, x, transfers);
+    const { promise, resolve, reject } =
+      abortSignal === undefined
+        ? Promise.withResolvers<T>()
+        : promiseWithResolversAndAbortCallback<T>(abortSignal, () => {
+            this.invoke(PROMISE_CANCEL_ID, { id: id });
+          });
+    this.set(id, { resolve, reject });
+    return promise;
   }
+
   newId() {
     return IS_WORKER ? this.nextId-- : this.nextId++;
   }
@@ -272,7 +295,7 @@ export class SharedObject extends RefCounted {
    * Should be set to a constant specifying the SharedObject type identifier on the prototype of
    * final derived owner classes.  It is not used on counterpart (non-owner) classes.
    */
-  RPC_TYPE_ID: string;
+  declare RPC_TYPE_ID: string;
 }
 
 export function initializeSharedObjectCounterpart(
@@ -313,19 +336,6 @@ registerRPC("SharedObject.dispose", function (x) {
   this.delete(obj.rpcId!);
   obj.rpcId = null;
   obj.rpc = null;
-});
-
-// RPC ID used to request the other thread to create a worker.
-//
-// On Safari, workers cannot themselves create additional workers.  As a workaround, workers can
-// send the main thread a worker URL and a `MessagePort` and the main thread will create the worker
-// and send it the message port.
-export const WORKER_RPC_ID = "Worker";
-
-registerRPC(WORKER_RPC_ID, (x) => {
-  const { port, path } = x;
-  const worker = new Worker(path);
-  worker.postMessage({ port }, [port]);
 });
 
 registerRPC("SharedObject.refCountReachedZero", function (x) {

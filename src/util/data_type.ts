@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TypedArrayConstructor } from "#/util/array";
+import type { TypedArrayConstructor } from "#src/util/array.js";
 
 /**
  * If this is updated, DATA_TYPE_BYTES must also be updated.
@@ -80,16 +80,18 @@ export const DATA_TYPE_JAVASCRIPT_ELEMENTS_PER_ARRAY_ELEMENT: Record<
   [DataType.FLOAT32]: 1,
 };
 
-export function makeDataTypeArrayView(
+export function makeDataTypeArrayView<TArrayBuffer extends ArrayBufferLike>(
   dataType: DataType,
-  buffer: ArrayBuffer,
+  buffer: TArrayBuffer,
   byteOffset = 0,
   byteLength: number = buffer.byteLength,
-): ArrayBufferView {
+): ArrayBufferView<TArrayBuffer> {
   const bytesPerElement = DATA_TYPE_BYTES[dataType];
   const javascriptElementsPerArrayElement =
     DATA_TYPE_JAVASCRIPT_ELEMENTS_PER_ARRAY_ELEMENT[dataType];
-  return new DATA_TYPE_ARRAY_CONSTRUCTOR[dataType](
+  return new (DATA_TYPE_ARRAY_CONSTRUCTOR[
+    dataType
+  ] as TypedArrayConstructor<TArrayBuffer>)(
     buffer,
     byteOffset,
     (byteLength / bytesPerElement) * javascriptElementsPerArrayElement,

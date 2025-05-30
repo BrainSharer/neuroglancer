@@ -14,42 +14,41 @@
  * limitations under the License.
  */
 
-import { HashMapUint64 } from "#/gpu_hash/hash_table";
+import { HashMapUint64 } from "#src/gpu_hash/hash_table.js";
 import {
   GPUHashTable,
   HashMapShaderManager,
   HashSetShaderManager,
-} from "#/gpu_hash/shader";
+} from "#src/gpu_hash/shader.js";
 import {
   SegmentColorShaderManager,
   SegmentStatedColorShaderManager,
-} from "#/segment_color";
-import { getVisibleSegments } from "#/segmentation_display_state/base";
-import {
-  registerRedrawWhenSegmentationDisplayStateChanged,
+} from "#src/segment_color.js";
+import { getVisibleSegments } from "#src/segmentation_display_state/base.js";
+import type {
   SegmentationDisplayState,
-} from "#/segmentation_display_state/frontend";
-import { SliceViewSourceOptions } from "#/sliceview/base";
-import {
+  SegmentationGroupState,
+} from "#src/segmentation_display_state/frontend.js";
+import { registerRedrawWhenSegmentationDisplayStateChanged } from "#src/segmentation_display_state/frontend.js";
+import type { SliceViewSourceOptions } from "#src/sliceview/base.js";
+import type {
   SliceView,
   SliceViewSingleResolutionSource,
-} from "#/sliceview/frontend";
-import {
+} from "#src/sliceview/frontend.js";
+import type {
   MultiscaleVolumeChunkSource,
   VolumeChunkSource,
-} from "#/sliceview/volume/frontend";
-import {
-  RenderLayerBaseOptions,
-  SliceViewVolumeRenderLayer,
-} from "#/sliceview/volume/renderlayer";
+} from "#src/sliceview/volume/frontend.js";
+import type { RenderLayerBaseOptions } from "#src/sliceview/volume/renderlayer.js";
+import { SliceViewVolumeRenderLayer } from "#src/sliceview/volume/renderlayer.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
 import {
   AggregateWatchableValue,
   makeCachedDerivedWatchableValue,
-  WatchableValueInterface,
-} from "#/trackable_value";
-import { DisjointUint64Sets } from "#/util/disjoint_sets";
-import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
-import { Uint64Map } from "#/uint64_map";
+} from "#src/trackable_value.js";
+import type { Uint64Map } from "#src/uint64_map.js";
+import type { DisjointUint64Sets } from "#src/util/disjoint_sets.js";
+import type { ShaderBuilder, ShaderProgram } from "#src/webgl/shader.js";
 
 export class EquivalencesHashMap {
   generation = Number.NaN;
@@ -92,8 +91,7 @@ const HAS_SELECTED_SEGMENT_FLAG = 1;
 const SHOW_ALL_SEGMENTS_FLAG = 2;
 
 export class SegmentationRenderLayer extends SliceViewVolumeRenderLayer<ShaderParameters> {
-  public readonly segmentationGroupState =
-    this.displayState.segmentationGroupState.value;
+  public readonly segmentationGroupState: SegmentationGroupState;
   protected segmentColorShaderManager = new SegmentColorShaderManager(
     "segmentColorHash",
   );
@@ -103,29 +101,13 @@ export class SegmentationRenderLayer extends SliceViewVolumeRenderLayer<ShaderPa
     | GPUHashTable<HashMapUint64>
     | undefined;
   private hashTableManager = new HashSetShaderManager("visibleSegments");
-  private gpuHashTable = this.registerDisposer(
-    GPUHashTable.get(
-      this.gl,
-      this.segmentationGroupState.visibleSegments.hashTable,
-    ),
-  );
-  private gpuTemporaryHashTable = GPUHashTable.get(
-    this.gl,
-    this.segmentationGroupState.temporaryVisibleSegments.hashTable,
-  );
+  private gpuHashTable;
+  private gpuTemporaryHashTable;
   private equivalencesShaderManager = new HashMapShaderManager("equivalences");
-  private equivalencesHashMap = new EquivalencesHashMap(
-    this.segmentationGroupState.segmentEquivalences.disjointSets,
-  );
-  private temporaryEquivalencesHashMap = new EquivalencesHashMap(
-    this.segmentationGroupState.temporarySegmentEquivalences.disjointSets,
-  );
-  private gpuEquivalencesHashTable = this.registerDisposer(
-    GPUHashTable.get(this.gl, this.equivalencesHashMap.hashMap),
-  );
-  private gpuTemporaryEquivalencesHashTable = this.registerDisposer(
-    GPUHashTable.get(this.gl, this.temporaryEquivalencesHashMap.hashMap),
-  );
+  private equivalencesHashMap;
+  private temporaryEquivalencesHashMap;
+  private gpuEquivalencesHashTable;
+  private gpuTemporaryEquivalencesHashTable;
 
   constructor(
     multiscaleSource: MultiscaleVolumeChunkSource,
@@ -187,6 +169,30 @@ export class SegmentationRenderLayer extends SliceViewVolumeRenderLayer<ShaderPa
       renderScaleTarget: displayState.renderScaleTarget,
       localPosition: displayState.localPosition,
     });
+    this.segmentationGroupState = displayState.segmentationGroupState.value;
+    this.gpuHashTable = this.registerDisposer(
+      GPUHashTable.get(
+        this.gl,
+        this.segmentationGroupState.visibleSegments.hashTable,
+      ),
+    );
+    this.gpuTemporaryHashTable = GPUHashTable.get(
+      this.gl,
+      this.segmentationGroupState.temporaryVisibleSegments.hashTable,
+    );
+    this.equivalencesHashMap = new EquivalencesHashMap(
+      this.segmentationGroupState.segmentEquivalences.disjointSets,
+    );
+    this.temporaryEquivalencesHashMap = new EquivalencesHashMap(
+      this.segmentationGroupState.temporarySegmentEquivalences.disjointSets,
+    );
+    this.gpuEquivalencesHashTable = this.registerDisposer(
+      GPUHashTable.get(this.gl, this.equivalencesHashMap.hashMap),
+    );
+    this.gpuTemporaryEquivalencesHashTable = this.registerDisposer(
+      GPUHashTable.get(this.gl, this.temporaryEquivalencesHashMap.hashMap),
+    );
+
     this.registerDisposer(
       this.shaderParameters as AggregateWatchableValue<ShaderParameters>,
     );

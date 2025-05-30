@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PyPI](https://img.shields.io/pypi/v/neuroglancer)](https://pypi.org/project/neuroglancer)
-![Build](https://github.com/google/neuroglancer/workflows/Build/badge.svg)
+![Build](https://github.com/google/neuroglancer/actions/workflows/build.yml/badge.svg)
 [![DOI](https://zenodo.org/badge/59798355.svg)](https://zenodo.org/badge/latestdoi/59798355)
 
 Neuroglancer is a WebGL-based viewer for volumetric data. It is capable of displaying arbitrary (non axis-aligned) cross-sectional views of volumetric data, as well as 3-D meshes and line-segment based models (skeletons).
@@ -147,14 +147,6 @@ https://github.com/creationix/nvm
 5. To run the unit test suite on Chrome:
 
    `npm test`
-
-   To run only tests in files matching a given glob pattern:
-
-   `npm test -- --pattern='<pattern>'`
-
-   For example,
-
-   `npm test -- --pattern='src/util/uint64*'`
 
 6. See [package.json](package.json) for other commands available.
 

@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-import { RefCounted } from "#/util/disposable";
-import { GL } from "#/webgl/context";
+import type { DataType } from "#src/util/data_type.js";
+import { RefCounted } from "#src/util/disposable.js";
+import type { GL } from "#src/webgl/context.js";
+import type {
+  ControlPointTexture,
+  SortedControlPoints,
+} from "#src/widget/transfer_function.js";
 
 const DEBUG_SHADER = false;
 
@@ -126,7 +131,9 @@ export function getShader(
       if (w !== null) {
         try {
           w.document.write(s);
-        } catch (writeError) {}
+        } catch {
+          // Ignore error writing output, e.g. due to popup blocking.
+        }
       }
     }
 
@@ -162,6 +169,10 @@ export class ShaderProgram extends RefCounted {
   textureUnits: Map<any, number>;
   vertexShaderInputBinders: { [name: string]: VertexShaderInputBinder } = {};
   vertexDebugOutputs?: VertexDebugOutput[];
+  transferFunctionTextures: Map<any, ControlPointTexture> = new Map<
+    any,
+    ControlPointTexture
+  >();
 
   constructor(
     public gl: GL,
@@ -175,12 +186,12 @@ export class ShaderProgram extends RefCounted {
     const vertexShader = (this.vertexShader = getShader(
       gl,
       vertexSource,
-      gl.VERTEX_SHADER,
+      WebGL2RenderingContext.VERTEX_SHADER,
     ));
     const fragmentShader = (this.fragmentShader = getShader(
       gl,
       fragmentSource,
-      gl.FRAGMENT_SHADER,
+      WebGL2RenderingContext.FRAGMENT_SHADER,
     ));
 
     const shaderProgram = gl.createProgram()!;
@@ -235,13 +246,48 @@ export class ShaderProgram extends RefCounted {
     return this.attributes.get(name)!;
   }
 
-  textureUnit(symbol: symbol): number {
+  textureUnit(symbol: symbol | string): number {
     return this.textureUnits.get(symbol)!;
   }
 
   bind() {
     curShader = this;
     this.gl.useProgram(this.program);
+  }
+
+  bindAndUpdateTransferFunctionTexture(
+    symbol: symbol | string,
+    sortedControlPoints: SortedControlPoints,
+    dataType: DataType,
+    lookupTableSize: number,
+  ) {
+    const textureUnit = this.textureUnits.get(symbol);
+    if (textureUnit === undefined) {
+      throw new Error(`Invalid texture unit symbol: ${symbol.toString()}`);
+    }
+    const texture = this.transferFunctionTextures.get(symbol);
+    if (texture === undefined) {
+      throw new Error(
+        `Invalid transfer function texture symbol: ${symbol.toString()}`,
+      );
+    }
+    return texture.updateAndActivate({
+      textureUnit,
+      sortedControlPoints,
+      dataType,
+      lookupTableSize,
+    });
+  }
+
+  unbindTransferFunctionTextures() {
+    const gl = this.gl;
+    for (const key of this.transferFunctionTextures.keys()) {
+      const value = this.textureUnits.get(key);
+      if (value !== undefined) {
+        this.gl.activeTexture(gl.TEXTURE0 + value);
+        this.gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+    }
   }
 
   disposed() {
@@ -255,6 +301,7 @@ export class ShaderProgram extends RefCounted {
     this.gl = <any>undefined;
     this.attributes = <any>undefined;
     this.uniforms = <any>undefined;
+    this.transferFunctionTextures = <any>undefined;
   }
 }
 
@@ -446,7 +493,7 @@ export class ShaderBuilder {
   private uniforms = new Array<string>();
   private attributes = new Array<string>();
   private initializers: Array<ShaderInitializer> = [];
-  private textureUnits = new Map<symbol, number>();
+  private textureUnits = new Map<symbol | string, number>();
   private vertexDebugOutputs: VertexDebugOutput[] = [];
   constructor(public gl: GL) {}
 
@@ -459,7 +506,7 @@ export class ShaderBuilder {
     this.vertexDebugOutputs.push({ typeName, name });
   }
 
-  allocateTextureUnit(symbol: symbol, count = 1) {
+  allocateTextureUnit(symbol: symbol | string, count = 1) {
     if (this.textureUnits.has(symbol)) {
       throw new Error("Duplicate texture unit symbol: " + symbol.toString());
     }
@@ -472,7 +519,7 @@ export class ShaderBuilder {
   addTextureSampler(
     samplerType: ShaderSamplerType,
     name: string,
-    symbol: symbol,
+    symbol: symbol | string,
     extent?: number,
   ) {
     const textureUnit = this.allocateTextureUnit(symbol, extent);
@@ -581,6 +628,7 @@ precision highp int;
 ${this.uniformsCode}
 ${this.attributesCode}
 ${this.varyingsCodeVS}
+float defaultMaxProjectionIntensity = 0.0;
 ${this.vertexCode}
 void main() {
 ${this.vertexMain}
@@ -593,6 +641,7 @@ precision highp int;
 ${this.uniformsCode}
 ${this.varyingsCodeFS}
 ${this.outputBufferCode}
+float defaultMaxProjectionIntensity = 0.0;
 ${this.fragmentCode}
 ${this.fragmentMain}
 `;

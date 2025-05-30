@@ -14,9 +14,18 @@
  * limitations under the License.
  */
 
-import { TrackableValueInterface } from "#/trackable_value";
-import { RefCounted } from "#/util/disposable";
-import { removeFromParent } from "#/util/dom";
+import type { TrackableValueInterface } from "#src/trackable_value.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { removeFromParent } from "#src/util/dom.js";
+import { EventActionMap } from "#src/util/event_action_map.js";
+import {
+  KeyboardEventBinder,
+  registerActionListener,
+} from "#src/util/keyboard_bindings.js";
+
+const inputEventMap = EventActionMap.fromObject({
+  escape: { action: "cancel" },
+});
 
 export class TextInputWidget<T> extends RefCounted {
   element = document.createElement("input");
@@ -25,7 +34,20 @@ export class TextInputWidget<T> extends RefCounted {
     this.registerDisposer(model.changed.add(() => this.updateView()));
     const { element } = this;
     element.type = "text";
+    element.spellcheck = false;
+    element.autocomplete = "off";
+    const keyboardHandler = this.registerDisposer(
+      new KeyboardEventBinder(element, inputEventMap),
+    );
+    keyboardHandler.allShortcutsAreGlobal = true;
+    registerActionListener(element, "cancel", (event) => {
+      this.updateView();
+      element.blur();
+      event.stopPropagation();
+      event.preventDefault();
+    });
     this.registerEventListener(element, "change", () => this.updateModel());
+    this.registerEventListener(element, "blur", () => this.updateModel());
     this.updateView();
   }
 
@@ -40,7 +62,9 @@ export class TextInputWidget<T> extends RefCounted {
   private updateModel() {
     try {
       this.model.restoreState(this.element.value);
-    } catch {}
+    } catch {
+      // Ignore invalid input.
+    }
     this.updateView();
   }
 }

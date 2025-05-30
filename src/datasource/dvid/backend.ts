@@ -14,36 +14,37 @@
  * limitations under the License.
  */
 
-import { WithParameters } from "#/chunk_manager/backend";
+import { WithParameters } from "#src/chunk_manager/backend.js";
+import type { ChunkSourceParametersConstructor } from "#src/chunk_manager/base.js";
+import { WithSharedCredentialsProviderCounterpart } from "#src/credentials_provider/shared_counterpart.js";
+import type { DVIDToken } from "#src/datasource/dvid/api.js";
+import {
+  DVIDInstance,
+  fetchWithDVIDCredentials,
+  appendQueryStringForDvid,
+} from "#src/datasource/dvid/api.js";
 import {
   MeshSourceParameters,
   SkeletonSourceParameters,
   VolumeChunkEncoding,
   VolumeChunkSourceParameters,
-} from "#/datasource/dvid/base";
+} from "#src/datasource/dvid/base.js";
+import type { FragmentChunk, ManifestChunk } from "#src/mesh/backend.js";
 import {
   assignMeshFragmentData,
   decodeTriangleVertexPositionsAndIndices,
-  FragmentChunk,
-  ManifestChunk,
   MeshSource,
-} from "#/mesh/backend";
-import { SkeletonChunk, SkeletonSource } from "#/skeleton/backend";
-import { decodeSwcSkeletonChunk } from "#/skeleton/decode_swc_skeleton";
-import { decodeCompressedSegmentationChunk } from "#/sliceview/backend_chunk_decoders/compressed_segmentation";
-import { decodeJpegChunk } from "#/sliceview/backend_chunk_decoders/jpeg";
-import { VolumeChunk, VolumeChunkSource } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { Endianness } from "#/util/endian";
-import { registerSharedObject, SharedObject } from "#/worker_rpc";
-import { ChunkSourceParametersConstructor } from "#/chunk_manager/base";
-import { WithSharedCredentialsProviderCounterpart } from "#/credentials_provider/shared_counterpart";
-import {
-  DVIDInstance,
-  DVIDToken,
-  makeRequestWithCredentials,
-  appendQueryStringForDvid,
-} from "#/datasource/dvid/api";
+} from "#src/mesh/backend.js";
+import type { SkeletonChunk } from "#src/skeleton/backend.js";
+import { SkeletonSource } from "#src/skeleton/backend.js";
+import { decodeSwcSkeletonChunk } from "#src/skeleton/decode_swc_skeleton.js";
+import { decodeCompressedSegmentationChunk } from "#src/sliceview/backend_chunk_decoders/compressed_segmentation.js";
+import { decodeJpegChunk } from "#src/sliceview/backend_chunk_decoders/jpeg.js";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
+import { VolumeChunkSource } from "#src/sliceview/volume/backend.js";
+import { Endianness } from "#src/util/endian.js";
+import type { SharedObject } from "#src/worker_rpc.js";
+import { registerSharedObject } from "#src/worker_rpc.js";
 
 function DVIDSource<
   Parameters,
@@ -63,7 +64,7 @@ export class DVIDSkeletonSource extends DVIDSource(
   SkeletonSource,
   SkeletonSourceParameters,
 ) {
-  download(chunk: SkeletonChunk, cancellationToken: CancellationToken) {
+  download(chunk: SkeletonChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     const bodyid = `${chunk.objectId}`;
     const url =
@@ -71,18 +72,18 @@ export class DVIDSkeletonSource extends DVIDSource(
       `/${parameters.dataInstanceKey}/key/` +
       bodyid +
       "_swc";
-    return makeRequestWithCredentials(
+    return fetchWithDVIDCredentials(
       this.credentialsProvider,
+      appendQueryStringForDvid(url, parameters.user),
       {
-        method: "GET",
-        url: appendQueryStringForDvid(url, parameters.user),
-        responseType: "arraybuffer",
+        signal: abortSignal,
       },
-      cancellationToken,
-    ).then((response) => {
-      const enc = new TextDecoder("utf-8");
-      decodeSwcSkeletonChunk(chunk, enc.decode(response));
-    });
+    )
+      .then((response) => response.arrayBuffer())
+      .then((response) => {
+        const enc = new TextDecoder("utf-8");
+        decodeSwcSkeletonChunk(chunk, enc.decode(response));
+      });
   }
 }
 
@@ -116,7 +117,7 @@ export class DVIDMeshSource extends DVIDSource(
     return Promise.resolve(undefined);
   }
 
-  downloadFragment(chunk: FragmentChunk, cancellationToken: CancellationToken) {
+  downloadFragment(chunk: FragmentChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     const dvidInstance = new DVIDInstance(
       parameters.baseUrl,
@@ -127,15 +128,15 @@ export class DVIDMeshSource extends DVIDSource(
       `${chunk.fragmentId}.ngmesh`,
     );
 
-    return makeRequestWithCredentials(
+    return fetchWithDVIDCredentials(
       this.credentialsProvider,
+      appendQueryStringForDvid(meshUrl, parameters.user),
       {
-        method: "GET",
-        url: appendQueryStringForDvid(meshUrl, parameters.user),
-        responseType: "arraybuffer",
+        signal: abortSignal,
       },
-      cancellationToken,
-    ).then((response) => decodeFragmentChunk(chunk, response));
+    )
+      .then((response) => response.arrayBuffer())
+      .then((response) => decodeFragmentChunk(chunk, response));
   }
 }
 
@@ -144,7 +145,7 @@ export class DVIDVolumeChunkSource extends DVIDSource(
   VolumeChunkSource,
   VolumeChunkSourceParameters,
 ) {
-  async download(chunk: VolumeChunk, cancellationToken: CancellationToken) {
+  async download(chunk: VolumeChunk, abortSignal: AbortSignal) {
     const params = this.parameters;
     let path: string;
     {
@@ -157,18 +158,14 @@ export class DVIDVolumeChunkSource extends DVIDSource(
       path = this.getPath(chunkPosition, chunkDataSize);
     }
     const decoder = this.getDecoder(params);
-    const response = await makeRequestWithCredentials(
+    const response = await fetchWithDVIDCredentials(
       this.credentialsProvider,
-      {
-        method: "GET",
-        url: appendQueryStringForDvid(`${params.baseUrl}${path}`, params.user),
-        responseType: "arraybuffer",
-      },
-      cancellationToken,
-    );
+      appendQueryStringForDvid(`${params.baseUrl}${path}`, params.user),
+      { signal: abortSignal },
+    ).then((response) => response.arrayBuffer());
     await decoder(
       chunk,
-      cancellationToken,
+      abortSignal,
       params.encoding === VolumeChunkEncoding.JPEG
         ? response.slice(16)
         : response,

@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-import { DisplayDimensionRenderInfo } from "#/navigation_state";
-import { ProjectionParameters } from "#/projection_parameters";
-import { getChunkPositionFromCombinedGlobalLocalPositions } from "#/render_coordinate_transform";
-import { ChunkLayout } from "#/sliceview/chunk_layout";
 import {
+  validateDisplayDimensionRenderInfoProperty,
+  type DisplayDimensionRenderInfo,
+} from "#src/navigation_state.js";
+import { ProjectionParameters } from "#src/projection_parameters.js";
+import { getChunkPositionFromCombinedGlobalLocalPositions } from "#src/render_coordinate_transform.js";
+import { ChunkLayout } from "#src/sliceview/chunk_layout.js";
+import type {
   WatchableValueChangeInterface,
   WatchableValueInterface,
-} from "#/trackable_value";
-import { DATA_TYPE_BYTES, DataType } from "#/util/data_type";
-import { Disposable } from "#/util/disposable";
+} from "#src/trackable_value.js";
+import { DATA_TYPE_BYTES, DataType } from "#src/util/data_type.js";
+import type { Disposable } from "#src/util/disposable.js";
 import {
   getFrustrumPlanes,
   getViewFrustrumDepthRange,
@@ -31,10 +34,10 @@ import {
   isAABBVisible,
   mat4,
   vec3,
-} from "#/util/geom";
-import * as matrix from "#/util/matrix";
-import * as vector from "#/util/vector";
-import { SharedObject } from "#/worker_rpc";
+} from "#src/util/geom.js";
+import * as matrix from "#src/util/matrix.js";
+import * as vector from "#src/util/vector.js";
+import { SharedObject } from "#src/worker_rpc.js";
 
 export { DATA_TYPE_BYTES, DataType };
 
@@ -289,8 +292,9 @@ function visibleSourcesInvalidated(
 ) {
   if (
     oldValue.displayDimensionRenderInfo !== newValue.displayDimensionRenderInfo
-  )
+  ) {
     return true;
+  }
   if (oldValue.pixelSize !== newValue.pixelSize) return true;
   const { viewMatrix: oldViewMatrix } = oldValue;
   const { viewMatrix: newViewMatrix } = newValue;
@@ -347,14 +351,15 @@ export class SliceViewBase<
       this.projectionParameters.value.displayDimensionRenderInfo;
 
     const { visibleLayers } = this;
-    for (const [
-      renderLayer,
-      { allSources, visibleSources, displayDimensionRenderInfo },
-    ] of visibleLayers) {
+    for (const [renderLayer, visibleLayerSources] of visibleLayers) {
+      const { allSources, visibleSources } = visibleLayerSources;
       visibleSources.length = 0;
       if (
-        displayDimensionRenderInfo !== curDisplayDimensionRenderInfo ||
-        allSources.length === 0
+        allSources.length === 0 ||
+        !validateDisplayDimensionRenderInfoProperty(
+          visibleLayerSources,
+          curDisplayDimensionRenderInfo,
+        )
       ) {
         continue;
       }

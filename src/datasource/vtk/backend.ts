@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-import { requestAsyncComputation } from "#/async_computation/request";
-import { parseVTKFromArrayBuffer } from "#/async_computation/vtk_mesh_request";
-import { GenericSharedDataSource } from "#/chunk_manager/generic_file_source";
-import { registerSingleMeshFactory, SingleMesh } from "#/single_mesh/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { DataType } from "#/util/data_type";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import { parseVTKFromArrayBuffer } from "#src/async_computation/vtk_mesh_request.js";
+import { GenericSharedDataSource } from "#src/chunk_manager/generic_file_source.js";
+import type { SingleMesh } from "#src/single_mesh/backend.js";
+import { registerSingleMeshFactory } from "#src/single_mesh/backend.js";
+import { DataType } from "#src/util/data_type.js";
 
 /**
  * This needs to be a global function, because it identifies the instance of GenericSharedDataSource
  * to use.
  */
-function parse(buffer: ArrayBuffer, cancellationToken: CancellationToken) {
+function parse(buffer: ArrayBuffer, abortSignal: AbortSignal) {
   return requestAsyncComputation(
     parseVTKFromArrayBuffer,
-    cancellationToken,
+    abortSignal,
     [buffer],
     buffer,
   );
@@ -36,20 +36,14 @@ function parse(buffer: ArrayBuffer, cancellationToken: CancellationToken) {
 
 registerSingleMeshFactory("vtk", {
   description: "VTK",
-  getMesh: (
-    chunkManager,
-    credentialsProvider,
-    url,
-    getPriority,
-    cancellationToken,
-  ) =>
+  getMesh: (chunkManager, credentialsProvider, url, getPriority, abortSignal) =>
     GenericSharedDataSource.getUrl(
       chunkManager,
       credentialsProvider,
       parse,
       url,
       getPriority,
-      cancellationToken,
+      abortSignal,
     ).then((mesh) => {
       const result: SingleMesh = {
         info: {

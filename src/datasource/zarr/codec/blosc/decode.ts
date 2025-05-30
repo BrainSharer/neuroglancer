@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-import { decodeBlosc } from "#/async_computation/decode_blosc_request";
-import { requestAsyncComputation } from "#/async_computation/request";
-import { CodecKind } from "#/datasource/zarr/codec";
-import type { Configuration } from "#/datasource/zarr/codec/blosc/resolve";
-import { registerCodec } from "#/datasource/zarr/codec/decode";
-import { CancellationToken } from "#/util/cancellation";
+import { decodeBlosc } from "#src/async_computation/decode_blosc_request.js";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import type { Configuration } from "#src/datasource/zarr/codec/blosc/resolve.js";
+import { registerCodec } from "#src/datasource/zarr/codec/decode.js";
+import { CodecKind } from "#src/datasource/zarr/codec/index.js";
 
 registerCodec({
   name: "blosc",
   kind: CodecKind.bytesToBytes,
-  decode(
-    configuration: Configuration,
-    encoded: Uint8Array,
-    cancellationToken: CancellationToken,
-  ): Promise<Uint8Array> {
+  decode(configuration: Configuration, encoded, abortSignal: AbortSignal) {
     configuration;
     return requestAsyncComputation(
       decodeBlosc,
-      cancellationToken,
+      abortSignal,
       [encoded.buffer],
       encoded,
     );

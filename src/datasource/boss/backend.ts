@@ -14,30 +14,30 @@
  * limitations under the License.
  */
 
-import { WithParameters } from "#/chunk_manager/backend";
-import { ChunkSourceParametersConstructor } from "#/chunk_manager/base";
-import { WithSharedCredentialsProviderCounterpart } from "#/credentials_provider/shared_counterpart";
-import { BossToken, fetchWithBossCredentials } from "#/datasource/boss/api";
+import { WithParameters } from "#src/chunk_manager/backend.js";
+import type { ChunkSourceParametersConstructor } from "#src/chunk_manager/base.js";
+import { WithSharedCredentialsProviderCounterpart } from "#src/credentials_provider/shared_counterpart.js";
+import type { BossToken } from "#src/datasource/boss/api.js";
+import { fetchWithBossCredentials } from "#src/datasource/boss/api.js";
 import {
   MeshSourceParameters,
   VolumeChunkSourceParameters,
-} from "#/datasource/boss/base";
+} from "#src/datasource/boss/base.js";
+import type { FragmentChunk, ManifestChunk } from "#src/mesh/backend.js";
 import {
   assignMeshFragmentData,
   decodeJsonManifestChunk,
   decodeTriangleVertexPositionsAndIndices,
-  FragmentChunk,
-  ManifestChunk,
   MeshSource,
-} from "#/mesh/backend";
-import { ChunkDecoder } from "#/sliceview/backend_chunk_decoders";
-import { decodeBossNpzChunk } from "#/sliceview/backend_chunk_decoders/bossNpz";
-import { decodeJpegChunk } from "#/sliceview/backend_chunk_decoders/jpeg";
-import { VolumeChunk, VolumeChunkSource } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { Endianness } from "#/util/endian";
-import { cancellableFetchOk, responseArrayBuffer } from "#/util/http_request";
-import { registerSharedObject, SharedObject } from "#/worker_rpc";
+} from "#src/mesh/backend.js";
+import { decodeBossNpzChunk } from "#src/sliceview/backend_chunk_decoders/bossNpz.js";
+import type { ChunkDecoder } from "#src/sliceview/backend_chunk_decoders/index.js";
+import { decodeJpegChunk } from "#src/sliceview/backend_chunk_decoders/jpeg.js";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
+import { VolumeChunkSource } from "#src/sliceview/volume/backend.js";
+import { Endianness } from "#src/util/endian.js";
+import type { SharedObject } from "#src/worker_rpc.js";
+import { registerSharedObject } from "#src/worker_rpc.js";
 
 const chunkDecoders = new Map<string, ChunkDecoder>();
 chunkDecoders.set("npz", decodeBossNpzChunk);
@@ -67,7 +67,7 @@ export class BossVolumeChunkSource extends BossSource(
 ) {
   chunkDecoder = chunkDecoders.get(this.parameters.encoding)!;
 
-  async download(chunk: VolumeChunk, cancellationToken: CancellationToken) {
+  async download(chunk: VolumeChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     let url = `${parameters.baseUrl}/latest/cutout/${parameters.collection}/${parameters.experiment}/${parameters.channel}/${parameters.resolution}`;
     {
@@ -87,11 +87,12 @@ export class BossVolumeChunkSource extends BossSource(
     const response = await fetchWithBossCredentials(
       this.credentialsProvider,
       url,
-      { headers: { Accept: acceptHeaders.get(parameters.encoding)! } },
-      responseArrayBuffer,
-      cancellationToken,
+      {
+        signal: abortSignal,
+        headers: { Accept: acceptHeaders.get(parameters.encoding)! },
+      },
     );
-    await this.chunkDecoder(chunk, cancellationToken, response);
+    await this.chunkDecoder(chunk, abortSignal, await response.arrayBuffer());
   }
 }
 
@@ -118,23 +119,25 @@ export class BossMeshSource extends BossSource(
   MeshSource,
   MeshSourceParameters,
 ) {
-  download(chunk: ManifestChunk, cancellationToken: CancellationToken) {
+  download(chunk: ManifestChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
-    return cancellableFetchOk(
+    return fetchWithBossCredentials(
+      this.credentialsProvider,
       `${parameters.baseUrl}${chunk.objectId}`,
-      {},
-      responseArrayBuffer,
-      cancellationToken,
-    ).then((response) => decodeManifestChunk(chunk, response));
+      { signal: abortSignal },
+    )
+      .then((response) => response.arrayBuffer())
+      .then((response) => decodeManifestChunk(chunk, response));
   }
 
-  downloadFragment(chunk: FragmentChunk, cancellationToken: CancellationToken) {
+  downloadFragment(chunk: FragmentChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
-    return cancellableFetchOk(
+    return fetchWithBossCredentials(
+      this.credentialsProvider,
       `${parameters.baseUrl}${chunk.fragmentId}`,
-      {},
-      responseArrayBuffer,
-      cancellationToken,
-    ).then((response) => decodeFragmentChunk(chunk, response));
+      { signal: abortSignal },
+    )
+      .then((response) => response.arrayBuffer())
+      .then((response) => decodeFragmentChunk(chunk, response));
   }
 }

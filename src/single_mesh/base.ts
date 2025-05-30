@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { DataType } from "#/util/data_type";
+import type { DataType } from "#src/util/data_type.js";
 
 export const SINGLE_MESH_LAYER_RPC_ID = "single_mesh/SingleMeshLayer";
 export const GET_SINGLE_MESH_INFO_RPC_ID = "single_mesh/getSingleMeshInfo";
@@ -39,10 +39,10 @@ export interface SingleMeshInfo {
 }
 
 export interface SingleMeshData {
-  vertexPositions: Float32Array;
-  indices: Uint32Array;
-  vertexNormals?: Float32Array;
-  vertexAttributes: Float32Array[];
+  vertexPositions: Float32Array<ArrayBuffer>;
+  indices: Uint32Array<ArrayBuffer>;
+  vertexNormals?: Float32Array<ArrayBuffer>;
+  vertexAttributes: Float32Array<ArrayBuffer>[];
 }
 
 export class SingleMeshSourceParameters {

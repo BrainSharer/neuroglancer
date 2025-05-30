@@ -13,23 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { asyncComputation } from "#/async_computation";
+import { asyncComputation } from "#src/async_computation/index.js";
 
 export interface DecodedImage {
   width: number;
   height: number;
   numComponents: number;
-  uint8Array: Uint8Array;
+  uint8Array: Uint8Array<ArrayBuffer>;
 }
 
-export const decodePng =
-  asyncComputation<
-    (
-      data: Uint8Array,
-      width: number | undefined,
-      height: number | undefined,
-      numComponents: number | undefined,
-      bytesPerPixel: number,
-      convertToGrayscale: boolean,
-    ) => DecodedImage
-  >("decodePng");
+export const decodePng = asyncComputation<
+  (
+    data: Uint8Array<ArrayBuffer>,
+    width: number | undefined,
+    height: number | undefined,
+    // Expected width * height
+    area: number | undefined,
+    numComponents: number | undefined,
+    bytesPerPixel: number,
+    convertToGrayscale: boolean,
+  ) => DecodedImage
+>("decodePng");

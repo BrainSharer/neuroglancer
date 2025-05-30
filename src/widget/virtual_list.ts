@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-import { animationFrameDebounce } from "#/util/animation_frame_debounce";
-import { ArraySpliceOp, spliceArray } from "#/util/array";
-import { RefCounted } from "#/util/disposable";
-import { removeFromParent, updateChildren } from "#/util/dom";
-import { Signal } from "#/util/signal";
+import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
+import type { ArraySpliceOp } from "#src/util/array.js";
+import { spliceArray } from "#src/util/array.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { removeFromParent, updateChildren } from "#src/util/dom.js";
+import type { Signal } from "#src/util/signal.js";
 
 // Must be a multiple of 2.
 const defaultNumItemsToRender = 10;
@@ -299,7 +300,7 @@ export class VirtualList extends RefCounted {
   private debouncedUpdateView = this.registerCancellable(
     animationFrameDebounce(() => this.updateView()),
   );
-  private resizeObserver = new ResizeObserver(() => this.updateView());
+  private resizeObserver = new ResizeObserver(() => this.debouncedUpdateView());
 
   constructor(options: {
     source: VirtualListSource;

@@ -14,136 +14,153 @@
  * limitations under the License.
  */
 
-import "./graphene.css";
-
-import {
-  AnnotationReference,
-  AnnotationType,
-  Line,
-  LocalAnnotationSource,
-  makeDataBoundsBoundingBoxAnnotationSet,
-  Point,
-} from "#/annotation";
+import "#src/datasource/graphene/graphene.css";
+import { debounce } from "lodash-es";
 import {
   AnnotationDisplayState,
   AnnotationLayerState,
-} from "#/annotation/annotation_layer_state";
-import { LayerChunkProgressInfo } from "#/chunk_manager/base";
-import { ChunkManager, WithParameters } from "#/chunk_manager/frontend";
-import { makeIdentityTransform } from "#/coordinate_transform";
-import { CredentialsManager } from "#/credentials_provider";
-import { WithCredentialsProvider } from "#/credentials_provider/chunk_source_frontend";
+} from "#src/annotation/annotation_layer_state.js";
+import type {
+  AnnotationReference,
+  Line,
+  Point,
+} from "#src/annotation/index.js";
 import {
-  DataSource,
-  DataSubsourceEntry,
-  GetDataSourceOptions,
-  RedirectError,
-} from "#/datasource";
+  AnnotationType,
+  LocalAnnotationSource,
+  makeDataBoundsBoundingBoxAnnotationSet,
+} from "#src/annotation/index.js";
+import { LayerChunkProgressInfo } from "#src/chunk_manager/base.js";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import { WithParameters } from "#src/chunk_manager/frontend.js";
+import { makeIdentityTransform } from "#src/coordinate_transform.js";
+import { WithCredentialsProvider } from "#src/credentials_provider/chunk_source_frontend.js";
+import type { CredentialsManager } from "#src/credentials_provider/index.js";
+import type {
+  ChunkedGraphChunkSource as ChunkedGraphChunkSourceInterface,
+  ChunkedGraphChunkSpecification,
+  MultiscaleMeshMetadata,
+} from "#src/datasource/graphene/base.js";
 import {
   CHUNKED_GRAPH_LAYER_RPC_ID,
   CHUNKED_GRAPH_RENDER_LAYER_UPDATE_SOURCES_RPC_ID,
-  ChunkedGraphChunkSource as ChunkedGraphChunkSourceInterface,
-  ChunkedGraphChunkSpecification,
   ChunkedGraphSourceParameters,
   getGrapheneFragmentKey,
   GRAPHENE_MESH_NEW_SEGMENT_RPC_ID,
   isBaseSegmentId,
   makeChunkedGraphChunkSpecification,
   MeshSourceParameters,
-  MultiscaleMeshMetadata,
   PYCG_APP_VERSION,
-  responseIdentity,
-} from "#/datasource/graphene/base";
+} from "#src/datasource/graphene/base.js";
+import type {
+  DataSource,
+  DataSubsourceEntry,
+  GetDataSourceOptions,
+} from "#src/datasource/index.js";
+import { RedirectError } from "#src/datasource/index.js";
+import type { ShardingParameters } from "#src/datasource/precomputed/base.js";
 import {
   DataEncoding,
   ShardingHashFunction,
-  ShardingParameters,
-} from "#/datasource/precomputed/base";
+} from "#src/datasource/precomputed/base.js";
+import type { MultiscaleVolumeInfo } from "#src/datasource/precomputed/frontend.js";
 import {
   getSegmentPropertyMap,
-  MultiscaleVolumeInfo,
   parseMultiscaleVolumeInfo,
   parseProviderUrl,
   PrecomputedDataSource,
   PrecomputedMultiscaleVolumeChunkSource,
   resolvePath,
-} from "#/datasource/precomputed/frontend";
-import { LayerView, MouseSelectionState, VisibleLayerInfo } from "#/layer";
-import {
-  LoadedDataSubsource,
-  LoadedLayerDataSource,
-} from "#/layer_data_source";
-import { MeshSource } from "#/mesh/frontend";
-import { DisplayDimensionRenderInfo } from "#/navigation_state";
-import {
+} from "#src/datasource/precomputed/frontend.js";
+import type {
+  LayerView,
+  MouseSelectionState,
+  VisibleLayerInfo,
+} from "#src/layer/index.js";
+import type { LoadedDataSubsource } from "#src/layer/layer_data_source.js";
+import { LoadedLayerDataSource } from "#src/layer/layer_data_source.js";
+import { SegmentationUserLayer } from "#src/layer/segmentation/index.js";
+import { MeshSource } from "#src/mesh/frontend.js";
+import type { DisplayDimensionRenderInfo } from "#src/navigation_state.js";
+import type {
   ChunkTransformParameters,
+  RenderLayerTransformOrError,
+} from "#src/render_coordinate_transform.js";
+import {
   getChunkPositionFromCombinedGlobalLocalPositions,
   getChunkTransformParameters,
-  RenderLayerTransformOrError,
-} from "#/render_coordinate_transform";
-import { RenderLayer, RenderLayerRole } from "#/renderlayer";
+} from "#src/render_coordinate_transform.js";
+import type { RenderLayer } from "#src/renderlayer.js";
+import { RenderLayerRole } from "#src/renderlayer.js";
+import type {
+  SegmentationDisplayState3D,
+  Uint64MapEntry,
+} from "#src/segmentation_display_state/frontend.js";
 import {
   augmentSegmentId,
   resetTemporaryVisibleSegmentsState,
-  SegmentationDisplayState3D,
   SegmentationLayerSharedObject,
   SegmentWidgetFactory,
-  Uint64MapEntry,
-} from "#/segmentation_display_state/frontend";
-import { VisibleSegmentEquivalencePolicy } from "#/segmentation_graph/segment_id";
-import {
+} from "#src/segmentation_display_state/frontend.js";
+import { VisibleSegmentEquivalencePolicy } from "#src/segmentation_graph/segment_id.js";
+import type {
   ComputedSplit,
+  SegmentationGraphSourceTab,
+} from "#src/segmentation_graph/source.js";
+import {
   SegmentationGraphSource,
   SegmentationGraphSourceConnection,
-  SegmentationGraphSourceTab,
-} from "#/segmentation_graph/source";
-import { SegmentationUserLayer } from "#/segmentation_user_layer";
-import { SharedWatchableValue } from "#/shared_watchable_value";
-import {
+} from "#src/segmentation_graph/source.js";
+import { SharedWatchableValue } from "#src/shared_watchable_value.js";
+import type {
   FrontendTransformedSource,
+  SliceViewSingleResolutionSource,
+} from "#src/sliceview/frontend.js";
+import {
   getVolumetricTransformedSources,
   serializeAllTransformedSources,
   SliceViewChunkSource,
-  SliceViewSingleResolutionSource,
-} from "#/sliceview/frontend";
-import {
-  SliceViewPanelRenderLayer,
-  SliceViewRenderLayer,
-} from "#/sliceview/renderlayer";
-import { StatusMessage } from "#/status";
+} from "#src/sliceview/frontend.js";
+import type { SliceViewRenderLayer } from "#src/sliceview/renderlayer.js";
+import { SliceViewPanelRenderLayer } from "#src/sliceview/renderlayer.js";
+import { StatusMessage } from "#src/status.js";
 import {
   TrackableBoolean,
   TrackableBooleanCheckbox,
-} from "#/trackable_boolean";
+} from "#src/trackable_boolean.js";
+import type {
+  NestedStateManager,
+  WatchableValueInterface,
+} from "#src/trackable_value.js";
 import {
   makeCachedLazyDerivedWatchableValue,
-  NestedStateManager,
   registerNested,
   TrackableValue,
   WatchableSet,
   WatchableValue,
-  WatchableValueInterface,
-} from "#/trackable_value";
+} from "#src/trackable_value.js";
 import {
   AnnotationLayerView,
   MergedAnnotationStates,
   PlaceLineTool,
-} from "#/ui/annotations";
+} from "#src/ui/annotations.js";
+import type { ToolActivation } from "#src/ui/tool.js";
 import {
   LayerTool,
   makeToolActivationStatusMessageWithHeader,
   makeToolButton,
   registerLegacyTool,
   registerTool,
-  ToolActivation,
-} from "#/ui/tool";
-import { Uint64Set } from "#/uint64_set";
-import { packColor } from "#/util/color";
-import { Owned, RefCounted } from "#/util/disposable";
-import { makeValueOrError, ValueOrError, valueOrThrow } from "#/util/error";
-import { EventActionMap } from "#/util/event_action_map";
-import { mat4, vec3, vec4 } from "#/util/geom";
-import { HttpError, isNotFoundError, responseJson } from "#/util/http_request";
+} from "#src/ui/tool.js";
+import type { Uint64Set } from "#src/uint64_set.js";
+import { packColor } from "#src/util/color.js";
+import type { Owned } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import type { ValueOrError } from "#src/util/error.js";
+import { makeValueOrError, valueOrThrow } from "#src/util/error.js";
+import { EventActionMap } from "#src/util/event_action_map.js";
+import { mat4, vec3, vec4 } from "#src/util/geom.js";
+import { HttpError, isNotFoundError } from "#src/util/http_request.js";
 import {
   parseArray,
   parseFixedLengthArray,
@@ -160,20 +177,22 @@ import {
   verifyOptionalString,
   verifyPositiveInt,
   verifyString,
-} from "#/util/json";
-import { getObjectId } from "#/util/object_id";
-import { NullarySignal } from "#/util/signal";
-import {
-  cancellableFetchSpecialOk,
-  parseSpecialUrl,
+} from "#src/util/json.js";
+import { getObjectId } from "#src/util/object_id.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type {
   SpecialProtocolCredentials,
   SpecialProtocolCredentialsProvider,
-} from "#/util/special_protocol_request";
-import { Trackable } from "#/util/trackable";
-import { Uint64 } from "#/util/uint64";
-import { makeDeleteButton } from "#/widget/delete_button";
-import { DependentViewContext } from "#/widget/dependent_view_widget";
-import { makeIcon } from "#/widget/icon";
+} from "#src/util/special_protocol_request.js";
+import {
+  fetchSpecialOk,
+  parseSpecialUrl,
+} from "#src/util/special_protocol_request.js";
+import type { Trackable } from "#src/util/trackable.js";
+import { Uint64 } from "#src/util/uint64.js";
+import { makeDeleteButton } from "#src/widget/delete_button.js";
+import type { DependentViewContext } from "#src/widget/dependent_view_widget.js";
+import { makeIcon } from "#src/widget/icon.js";
 
 function vec4FromVec3(vec: vec3, alpha = 0) {
   const res = vec4.clone([...vec]);
@@ -211,7 +230,7 @@ class AppInfo {
     // .../1.0/... is the legacy link style
     // .../table/... is the current, version agnostic link style (for retrieving the info file)
     const linkStyle =
-      /^(https?:\/\/[.\w:\-\/]+)\/segmentation\/(?:1\.0|table)\/([^\/]+)\/?$/;
+      /^(https?:\/\/[.\w:\-/]+)\/segmentation\/(?:1\.0|table)\/([^/]+)\/?$/;
     const match = infoUrl.match(linkStyle);
     if (match === null) {
       throw Error(`Graph URL invalid: ${infoUrl}`);
@@ -226,7 +245,7 @@ class AppInfo {
         "supported_api_versions",
         (x) => parseArray(x, verifyNonnegativeInt),
       );
-    } catch (error) {
+    } catch {
       // Dealing with a prehistoric graph server with no version information
       this.supported_api_versions = [0];
     }
@@ -542,11 +561,8 @@ function getJsonMetadata(
       credentialsProvider: getObjectId(credentialsProvider),
     },
     async () => {
-      return await cancellableFetchSpecialOk(
-        credentialsProvider,
-        `${url}/info`,
-        {},
-        responseJson,
+      return await fetchSpecialOk(credentialsProvider, `${url}/info`, {}).then(
+        (response) => response.json(),
       );
     },
   );
@@ -912,7 +928,7 @@ class MergeState extends RefCounted implements Trackable {
         ERROR_JSON_KEY,
         verifyString,
       );
-      const locked = verifyObjectProperty(obj, LOCKED_JSON_KEY, verifyBoolean);
+      const locked = false; // TODO(chrisj) verifyObjectProperty(obj, LOCKED_JSON_KEY, verifyBoolean);
       const sink = restoreSegmentSelection(obj[SINK_JSON_KEY]);
       const source = restoreSegmentSelection(obj[SOURCE_JSON_KEY]);
       return {
@@ -1508,11 +1524,11 @@ class GraphConnection extends SegmentationGraphSourceConnection {
         segmentsToAdd.push(submission.mergedRoot);
       }
     }
+    const latestRoots =
+      await this.graph.graphServer.filterLatestRoots(segmentsToAdd);
     const segmentsState = this.layer.displayState.segmentationGroupState.value;
     const { visibleSegments, selectedSegments } = segmentsState;
     selectedSegments.delete(segmentsToRemove);
-    const latestRoots =
-      await this.graph.graphServer.filterLatestRoots(segmentsToAdd);
     this.meshAddNewSegments(latestRoots);
     selectedSegments.add(latestRoots);
     visibleSegments.add(latestRoots);
@@ -1583,12 +1599,7 @@ class GrapheneGraphServerInterface {
       Number.isNaN(timestampEpoch) ? "" : `&timestamp=${timestampEpoch}`
     }`;
 
-    const promise = cancellableFetchSpecialOk(
-      this.credentialsProvider,
-      url,
-      {},
-      responseIdentity,
-    );
+    const promise = fetchSpecialOk(this.credentialsProvider, url, {});
 
     const response = await withErrorMessageHTTP(promise, {
       initialMessage: `Retrieving root for segment ${segment}`,
@@ -1608,7 +1619,7 @@ class GrapheneGraphServerInterface {
       return Promise.reject(GRAPH_SERVER_NOT_SPECIFIED);
     }
 
-    const promise = cancellableFetchSpecialOk(
+    const promise = fetchSpecialOk(
       this.credentialsProvider,
       `${url}/merge?int64_as_str=1`,
       {
@@ -1624,7 +1635,6 @@ class GrapheneGraphServerInterface {
           ],
         ]),
       },
-      responseIdentity,
     );
 
     try {
@@ -1650,7 +1660,7 @@ class GrapheneGraphServerInterface {
       return Promise.reject(GRAPH_SERVER_NOT_SPECIFIED);
     }
 
-    const promise = cancellableFetchSpecialOk(
+    const promise = fetchSpecialOk(
       this.credentialsProvider,
       `${url}/split?int64_as_str=1`,
       {
@@ -1666,7 +1676,6 @@ class GrapheneGraphServerInterface {
           ]),
         }),
       },
-      responseIdentity,
     );
 
     const response = await withErrorMessageHTTP(promise, {
@@ -1684,17 +1693,12 @@ class GrapheneGraphServerInterface {
   async filterLatestRoots(segments: Uint64[]): Promise<Uint64[]> {
     const url = `${this.url}/is_latest_roots`;
 
-    const promise = cancellableFetchSpecialOk(
-      this.credentialsProvider,
-      url,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          node_ids: segments.map((x) => x.toJSON()),
-        }),
-      },
-      responseIdentity,
-    );
+    const promise = fetchSpecialOk(this.credentialsProvider, url, {
+      method: "POST",
+      body: JSON.stringify({
+        node_ids: segments.map((x) => x.toJSON()),
+      }),
+    });
 
     const response = await withErrorMessageHTTP(promise, {
       errorPrefix: "Could not check latest: ",
@@ -1818,8 +1822,8 @@ class ChunkedGraphChunkSource
   extends SliceViewChunkSource
   implements ChunkedGraphChunkSourceInterface
 {
-  spec: ChunkedGraphChunkSpecification;
-  OPTIONS: { spec: ChunkedGraphChunkSpecification };
+  declare spec: ChunkedGraphChunkSpecification;
+  declare OPTIONS: { spec: ChunkedGraphChunkSpecification };
 }
 
 class GrapheneChunkedGraphChunkSource extends WithParameters(
@@ -2173,7 +2177,6 @@ class MulticutSegmentsTool extends LayerTool<SegmentationUserLayer> {
       displayState.baseSegmentHighlighting.value = priorBaseSegmentHighlighting;
       displayState.highlightColor.value = priorHighlightColor;
     });
-
     const resetMulticutDisplay = () => {
       resetTemporaryVisibleSegmentsState(segmentationGroupState);
       displayState.useTempSegmentStatedColors2d.value = false;
@@ -2181,31 +2184,25 @@ class MulticutSegmentsTool extends LayerTool<SegmentationUserLayer> {
       displayState.tempSegmentDefaultColor2d.value = undefined;
       displayState.highlightColor.value = undefined;
     };
-
     const updateMulticutDisplay = () => {
       resetMulticutDisplay();
       activeGroupIndicator.classList.toggle(
         "blueGroup",
         multicutState.blueGroup.value,
       );
-
       const focusSegment = multicutState.focusSegment.value;
       if (focusSegment === undefined) return;
-
       displayState.baseSegmentHighlighting.value = true;
       displayState.highlightColor.value = multicutState.blueGroup.value
         ? BLUE_COLOR_HIGHTLIGHT
         : RED_COLOR_HIGHLIGHT;
       segmentsState.useTemporaryVisibleSegments.value = true;
       segmentsState.useTemporarySegmentEquivalences.value = true;
-
-      // add to focus segments and temporary sets
+      // add focus segment and red/blue segments
       segmentsState.temporaryVisibleSegments.add(focusSegment);
-
       for (const segment of multicutState.segments) {
         segmentsState.temporaryVisibleSegments.add(segment);
       }
-
       // all other segments are added to the focus segment equivalences
       for (const equivalence of segmentsState.segmentEquivalences.setElements(
         focusSegment,
@@ -2217,14 +2214,12 @@ class MulticutSegmentsTool extends LayerTool<SegmentationUserLayer> {
           );
         }
       }
-
       // set colors
       displayState.tempSegmentDefaultColor2d.value = MULTICUT_OFF_COLOR;
       displayState.tempSegmentStatedColors2d.value.set(
         focusSegment,
         TRANSPARENT_COLOR_PACKED,
       );
-
       for (const segment of multicutState.redSegments) {
         displayState.tempSegmentStatedColors2d.value.set(
           segment,
@@ -2240,18 +2235,19 @@ class MulticutSegmentsTool extends LayerTool<SegmentationUserLayer> {
 
       displayState.useTempSegmentStatedColors2d.value = true;
     };
-
     updateMulticutDisplay();
-
     activation.registerDisposer(
       multicutState.changed.add(updateMulticutDisplay),
     );
-
+    activation.registerDisposer(
+      segmentationGroupState.segmentEquivalences.changed.add(
+        debounce(() => updateMulticutDisplay(), 0),
+      ),
+    );
     activation.bindAction("swap-group", (event) => {
       event.stopPropagation();
       multicutState.swapGroup();
     });
-
     activation.bindAction("set-anchor", (event) => {
       event.stopPropagation();
       const currentSegmentSelection = maybeGetSelection(
@@ -2285,7 +2281,6 @@ class MulticutSegmentsTool extends LayerTool<SegmentationUserLayer> {
       }
       multicutState.activeGroup.add(currentSegmentSelection);
     });
-
     activation.bindAction("submit", (event) => {
       event.stopPropagation();
       submitAction();
@@ -2465,7 +2460,12 @@ class MergeSegmentsTool extends LayerTool<SegmentationUserLayer> {
         text: "Clear",
         title: "Clear pending merges",
         onClick: () => {
-          merges.value = [];
+          lineTool.deactivate();
+          for (const merge of merges.value) {
+            if (!merge.locked) {
+              graphConnection.deleteMergeSubmission(merge);
+            }
+          }
         },
       }),
     );

@@ -8,24 +8,23 @@
     "preserveConstEnums": true,
     "experimentalDecorators": true,
     "alwaysStrict": true,
+    "allowJs": true,
     "strictNullChecks": true,
+    "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": false,
     "esModuleInterop": true,
     "sourceMap": true,
     "moduleResolution": "bundler",
     "incremental": true,
-    "target": "ES2017",
+    "resolveJsonModule": true,
+    "useDefineForClassFields": true,
+    "target": "ES2022",
     "newLine": "LF",
     "baseUrl": ".",
-    "paths": {
-      "*": ["*"],
-      "#/*": ["src/*"],
-      "jpgjs": ["third_party/jpgjs/jpg.js"],
-      "neuroglancer-testdata/*": ["testdata/*"]
-    },
-    "lib": ["dom", "es2020", "dom.iterable"],
+    "lib": ["dom", "webworker", "esnext", "dom.iterable"],
     "typeRoots": [],
-    "module": "ESNext"
+    "module": "ESNext",
   },
   "exclude": [
     "node_modules",
@@ -35,15 +34,8 @@
     "testdata",
     "examples",
     "config",
+    "docs",
+    "ngauth_server",
     "src/brainshare/docs"
   ],
-  "typedocOptions": {
-        "entryPoints": ["./src"],
-        "entryPointStrategy": "expand",
-        "exclude": ["./src/**/*.spec.ts"],
-        "excludeExternals": false,
-        "excludePrivate": false,
-        "excludeProtected": false,
-        "out": "src/brainshare/docs/typedoc"    
-      }
-  }
+}

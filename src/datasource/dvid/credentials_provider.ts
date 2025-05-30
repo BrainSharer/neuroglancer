@@ -22,26 +22,21 @@ import {
   AnonymousFirstCredentialsProvider,
   CredentialsProvider,
   makeCredentialsGetter,
-} from "#/credentials_provider";
-import { StatusMessage } from "#/status";
-import {
-  CANCELED,
-  CancellationTokenSource,
-  uncancelableToken,
-} from "#/util/cancellation";
-import { cancellableFetchOk } from "#/util/http_request";
-import { DVIDToken, responseText } from "#/datasource/dvid/api";
+} from "#src/credentials_provider/index.js";
+import { getCredentialsWithStatus } from "#src/credentials_provider/interactive_credentials_provider.js";
+import type { DVIDToken } from "#src/datasource/dvid/api.js";
+import { fetchOk } from "#src/util/http_request.js";
 
 async function getAuthToken(
   authServer: string,
-  cancellationToken = uncancelableToken,
+  abortSignal: AbortSignal,
 ): Promise<DVIDToken> {
-  const token = await cancellableFetchOk(
-    authServer,
-    { method: "GET", credentials: "include" },
-    responseText,
-    cancellationToken,
-  );
+  const response = await fetchOk(authServer, {
+    method: "GET",
+    credentials: "include",
+    signal: abortSignal,
+  });
+  const token = await response.text();
   return { token };
 }
 
@@ -50,80 +45,33 @@ class BaseDVIDCredentialsProvider extends CredentialsProvider<DVIDToken> {
     super();
   }
 
-  get = makeCredentialsGetter((cancellationToken) => {
-    if (!this.authServer) return Promise.resolve({ token: "" });
-    const status = new StatusMessage(/*delay=*/ true);
-    let cancellationSource: CancellationTokenSource | undefined;
-    return new Promise<DVIDToken>((resolve, reject) => {
-      const dispose = () => {
-        cancellationSource = undefined;
-        status.dispose();
-      };
-      cancellationToken.add(() => {
-        if (cancellationSource !== undefined) {
-          cancellationSource.cancel();
-          cancellationSource = undefined;
-          status.dispose();
-          reject(CANCELED);
-        }
-      });
-      function writeAuthStatus(
-        authServer: string,
-        msg = "DVID authorization required.",
-        linkMessage = "Request authorization.",
-      ) {
-        status.setText(msg + " ");
-        const button = document.createElement("button");
-        button.textContent = linkMessage;
-        status.element.appendChild(button);
-        button.addEventListener("click", () => {
+  get = makeCredentialsGetter(async (abortSignal) => {
+    const { authServer } = this;
+    if (!authServer) return { token: "" };
+    return await getCredentialsWithStatus(
+      {
+        description: `DVID server ${this.authServer}`,
+        supportsImmediate: true,
+        get: async (abortSignal, immediate) => {
+          if (immediate) {
+            return await getAuthToken(authServer, abortSignal);
+          }
           // In the current DVID setup, https://flyemlogin.<domain> is expected for the login server
-          const match = authServer.match(/^[^\/]+\/\/[^\/\.]+\.([^\/]+)/);
+          const match = authServer.match(/^[^/]+\/\/[^/.]+\.([^/]+)/);
           if (match) {
             const loginServer = `https://flyemlogin.${match[1]}/login`;
-            window.alert(
+            throw new Error(
               `Please log into ${loginServer} and then refresh the neurogalncer page to try again.\nIf you are unable to log into ${loginServer}, please check your authorization server ${authServer} to make sure it is correct.`,
             );
           } else {
-            window.alert(
+            throw new Error(
               `Please check your authorization server ${authServer} to make sure it is correct.`,
             );
           }
-        });
-        status.setVisible(true);
-      }
-
-      function requestAuth(authServer: string) {
-        if (cancellationSource !== undefined) {
-          cancellationSource.cancel();
-        }
-        cancellationSource = new CancellationTokenSource();
-        writeAuthStatus(
-          authServer,
-          "Waiting for DVID authorization...",
-          "Retry",
-        );
-        getAuthToken(authServer, cancellationSource).then(
-          (token) => {
-            if (cancellationSource !== undefined) {
-              dispose();
-              resolve(token);
-            }
-          },
-          (reason) => {
-            if (cancellationSource !== undefined) {
-              cancellationSource = undefined;
-              writeAuthStatus(
-                authServer,
-                `DVID authorization failed: ${reason}.`,
-                "Retry",
-              );
-            }
-          },
-        );
-      }
-      requestAuth(this.authServer!);
-    });
+        },
+      },
+      abortSignal,
+    );
   });
 }
 

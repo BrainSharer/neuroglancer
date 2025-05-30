@@ -19,18 +19,20 @@
  * another thread.
  */
 
-import {
+import type {
   CredentialsProvider,
   CredentialsWithGeneration,
-  makeCachedCredentialsGetter,
   MaybeOptionalCredentialsProvider,
-} from "#/credentials_provider";
+} from "#src/credentials_provider/index.js";
+import { makeCachedCredentialsGetter } from "#src/credentials_provider/index.js";
 import {
   CREDENTIALS_PROVIDER_GET_RPC_ID,
   CREDENTIALS_PROVIDER_RPC_ID,
-} from "#/credentials_provider/shared_common";
-import { CancellationToken } from "#/util/cancellation";
-import { registerSharedObject, SharedObjectCounterpart } from "#/worker_rpc";
+} from "#src/credentials_provider/shared_common.js";
+import {
+  registerSharedObject,
+  SharedObjectCounterpart,
+} from "#src/worker_rpc.js";
 
 @registerSharedObject(CREDENTIALS_PROVIDER_RPC_ID)
 export class SharedCredentialsProviderCounterpart<Credentials>
@@ -40,12 +42,12 @@ export class SharedCredentialsProviderCounterpart<Credentials>
   get = makeCachedCredentialsGetter(
     (
       invalidCredentials?: CredentialsWithGeneration<Credentials>,
-      cancellationToken?: CancellationToken,
+      abortSignal?: AbortSignal,
     ): Promise<CredentialsWithGeneration<Credentials>> =>
       this.rpc!.promiseInvoke(
         CREDENTIALS_PROVIDER_GET_RPC_ID,
         { providerId: this.rpcId, invalidCredentials: invalidCredentials },
-        cancellationToken,
+        abortSignal,
       ),
   );
 }

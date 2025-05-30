@@ -1,4 +1,4 @@
-// DO NOT EDIT.  Generated from templates/neuroglancer/util/pairing_heap.template.ts.
+// DO NOT EDIT.  Generated from templates/util/pairing_heap.template.ts.
 /**
  * @license
  * Copyright 2016 Google Inc.
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { PairingHeapOperations } from "#/util/pairing_heap";
+import type { PairingHeapOperations } from "#src/util/pairing_heap.js";
 
 interface Node<T> {
   child0: T | null;
@@ -71,8 +71,7 @@ export default class Implementation<T extends Node<T>>
     let head: T | null = null;
     while (true) {
       const curNext: T | null = cur.next0;
-      let next: T | null;
-      let m: T;
+      let next: T | null, m: T;
       if (curNext === null) {
         next = null;
         m = cur;

@@ -23,44 +23,48 @@
  * https://github.com/bigdataviewer/bigdataviewer-core/blob/master/BDV%20N5%20format.md
  */
 
-import { makeDataBoundsBoundingBoxAnnotationSet } from "#/annotation";
-import { ChunkManager, WithParameters } from "#/chunk_manager/frontend";
-import {
+import { makeDataBoundsBoundingBoxAnnotationSet } from "#src/annotation/index.js";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import { WithParameters } from "#src/chunk_manager/frontend.js";
+import type {
   CoordinateArray,
   CoordinateSpace,
+} from "#src/coordinate_transform.js";
+import {
   makeCoordinateSpace,
   makeIdentityTransform,
-} from "#/coordinate_transform";
-import { WithCredentialsProvider } from "#/credentials_provider/chunk_source_frontend";
-import {
+} from "#src/coordinate_transform.js";
+import { WithCredentialsProvider } from "#src/credentials_provider/chunk_source_frontend.js";
+import type {
   CompleteUrlOptions,
   DataSource,
-  DataSourceProvider,
   GetDataSourceOptions,
-} from "#/datasource";
+} from "#src/datasource/index.js";
+import { DataSourceProvider } from "#src/datasource/index.js";
 import {
   VolumeChunkEncoding,
   VolumeChunkSourceParameters,
-} from "#/datasource/n5/base";
-import { SliceViewSingleResolutionSource } from "#/sliceview/frontend";
+} from "#src/datasource/n5/base.js";
+import type { SliceViewSingleResolutionSource } from "#src/sliceview/frontend.js";
+import type { VolumeSourceOptions } from "#src/sliceview/volume/base.js";
 import {
   DataType,
   makeDefaultVolumeChunkSpecifications,
-  VolumeSourceOptions,
   VolumeType,
-} from "#/sliceview/volume/base";
+} from "#src/sliceview/volume/base.js";
 import {
   MultiscaleVolumeChunkSource as GenericMultiscaleVolumeChunkSource,
   VolumeChunkSource,
-} from "#/sliceview/volume/frontend";
-import { transposeNestedArrays } from "#/util/array";
-import { Borrowed } from "#/util/disposable";
-import { completeHttpPath } from "#/util/http_path_completion";
-import { isNotFoundError, parseUrl, responseJson } from "#/util/http_request";
+} from "#src/sliceview/volume/frontend.js";
+import { transposeNestedArrays } from "#src/util/array.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import { completeHttpPath } from "#src/util/http_path_completion.js";
+import { isNotFoundError, parseUrl } from "#src/util/http_request.js";
 import {
   expectArray,
   parseArray,
   parseFixedLengthArray,
+  verifyBoolean,
   verifyEnumString,
   verifyFinitePositiveFloat,
   verifyObject,
@@ -69,16 +73,18 @@ import {
   verifyPositiveInt,
   verifyString,
   verifyStringArray,
-} from "#/util/json";
-import { createHomogeneousScaleMatrix } from "#/util/matrix";
-import { getObjectId } from "#/util/object_id";
-import { scaleByExp10, unitFromJson } from "#/util/si_units";
-import {
-  cancellableFetchSpecialOk,
-  parseSpecialUrl,
+} from "#src/util/json.js";
+import { createHomogeneousScaleMatrix } from "#src/util/matrix.js";
+import { getObjectId } from "#src/util/object_id.js";
+import { scaleByExp10, unitFromJson } from "#src/util/si_units.js";
+import type {
   SpecialProtocolCredentials,
   SpecialProtocolCredentialsProvider,
-} from "#/util/special_protocol_request";
+} from "#src/util/special_protocol_request.js";
+import {
+  fetchSpecialOk,
+  parseSpecialUrl,
+} from "#src/util/special_protocol_request.js";
 
 class N5VolumeChunkSource extends WithParameters(
   WithCredentialsProvider<SpecialProtocolCredentials>()(VolumeChunkSource),
@@ -226,6 +232,17 @@ class ScaleMetadata {
       encoding = verifyObjectProperty(compression, "type", (x) =>
         verifyEnumString(x, VolumeChunkEncoding),
       );
+      if (
+        encoding === VolumeChunkEncoding.GZIP &&
+        verifyOptionalObjectProperty(
+          compression,
+          "useZlib",
+          verifyBoolean,
+          false,
+        ) === true
+      ) {
+        encoding = VolumeChunkEncoding.ZLIB;
+      }
     });
     if (encoding === undefined) {
       encoding = verifyObjectProperty(obj, "compressionType", (x) =>
@@ -283,7 +300,8 @@ function getIndividualAttributesJson(
       credentialsProvider: getObjectId(credentialsProvider),
     },
     () =>
-      cancellableFetchSpecialOk(credentialsProvider, url, {}, responseJson)
+      fetchSpecialOk(credentialsProvider, url, {})
+        .then((response) => response.json())
         .then((j) => {
           try {
             return verifyObject(j);
@@ -570,7 +588,7 @@ export class N5DataSource extends DataSourceProvider {
     return completeHttpPath(
       options.credentialsManager,
       options.providerUrl,
-      options.cancellationToken,
+      options.abortSignal,
     );
   }
 }

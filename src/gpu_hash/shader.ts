@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-import { HashTableBase, NUM_ALTERNATIVES } from "#/gpu_hash/hash_table";
-import { DataType } from "#/util/data_type";
-import { RefCounted } from "#/util/disposable";
-import { GL } from "#/webgl/context";
-import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
-import { glsl_equalUint64, glsl_uint64 } from "#/webgl/shader_lib";
+import type { HashTableBase } from "#src/gpu_hash/hash_table.js";
+import { NUM_ALTERNATIVES } from "#src/gpu_hash/hash_table.js";
+import { DataType } from "#src/util/data_type.js";
+import { RefCounted } from "#src/util/disposable.js";
+import type { GL } from "#src/webgl/context.js";
+import type { ShaderBuilder, ShaderProgram } from "#src/webgl/shader.js";
+import { glsl_equalUint64, glsl_uint64 } from "#src/webgl/shader_lib.js";
 import {
   computeTextureFormat,
   OneDimensionalTextureAccessHelper,
   setOneDimensionalTextureData,
   TextureFormat,
-} from "#/webgl/texture_access";
+} from "#src/webgl/texture_access.js";
 
 // MumurHash, excluding the final mixing steps.
 export const glsl_hashCombine = [
@@ -97,19 +98,26 @@ export class GPUHashTable<HashTable extends HashTableBase> extends RefCounted {
 }
 
 export class HashSetShaderManager {
-  textureUnitSymbol = Symbol.for(`gpuhashtable:${this.prefix}`);
-  private accessHelper = new OneDimensionalTextureAccessHelper(
-    `gpuhashtable_${this.prefix}`,
-  );
-  samplerName = this.prefix + "_sampler";
-  hashSeedsName = this.prefix + "_seeds";
-  hashKeyMask = this.prefix + "_keyMask";
-  readTable = this.prefix + "_readTable";
+  textureUnitSymbol: symbol;
+  private accessHelper: OneDimensionalTextureAccessHelper;
+  samplerName: string;
+  hashSeedsName: string;
+  hashKeyMask: string;
+  readTable: string;
 
   constructor(
     public prefix: string,
     public numAlternatives = NUM_ALTERNATIVES,
-  ) {}
+  ) {
+    this.textureUnitSymbol = Symbol.for(`gpuhashtable:${this.prefix}`);
+    this.accessHelper = new OneDimensionalTextureAccessHelper(
+      `gpuhashtable_${this.prefix}`,
+    );
+    this.samplerName = prefix + "_sampler";
+    this.hashSeedsName = prefix + "_seeds";
+    this.hashKeyMask = prefix + "_keyMask";
+    this.readTable = prefix + "_readTable";
+  }
 
   defineShader(builder: ShaderBuilder) {
     const { hashSeedsName, samplerName, numAlternatives, hashKeyMask } = this;

@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-import { decodeZstd } from "#/async_computation/decode_zstd_request";
-import { requestAsyncComputation } from "#/async_computation/request";
-import { CodecKind } from "#/datasource/zarr/codec";
-import { registerCodec } from "#/datasource/zarr/codec/decode";
-import type { Configuration } from "#/datasource/zarr/codec/zstd/resolve";
-import { CancellationToken } from "#/util/cancellation";
+import { decodeZstd } from "#src/async_computation/decode_zstd_request.js";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import { registerCodec } from "#src/datasource/zarr/codec/decode.js";
+import { CodecKind } from "#src/datasource/zarr/codec/index.js";
+import type { Configuration } from "#src/datasource/zarr/codec/zstd/resolve.js";
 
 registerCodec({
   name: "zstd",
   kind: CodecKind.bytesToBytes,
-  decode(
-    configuration: Configuration,
-    encoded: Uint8Array,
-    cancellationToken: CancellationToken,
-  ): Promise<Uint8Array> {
+  decode(configuration: Configuration, encoded, abortSignal: AbortSignal) {
     configuration;
     return requestAsyncComputation(
       decodeZstd,
-      cancellationToken,
+      abortSignal,
       [encoded.buffer],
       encoded,
     );

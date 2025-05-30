@@ -28,8 +28,8 @@
  * munges other characters as well.  Therefore, we hex encode to be safe.
  */
 
-import { hexEncode, hexDecode } from "#/util/hex";
-import { registerEventListener } from "#/util/disposable";
+import { registerEventListener } from "#src/util/disposable.js";
+import { hexEncode, hexDecode } from "#src/util/hex.js";
 
 export function encodeStringAsDragType(s: string) {
   return hexEncode(new TextEncoder().encode(s));
@@ -108,4 +108,40 @@ export function preventDrag(element: HTMLElement) {
     event.stopPropagation();
     event.preventDefault();
   });
+}
+
+export function getDropEffectFromModifiers<DropEffect extends string>(
+  event: DragEvent,
+  defaultDropEffect: DropEffect,
+  moveAllowed: boolean,
+): { dropEffect: DropEffect | "move" | "copy"; dropEffectMessage: string } {
+  let dropEffect: DropEffect | "move" | "copy";
+  if (event.shiftKey) {
+    dropEffect = "copy";
+  } else if (event.ctrlKey && moveAllowed) {
+    dropEffect = "move";
+  } else {
+    dropEffect = defaultDropEffect;
+  }
+  let message = "";
+  const addMessage = (msg: string) => {
+    if (message !== "") {
+      message += ", ";
+    }
+    message += msg;
+  };
+  if (defaultDropEffect !== "none" && dropEffect !== defaultDropEffect) {
+    if (event.shiftKey) {
+      addMessage(`release SHIFT to ${defaultDropEffect}`);
+    } else {
+      addMessage(`release CONTROL to ${defaultDropEffect}`);
+    }
+  }
+  if (dropEffect !== "copy") {
+    addMessage("hold SHIFT to copy");
+  }
+  if (dropEffect !== "move" && moveAllowed && defaultDropEffect !== "move") {
+    addMessage("hold CONTROL to move");
+  }
+  return { dropEffect, dropEffectMessage: message };
 }

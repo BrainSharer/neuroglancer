@@ -14,15 +14,22 @@
  * limitations under the License.
  */
 
-import { DataType } from "#/util/data_type";
-import { RefCounted } from "#/util/disposable";
-import { Uint64 } from "#/util/uint64";
-import { GL } from "#/webgl/context";
-import { FramebufferConfiguration, TextureBuffer } from "#/webgl/offscreen";
-import { ShaderBuilder, ShaderProgram } from "#/webgl/shader";
-import { dataTypeShaderDefinition, getShaderType } from "#/webgl/shader_lib";
-import { getSquareCornersBuffer } from "#/webgl/square_corners_buffer";
-import { webglTest } from "#/webgl/testing";
+import { DataType } from "#src/util/data_type.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { Uint64 } from "#src/util/uint64.js";
+import type { GL } from "#src/webgl/context.js";
+import {
+  FramebufferConfiguration,
+  TextureBuffer,
+} from "#src/webgl/offscreen.js";
+import type { ShaderProgram } from "#src/webgl/shader.js";
+import { ShaderBuilder } from "#src/webgl/shader.js";
+import {
+  dataTypeShaderDefinition,
+  getShaderType,
+} from "#src/webgl/shader_lib.js";
+import { getSquareCornersBuffer } from "#src/webgl/square_corners_buffer.js";
+import { webglTest } from "#src/webgl/testing.js";
 
 export type ShaderIoType = "int" | "uint" | "float" | "bool" | DataType;
 
@@ -110,10 +117,10 @@ export class FragmentShaderTester<
   Inputs extends FragmentShaderTestOutputs,
   Outputs extends FragmentShaderTestOutputs,
 > extends RefCounted {
-  builder = new ShaderBuilder(this.gl);
+  builder: ShaderBuilder;
   private shader_: ShaderProgram;
   offscreenFramebuffer: FramebufferConfiguration<TextureBuffer>;
-  private vertexPositionsBuffer = getSquareCornersBuffer(this.gl, -1, -1, 1, 1);
+  private vertexPositionsBuffer;
 
   constructor(
     public gl: GL,
@@ -121,8 +128,10 @@ export class FragmentShaderTester<
     public outputs: Outputs,
   ) {
     super();
-    const { builder } = this;
-    this.offscreenFramebuffer = new FramebufferConfiguration(this.gl, {
+    const builder = (this.builder = new ShaderBuilder(gl));
+    this.vertexPositionsBuffer = getSquareCornersBuffer(gl, -1, -1, 1, 1);
+
+    this.offscreenFramebuffer = new FramebufferConfiguration(gl, {
       colorBuffers: makeTextureBuffersForOutputs(gl, outputs),
     });
     builder.addAttribute("vec4", "shader_testing_aVertexPosition");

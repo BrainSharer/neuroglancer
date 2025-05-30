@@ -14,34 +14,34 @@
  * limitations under the License.
  */
 
+import type {
+  ChunkSourceParametersConstructor,
+  LayerChunkProgressInfo,
+} from "#src/chunk_manager/base.js";
 import {
   CHUNK_LAYER_STATISTICS_RPC_ID,
   CHUNK_MANAGER_RPC_ID,
   CHUNK_QUEUE_MANAGER_RPC_ID,
   CHUNK_SOURCE_INVALIDATE_RPC_ID,
-  ChunkSourceParametersConstructor,
   ChunkState,
-  LayerChunkProgressInfo,
   REQUEST_CHUNK_STATISTICS_RPC_ID,
-} from "#/chunk_manager/base";
-import { SharedWatchableValue } from "#/shared_watchable_value";
-import { TrackableBoolean } from "#/trackable_boolean";
-import { TrackableValue } from "#/trackable_value";
-import { CANCELED, CancellationToken } from "#/util/cancellation";
-import { Borrowed } from "#/util/disposable";
-import { stableStringify } from "#/util/json";
-import { StringMemoize } from "#/util/memoize";
-import { getObjectId } from "#/util/object_id";
-import { NullarySignal } from "#/util/signal";
-import { GL } from "#/webgl/context";
+} from "#src/chunk_manager/base.js";
+import { SharedWatchableValue } from "#src/shared_watchable_value.js";
+import { TrackableBoolean } from "#src/trackable_boolean.js";
+import { TrackableValue } from "#src/trackable_value.js";
+import type { Borrowed } from "#src/util/disposable.js";
+import { stableStringify } from "#src/util/json.js";
+import { StringMemoize } from "#src/util/memoize.js";
+import { getObjectId } from "#src/util/object_id.js";
+import { NullarySignal } from "#src/util/signal.js";
+import type { GL } from "#src/webgl/context.js";
+import type { RPC, RPCPromise } from "#src/worker_rpc.js";
 import {
   registerPromiseRPC,
   registerRPC,
   registerSharedObjectOwner,
-  RPC,
-  RPCPromise,
   SharedObject,
-} from "#/worker_rpc";
+} from "#src/worker_rpc.js";
 
 const DEBUG_CHUNK_UPDATES = false;
 
@@ -196,9 +196,9 @@ export class ChunkQueueManager extends SharedObject {
   }
 
   private handleFetch_(source: ChunkSource, update: any) {
-    const { resolve, reject, cancellationToken } = update.promise;
-    if ((<CancellationToken>cancellationToken).isCanceled) {
-      reject(CANCELED);
+    const { resolve, reject, abortSignal } = update.promise;
+    if (abortSignal.aborted) {
+      reject(abortSignal.reason);
       return;
     }
 
@@ -350,9 +350,9 @@ registerRPC("Chunk.update", function (x) {
 
 registerPromiseRPC(
   "Chunk.retrieve",
-  function (x, cancellationToken): RPCPromise<any> {
+  function (x, abortSignal): RPCPromise<any> {
     return new Promise<{ value: any }>((resolve, reject) => {
-      x.promise = { resolve, reject, cancellationToken };
+      x.promise = { resolve, reject, abortSignal };
       updateChunk(this, x);
     });
   },
@@ -380,7 +380,7 @@ registerRPC(CHUNK_LAYER_STATISTICS_RPC_ID, function (x) {
   chunkManager.layerChunkStatisticsUpdated.dispatch();
 });
 
-export type GettableChunkSource = SharedObject & { OPTIONS: {}; key: any };
+export type GettableChunkSource = SharedObject & { OPTIONS: object; key: any };
 
 export interface ChunkSourceConstructor<
   T extends GettableChunkSource = GettableChunkSource,
@@ -428,8 +428,9 @@ export interface ChunkRequesterState {
   (chunk: Chunk): void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class ChunkSource extends SharedObject {
-  OPTIONS: {};
+  declare OPTIONS: object;
   chunks = new Map<string, Chunk>();
 
   chunkRequesters: Map<string, ChunkRequesterState[]> | undefined;
@@ -443,7 +444,7 @@ export class ChunkSource extends SharedObject {
 
   constructor(
     public chunkManager: Borrowed<ChunkManager>,
-    _options: {} = {},
+    _options: object = {},
   ) {
     super();
   }
@@ -483,11 +484,12 @@ export class ChunkSource extends SharedObject {
     this.rpc!.invoke(CHUNK_SOURCE_INVALIDATE_RPC_ID, { id: this.rpcId });
   }
 
-  static encodeOptions(_options: {}): { [key: string]: any } {
+  static encodeOptions(_options: object): { [key: string]: any } {
     return {};
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface ChunkSource {
   key: any;
 }
@@ -504,7 +506,7 @@ export function WithParameters<
   };
   @registerSharedObjectOwner(parametersConstructor.RPC_ID)
   class C extends Base {
-    OPTIONS: WithParametersOptions;
+    declare OPTIONS: WithParametersOptions;
     parameters: Parameters;
     constructor(...args: any[]) {
       super(...args);

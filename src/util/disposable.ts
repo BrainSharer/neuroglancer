@@ -57,14 +57,15 @@ export class RefCounted implements Disposable {
   disposedStacks: any;
   dispose() {
     if (DEBUG_REF_COUNTS) {
-      if (this.refCount === 0) {
-      }
       (this.disposedStacks = this.disposedStacks || []).push(new Error().stack);
     }
     if (--this.refCount !== 0) {
       return;
     }
     this.refCountReachedZero();
+  }
+  [Symbol.dispose]() {
+    this.dispose();
   }
 
   protected refCountReachedZero() {

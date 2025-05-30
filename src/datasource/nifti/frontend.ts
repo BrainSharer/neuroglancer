@@ -19,45 +19,45 @@
  * volumes.
  */
 
-import { makeDataBoundsBoundingBoxAnnotationSet } from "#/annotation";
-import { ChunkManager, WithParameters } from "#/chunk_manager/frontend";
+import { makeDataBoundsBoundingBoxAnnotationSet } from "#src/annotation/index.js";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import { WithParameters } from "#src/chunk_manager/frontend.js";
 import {
   makeCoordinateSpace,
   makeIdentityTransformedBoundingBox,
-} from "#/coordinate_transform";
-import { CredentialsManager } from "#/credentials_provider";
+} from "#src/coordinate_transform.js";
 import {
   getCredentialsProviderCounterpart,
   WithCredentialsProvider,
-} from "#/credentials_provider/chunk_source_frontend";
-import {
+} from "#src/credentials_provider/chunk_source_frontend.js";
+import type { CredentialsManager } from "#src/credentials_provider/index.js";
+import type {
   CompleteUrlOptions,
   DataSource,
-  DataSourceProvider,
   GetDataSourceOptions,
-} from "#/datasource";
+} from "#src/datasource/index.js";
+import { DataSourceProvider } from "#src/datasource/index.js";
+import type { NiftiVolumeInfo } from "#src/datasource/nifti/base.js";
 import {
   GET_NIFTI_VOLUME_INFO_RPC_ID,
-  NiftiVolumeInfo,
   VolumeSourceParameters,
-} from "#/datasource/nifti/base";
+} from "#src/datasource/nifti/base.js";
+import type { VolumeSourceOptions } from "#src/sliceview/volume/base.js";
 import {
   makeVolumeChunkSpecificationWithDefaultCompression,
-  VolumeSourceOptions,
   VolumeType,
-} from "#/sliceview/volume/base";
+} from "#src/sliceview/volume/base.js";
 import {
   MultiscaleVolumeChunkSource,
   VolumeChunkSource,
-} from "#/sliceview/volume/frontend";
-import { CancellationToken, uncancelableToken } from "#/util/cancellation";
-import { completeHttpPath } from "#/util/http_path_completion";
-import * as matrix from "#/util/matrix";
-import {
-  parseSpecialUrl,
+} from "#src/sliceview/volume/frontend.js";
+import { completeHttpPath } from "#src/util/http_path_completion.js";
+import * as matrix from "#src/util/matrix.js";
+import type {
   SpecialProtocolCredentials,
   SpecialProtocolCredentialsProvider,
-} from "#/util/special_protocol_request";
+} from "#src/util/special_protocol_request.js";
+import { parseSpecialUrl } from "#src/util/special_protocol_request.js";
 
 class NiftiVolumeChunkSource extends WithParameters(
   WithCredentialsProvider<SpecialProtocolCredentials>()(VolumeChunkSource),
@@ -119,7 +119,7 @@ function getNiftiVolumeInfo(
   chunkManager: ChunkManager,
   credentialsProvider: SpecialProtocolCredentialsProvider,
   url: string,
-  cancellationToken: CancellationToken,
+  abortSignal?: AbortSignal,
 ) {
   return chunkManager.rpc!.promiseInvoke<NiftiVolumeInfo>(
     GET_NIFTI_VOLUME_INFO_RPC_ID,
@@ -132,7 +132,7 @@ function getNiftiVolumeInfo(
         ),
       url: url,
     },
-    cancellationToken,
+    abortSignal,
   );
 }
 
@@ -152,7 +152,6 @@ function getDataSource(
         chunkManager,
         credentialsProvider,
         parsedUrl,
-        uncancelableToken,
       );
       const volume = new NiftiMultiscaleVolumeChunkSource(
         chunkManager,
@@ -221,7 +220,7 @@ export class NiftiDataSource extends DataSourceProvider {
     return completeHttpPath(
       options.credentialsManager,
       options.providerUrl,
-      options.cancellationToken,
+      options.abortSignal,
     );
   }
 }

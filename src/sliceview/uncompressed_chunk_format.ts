@@ -17,40 +17,41 @@
 import {
   SingleTextureChunkFormat,
   SingleTextureVolumeChunk,
-} from "#/sliceview/single_texture_chunk_format";
-import { DataType, VolumeChunkSpecification } from "#/sliceview/volume/base";
-import {
+} from "#src/sliceview/single_texture_chunk_format.js";
+import type { VolumeChunkSpecification } from "#src/sliceview/volume/base.js";
+import { DataType } from "#src/sliceview/volume/base.js";
+import type {
   ChunkFormatHandler,
-  registerChunkFormatHandler,
   VolumeChunkSource,
-} from "#/sliceview/volume/frontend";
-import { TypedArray, TypedArrayConstructor } from "#/util/array";
+} from "#src/sliceview/volume/frontend.js";
+import { registerChunkFormatHandler } from "#src/sliceview/volume/frontend.js";
+import type { TypedArray, TypedArrayConstructor } from "#src/util/array.js";
 import {
   DATA_TYPE_ARRAY_CONSTRUCTOR,
   DATA_TYPE_JAVASCRIPT_ELEMENTS_PER_ARRAY_ELEMENT,
-} from "#/util/data_type";
-import { RefCounted } from "#/util/disposable";
-import { Uint64 } from "#/util/uint64";
-import { GL } from "#/webgl/context";
-import {
+} from "#src/util/data_type.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { Uint64 } from "#src/util/uint64.js";
+import type { GL } from "#src/webgl/context.js";
+import type {
   ShaderBuilder,
   ShaderProgram,
   ShaderSamplerPrefix,
   ShaderSamplerType,
-  textureTargetForSamplerType,
-} from "#/webgl/shader";
-import { getShaderType } from "#/webgl/shader_lib";
+} from "#src/webgl/shader.js";
+import { textureTargetForSamplerType } from "#src/webgl/shader.js";
+import { getShaderType } from "#src/webgl/shader_lib.js";
+import type { TextureFormat } from "#src/webgl/texture_access.js";
 import {
   computeTextureFormat,
   setThreeDimensionalTextureData,
   setTwoDimensionalTextureData,
   TextureAccessHelper,
-  TextureFormat,
-} from "#/webgl/texture_access";
+} from "#src/webgl/texture_access.js";
 
 class TextureLayout extends RefCounted {
   strides: Uint32Array;
-  textureShape = new Uint32Array(this.textureDims);
+  textureShape: Uint32Array;
   constructor(
     gl: GL,
     public chunkDataSize: Uint32Array,
@@ -67,7 +68,9 @@ class TextureLayout extends RefCounted {
       textureDims === 3 ? gl.max3dTextureSize : gl.maxTextureSize;
     let textureDim = 0;
     let textureDimSize = 1;
-    const { textureShape } = this;
+    const textureShape = (this.textureShape = new Uint32Array(
+      this.textureDims,
+    ));
     textureShape.fill(1);
     for (let chunkDim = 0; chunkDim < rank; ++chunkDim) {
       const size = chunkDataSize[chunkDim];
@@ -138,7 +141,11 @@ export class ChunkFormat
     );
   }
 
-  defineShader(builder: ShaderBuilder, numChannelDimensions: number) {
+  defineShader(
+    builder: ShaderBuilder,
+    numChannelDimensions: number,
+    inVertexShader: boolean = false,
+  ) {
     super.defineShader(builder, numChannelDimensions);
     const { textureDims } = this;
     const textureVecType = `ivec${this.textureDims}`;
@@ -152,35 +159,39 @@ export class ChunkFormat
       "uVolumeChunkStrides",
       4 + numChannelDimensions,
     );
-    builder.addFragmentCode(
-      textureAccessHelper.getAccessor(
-        "readVolumeData",
-        "uVolumeChunkSampler",
-        this.dataType,
-      ),
+    const textureSamplerCode = textureAccessHelper.getAccessor(
+      "readVolumeData",
+      "uVolumeChunkSampler",
+      this.dataType,
     );
     const shaderType = getShaderType(this.dataType);
-    let code = `
+    let dataAccessCode = `
 ${shaderType} getDataValueAt(highp ivec3 p`;
     for (let channelDim = 0; channelDim < numChannelDimensions; ++channelDim) {
-      code += `, highp int channelIndex${channelDim}`;
+      dataAccessCode += `, highp int channelIndex${channelDim}`;
     }
-    code += `) {
+    dataAccessCode += `) {
   highp ${textureVecType} offset = uVolumeChunkStrides[0]
                      + p.x * uVolumeChunkStrides[1]
                      + p.y * uVolumeChunkStrides[2]
                      + p.z * uVolumeChunkStrides[3];
 `;
     for (let channelDim = 0; channelDim < numChannelDimensions; ++channelDim) {
-      code += `
+      dataAccessCode += `
   offset += channelIndex${channelDim} * uVolumeChunkStrides[${4 + channelDim}];
 `;
     }
-    code += `
+    dataAccessCode += `
   return readVolumeData(offset);
 }
 `;
-    builder.addFragmentCode(code);
+    if (inVertexShader) {
+      builder.addVertexCode(textureSamplerCode);
+      builder.addVertexCode(dataAccessCode);
+    } else {
+      builder.addFragmentCode(textureSamplerCode);
+      builder.addFragmentCode(dataAccessCode);
+    }
   }
 
   /**
@@ -275,8 +286,8 @@ export class UncompressedVolumeChunk extends SingleTextureVolumeChunk<
   Uint8Array,
   TextureLayout
 > {
-  CHUNK_FORMAT_TYPE: ChunkFormat;
-  source: Source;
+  declare CHUNK_FORMAT_TYPE: ChunkFormat;
+  declare source: Source;
 
   setTextureData(gl: GL) {
     const { source } = this;
@@ -337,7 +348,9 @@ export function getFillValueArray(
   dataType: DataType,
   fillValue: number | Uint64,
 ) {
-  const array = new DATA_TYPE_ARRAY_CONSTRUCTOR[dataType](
+  const array = new (DATA_TYPE_ARRAY_CONSTRUCTOR[
+    dataType
+  ] as TypedArrayConstructor<ArrayBuffer>)(
     DATA_TYPE_JAVASCRIPT_ELEMENTS_PER_ARRAY_ELEMENT[dataType],
   );
   if (dataType === DataType.UINT64) {

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import { CredentialsProvider } from "#/credentials_provider";
-import { fetchWithCredentials } from "#/credentials_provider/http_request";
-import { CancellationToken, uncancelableToken } from "#/util/cancellation";
-import { cancellableFetchOk, ResponseTransform } from "#/util/http_request";
+import { fetchWithCredentials } from "#src/credentials_provider/http_request.js";
+import type { CredentialsProvider } from "#src/credentials_provider/index.js";
+import { fetchOk } from "#src/util/http_request.js";
 
 /**
  * OAuth2 token
@@ -28,26 +27,18 @@ export interface OAuth2Credentials {
   email?: string;
 }
 
-export function fetchWithOAuth2Credentials<T>(
+export function fetchWithOAuth2Credentials(
   credentialsProvider: CredentialsProvider<OAuth2Credentials> | undefined,
   input: RequestInfo,
   init: RequestInit,
-  transformResponse: ResponseTransform<T>,
-  cancellationToken: CancellationToken = uncancelableToken,
-): Promise<T> {
+): Promise<Response> {
   if (credentialsProvider === undefined) {
-    return cancellableFetchOk(
-      input,
-      init,
-      transformResponse,
-      cancellationToken,
-    );
+    return fetchOk(input, init);
   }
   return fetchWithCredentials(
     credentialsProvider,
     input,
     init,
-    transformResponse,
     (credentials, init) => {
       if (!credentials.accessToken) return init;
       const headers = new Headers(init.headers);
@@ -74,6 +65,5 @@ export function fetchWithOAuth2Credentials<T>(
       }
       throw error;
     },
-    cancellationToken,
   );
 }

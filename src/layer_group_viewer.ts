@@ -18,22 +18,24 @@
  * @file Viewer for a group of layers.
  */
 
-import "./layer_group_viewer.css";
-
-import debounce from "lodash/debounce";
-import {
-  DataPanelLayoutContainer,
-  InputEventBindings as DataPanelInputEventBindings,
-} from "#/data_panel_layout";
-import { DisplayContext } from "#/display_context";
-import {
+import "#src/layer_group_viewer.css";
+import { debounce } from "lodash-es";
+import type { InputEventBindings as DataPanelInputEventBindings } from "#src/data_panel_layout.js";
+import { DataPanelLayoutContainer } from "#src/data_panel_layout.js";
+import type { DisplayContext } from "#src/display_context.js";
+import type {
   LayerListSpecification,
-  LayerSubsetSpecification,
   MouseSelectionState,
   SelectedLayerState,
-} from "#/layer";
-import {
+} from "#src/layer/index.js";
+import { LayerSubsetSpecification } from "#src/layer/index.js";
+import type {
   CoordinateSpacePlaybackVelocity,
+  TrackableCrossSectionZoom,
+  TrackableNavigationLink,
+  TrackableProjectionZoom,
+} from "#src/navigation_state.js";
+import {
   DisplayPose,
   LinkedCoordinateSpacePlaybackVelocity,
   LinkedDepthRange,
@@ -46,43 +48,38 @@ import {
   NavigationLinkType,
   NavigationState,
   PlaybackManager,
-  TrackableCrossSectionZoom,
-  TrackableNavigationLink,
-  TrackableProjectionZoom,
   WatchableDisplayDimensionRenderInfo,
-} from "#/navigation_state";
-import { RenderLayerRole } from "#/renderlayer";
-import { TrackableBoolean } from "#/trackable_boolean";
-import {
-  registerNested,
+} from "#src/navigation_state.js";
+import type { RenderLayerRole } from "#src/renderlayer.js";
+import { TrackableBoolean } from "#src/trackable_boolean.js";
+import type {
   WatchableSet,
   WatchableValueInterface,
-} from "#/trackable_value";
-import { ContextMenu } from "#/ui/context_menu";
-import { popDragStatus, pushDragStatus } from "#/ui/drag_and_drop";
-import { LayerBar } from "#/ui/layer_bar";
-import {
-  endLayerDrag,
-  getDropEffectFromModifiers,
-  startLayerDrag,
-} from "#/ui/layer_drag_and_drop";
-import { setupPositionDropHandlers } from "#/ui/position_drag_and_drop";
-import { LocalToolBinder } from "#/ui/tool";
-import { AutomaticallyFocusedElement } from "#/util/automatic_focus";
-import { TrackableRGB } from "#/util/color";
-import { Borrowed, Owned, RefCounted } from "#/util/disposable";
-import { removeChildren } from "#/util/dom";
+} from "#src/trackable_value.js";
+import { registerNested } from "#src/trackable_value.js";
+import { ContextMenu } from "#src/ui/context_menu.js";
+import { popDragStatus, pushDragStatus } from "#src/ui/drag_and_drop.js";
+import { LayerBar } from "#src/ui/layer_bar.js";
+import { endLayerDrag, startLayerDrag } from "#src/ui/layer_drag_and_drop.js";
+import { setupPositionDropHandlers } from "#src/ui/position_drag_and_drop.js";
+import { LocalToolBinder } from "#src/ui/tool.js";
+import { AutomaticallyFocusedElement } from "#src/util/automatic_focus.js";
+import type { TrackableRGB } from "#src/util/color.js";
+import type { Borrowed, Owned } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { removeChildren } from "#src/util/dom.js";
+import { getDropEffectFromModifiers } from "#src/util/drag_and_drop.js";
 import {
   dispatchEventAction,
   registerActionListener,
-} from "#/util/event_action_map";
+} from "#src/util/event_action_map.js";
 import {
   CompoundTrackable,
   optionallyRestoreFromJsonMember,
-} from "#/util/trackable";
-import { WatchableVisibilityPriority } from "#/visibility_priority/frontend";
-import { EnumSelectWidget } from "#/widget/enum_widget";
-import { TrackableScaleBarOptions } from "#/widget/scale_bar";
+} from "#src/util/trackable.js";
+import type { WatchableVisibilityPriority } from "#src/visibility_priority/frontend.js";
+import { EnumSelectWidget } from "#src/widget/enum_widget.js";
+import type { TrackableScaleBarOptions } from "#src/widget/scale_bar.js";
 
 declare let NEUROGLANCER_SHOW_LAYER_BAR_EXTRA_BUTTONS: boolean | undefined;
 
@@ -94,6 +91,7 @@ export interface LayerGroupViewerState {
   mouseState: MouseSelectionState;
   showAxisLines: TrackableBoolean;
   wireFrame: TrackableBoolean;
+  enableAdaptiveDownsampling: TrackableBoolean;
   showScaleBar: TrackableBoolean;
   scaleBarOptions: TrackableScaleBarOptions;
   showPerspectiveSliceViews: TrackableBoolean;
@@ -356,6 +354,9 @@ export class LayerGroupViewer extends RefCounted {
   get wireFrame() {
     return this.viewerState.wireFrame;
   }
+  get enableAdaptiveDownsampling() {
+    return this.viewerState.enableAdaptiveDownsampling;
+  }
   get showScaleBar() {
     return this.viewerState.showScaleBar;
   }
@@ -581,6 +582,7 @@ export class LayerGroupViewer extends RefCounted {
       const layerPanelElement = layerPanel.element;
       layerPanelElement.addEventListener("dragstart", (event: DragEvent) => {
         pushDragStatus(
+          event,
           layerPanel.element,
           "drag",
           "Drag layer group to the left/top/right/bottom edge of a layer group, or to another layer bar/panel (including in another Neuroglancer window)",
@@ -606,8 +608,8 @@ export class LayerGroupViewer extends RefCounted {
           layerPanel.element.style.backgroundColor = "";
         }, 0);
       });
-      layerPanel.element.addEventListener("dragend", () => {
-        popDragStatus(layerPanelElement, "drag");
+      layerPanel.element.addEventListener("dragend", (event: DragEvent) => {
+        popDragStatus(event, layerPanelElement, "drag");
         endLayerDrag();
         if (dragSource !== undefined && dragSource.viewer === this) {
           dragSource.disposer();

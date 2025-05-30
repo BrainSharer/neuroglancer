@@ -26,6 +26,7 @@ from .server import (
     is_server_running,  # noqa: F401
     set_server_bind_address,  # noqa: F401
     set_static_content_source,  # noqa: F401
+    set_dev_server_content_source,  # noqa: F401
     stop,  # noqa: F401
 )
 from .url_state import parse_url, to_json_dump, to_url  # noqa: F401
@@ -73,7 +74,6 @@ from .viewer_state import (
     SplitSegmentsTool,  # noqa: F401
     SelectSegmentsTool,  # noqa: F401
     DimensionTool,  # noqa: F401
-    tool,  # noqa: F401
     SidePanelLocation,  # noqa: F401
     SelectedLayerState,  # noqa: F401
     StatisticsDisplayState,  # noqa: F401
@@ -88,12 +88,14 @@ from .viewer_state import (
     LayerDataSource,  # noqa: F401
     LayerDataSources,  # noqa: F401
     InvlerpParameters,  # noqa: F401
+    TransferFunctionParameters,  # noqa: F401
     ImageLayer,  # noqa: F401
     SkeletonRenderingOptions,  # noqa: F401
     StarredSegments,  # noqa: F401
     VisibleSegments,  # noqa: F401
     SegmentationLayer,  # noqa: F401
     SingleMeshLayer,  # noqa: F401
+    Annotation,  # noqa: F401
     PointAnnotation,  # noqa: F401
     LineAnnotation,  # noqa: F401
     AxisAlignedBoundingBoxAnnotation,  # noqa: F401

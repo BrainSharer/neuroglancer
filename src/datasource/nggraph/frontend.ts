@@ -14,43 +14,39 @@
  * limitations under the License.
  */
 
-import debounce from "lodash/debounce";
-import { ChunkManager } from "#/chunk_manager/frontend";
+import { debounce } from "lodash-es";
+import type { ChunkManager } from "#src/chunk_manager/frontend.js";
+import { fetchWithCredentials } from "#src/credentials_provider/http_request.js";
 import {
   CredentialsProvider,
   makeCredentialsGetter,
-} from "#/credentials_provider";
-import { fetchWithCredentials } from "#/credentials_provider/http_request";
-import {
+} from "#src/credentials_provider/index.js";
+import type {
   CompleteUrlOptions,
   CompletionResult,
   DataSource,
-  DataSourceProvider,
   DataSubsourceEntry,
   GetDataSourceOptions,
-} from "#/datasource";
-import {
-  Credentials,
-  NggraphCredentialsProvider,
-} from "#/datasource/nggraph/credentials_provider";
-import { VisibleSegmentsState } from "#/segmentation_display_state/base";
+} from "#src/datasource/index.js";
+import { DataSourceProvider } from "#src/datasource/index.js";
+import type { Credentials } from "#src/datasource/nggraph/credentials_provider.js";
+import { NggraphCredentialsProvider } from "#src/datasource/nggraph/credentials_provider.js";
+import type { SegmentationUserLayer } from "#src/layer/segmentation/index.js";
+import type { VisibleSegmentsState } from "#src/segmentation_display_state/base.js";
 import {
   isBaseSegmentId,
   UNKNOWN_NEW_SEGMENT_ID,
   VisibleSegmentEquivalencePolicy,
-} from "#/segmentation_graph/segment_id";
+} from "#src/segmentation_graph/segment_id.js";
+import type { ComputedSplit } from "#src/segmentation_graph/source.js";
 import {
-  ComputedSplit,
   SegmentationGraphSource,
   SegmentationGraphSourceConnection,
-} from "#/segmentation_graph/source";
-import { SegmentationUserLayer } from "#/segmentation_user_layer";
-import { StatusMessage } from "#/status";
-import { Uint64Set } from "#/uint64_set";
-import { CancellationToken, uncancelableToken } from "#/util/cancellation";
-import { getPrefixMatchesWithDescriptions } from "#/util/completion";
-import { DisjointUint64Sets } from "#/util/disjoint_sets";
-import { responseJson } from "#/util/http_request";
+} from "#src/segmentation_graph/source.js";
+import { StatusMessage } from "#src/status.js";
+import type { Uint64Set } from "#src/uint64_set.js";
+import { getPrefixMatchesWithDescriptions } from "#src/util/completion.js";
+import { DisjointUint64Sets } from "#src/util/disjoint_sets.js";
 import {
   parseArray,
   verifyFiniteFloat,
@@ -59,8 +55,8 @@ import {
   verifyObjectProperty,
   verifyString,
   verifyStringArray,
-} from "#/util/json";
-import { Uint64 } from "#/util/uint64";
+} from "#src/util/json.js";
+import { Uint64 } from "#src/util/uint64.js";
 
 const urlPattern = "^(https?://[^/]+)/(.*)$";
 
@@ -118,7 +114,7 @@ type GraphSegmentUpdate = GraphSegmentInfo | "invalid" | "error";
 let updateGeneration = 0;
 
 class GraphConnection extends SegmentationGraphSourceConnection {
-  graph: NggraphSegmentationGraphSource;
+  declare graph: NggraphSegmentationGraphSource;
   constructor(
     graph: NggraphSegmentationGraphSource,
     segmentsState: VisibleSegmentsState,
@@ -612,13 +608,11 @@ function fetchWithNggraphCredentials(
   serverUrl: string,
   path: string,
   init: RequestInit,
-  cancellationToken: CancellationToken = uncancelableToken,
 ): Promise<any> {
   return fetchWithCredentials(
     credentialsProvider,
     `${serverUrl}${path}`,
     init,
-    responseJson,
     (credentials, init) => {
       const headers = new Headers(init.headers);
       headers.set("Authorization", credentials.token);
@@ -629,8 +623,7 @@ function fetchWithNggraphCredentials(
       if (status === 401) return "refresh";
       throw error;
     },
-    cancellationToken,
-  );
+  ).then((response) => response.json());
 }
 
 interface EntityCredentials extends Credentials {
@@ -643,14 +636,12 @@ function nggraphServerFetch(
   serverUrl: string,
   path: string,
   init: RequestInit,
-  cancellationToken: CancellationToken = uncancelableToken,
 ): Promise<any> {
   return fetchWithNggraphCredentials(
     getCredentialsProvider(chunkManager, serverUrl),
     serverUrl,
     path,
     init,
-    cancellationToken,
   );
 }
 
@@ -711,14 +702,12 @@ function nggraphGraphFetch(
   entityName: string,
   path: string,
   init: RequestInit,
-  cancellationToken: CancellationToken = uncancelableToken,
 ): Promise<any> {
   return fetchWithNggraphCredentials(
     getEntityCredentialsProvider(chunkManager, serverUrl, entityName),
     serverUrl,
     path,
     init,
-    cancellationToken,
   );
 }
 

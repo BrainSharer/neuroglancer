@@ -19,10 +19,9 @@
  * in various formats.
  */
 
-import { VolumeChunk } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
+import type { VolumeChunk } from "#src/sliceview/volume/backend.js";
 export type ChunkDecoder = (
   chunk: VolumeChunk,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal,
   response: ArrayBuffer,
 ) => Promise<void>;

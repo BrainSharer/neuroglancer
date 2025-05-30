@@ -14,31 +14,33 @@
  * limitations under the License.
  */
 
-import { WithParameters } from "#/chunk_manager/backend";
+import { WithParameters } from "#src/chunk_manager/backend.js";
 import {
   MeshSourceParameters,
   SkeletonSourceParameters,
   VolumeChunkEncoding,
   VolumeChunkSourceParameters,
-} from "#/datasource/python/base";
+} from "#src/datasource/python/base.js";
 import {
   assignMeshFragmentData,
   decodeTriangleVertexPositionsAndIndices,
   FragmentChunk,
   ManifestChunk,
   MeshSource,
-} from "#/mesh/backend";
-import { SkeletonChunk, SkeletonSource } from "#/skeleton/backend";
-import { decodeSkeletonChunk } from "#/skeleton/decode_precomputed_skeleton";
-import { ChunkDecoder } from "#/sliceview/backend_chunk_decoders";
-import { decodeJpegChunk } from "#/sliceview/backend_chunk_decoders/jpeg";
-import { decodeNdstoreNpzChunk } from "#/sliceview/backend_chunk_decoders/ndstoreNpz";
-import { decodeRawChunk } from "#/sliceview/backend_chunk_decoders/raw";
-import { VolumeChunk, VolumeChunkSource } from "#/sliceview/volume/backend";
-import { CancellationToken } from "#/util/cancellation";
-import { Endianness } from "#/util/endian";
-import { cancellableFetchOk, responseArrayBuffer } from "#/util/http_request";
-import { registerSharedObject } from "#/worker_rpc";
+} from "#src/mesh/backend.js";
+import { SkeletonChunk, SkeletonSource } from "#src/skeleton/backend.js";
+import { decodeSkeletonChunk } from "#src/skeleton/decode_precomputed_skeleton.js";
+import { ChunkDecoder } from "#src/sliceview/backend_chunk_decoders/index.js";
+import { decodeJpegChunk } from "#src/sliceview/backend_chunk_decoders/jpeg.js";
+import { decodeNdstoreNpzChunk } from "#src/sliceview/backend_chunk_decoders/ndstoreNpz.js";
+import { decodeRawChunk } from "#src/sliceview/backend_chunk_decoders/raw.js";
+import {
+  VolumeChunk,
+  VolumeChunkSource,
+} from "#src/sliceview/volume/backend.js";
+import { Endianness } from "#src/util/endian.js";
+import { fetchOk } from "#src/util/http_request.js";
+import { registerSharedObject } from "#src/worker_rpc.js";
 
 const chunkDecoders = new Map<VolumeChunkEncoding, ChunkDecoder>();
 chunkDecoders.set(VolumeChunkEncoding.NPZ, decodeNdstoreNpzChunk);
@@ -53,7 +55,7 @@ export class PythonVolumeChunkSource extends WithParameters(
   chunkDecoder = chunkDecoders.get(this.parameters["encoding"])!;
   encoding = VolumeChunkEncoding[this.parameters.encoding].toLowerCase();
 
-  async download(chunk: VolumeChunk, cancellationToken: CancellationToken) {
+  async download(chunk: VolumeChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     let path = `../../neuroglancer/${this.encoding}/${parameters.key}/${parameters.scaleKey}`;
     {
@@ -68,13 +70,10 @@ export class PythonVolumeChunkSource extends WithParameters(
         path += (chunkPosition[i] + chunkDataSize[i]).toString();
       }
     }
-    const response = await cancellableFetchOk(
-      path,
-      {},
-      responseArrayBuffer,
-      cancellationToken,
-    );
-    await this.chunkDecoder(chunk, cancellationToken, response);
+    const response = await fetchOk(new URL(path, parameters.baseUrl).href, {
+      signal: abortSignal,
+    });
+    await this.chunkDecoder(chunk, abortSignal, await response.arrayBuffer());
   }
 }
 
@@ -106,17 +105,16 @@ export class PythonMeshSource extends WithParameters(
     return Promise.resolve(undefined);
   }
 
-  downloadFragment(chunk: FragmentChunk, cancellationToken: CancellationToken) {
+  downloadFragment(chunk: FragmentChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     const requestPath = `../../neuroglancer/mesh/${parameters.key}/${
       chunk.manifestChunk!.objectId
     }`;
-    return cancellableFetchOk(
-      requestPath,
-      {},
-      responseArrayBuffer,
-      cancellationToken,
-    ).then((response) => decodeFragmentChunk(chunk, response));
+    return fetchOk(new URL(requestPath, parameters.baseUrl).href, {
+      signal: abortSignal,
+    })
+      .then((response) => response.arrayBuffer())
+      .then((response) => decodeFragmentChunk(chunk, response));
   }
 }
 
@@ -125,16 +123,15 @@ export class PythonSkeletonSource extends WithParameters(
   SkeletonSource,
   SkeletonSourceParameters,
 ) {
-  download(chunk: SkeletonChunk, cancellationToken: CancellationToken) {
+  download(chunk: SkeletonChunk, abortSignal: AbortSignal) {
     const { parameters } = this;
     const requestPath = `../../neuroglancer/skeleton/${parameters.key}/${chunk.objectId}`;
-    return cancellableFetchOk(
-      requestPath,
-      {},
-      responseArrayBuffer,
-      cancellationToken,
-    ).then((response) =>
-      decodeSkeletonChunk(chunk, response, parameters.vertexAttributes),
-    );
+    return fetchOk(new URL(requestPath, parameters.baseUrl).href, {
+      signal: abortSignal,
+    })
+      .then((response) => response.arrayBuffer())
+      .then((response) =>
+        decodeSkeletonChunk(chunk, response, parameters.vertexAttributes),
+      );
   }
 }

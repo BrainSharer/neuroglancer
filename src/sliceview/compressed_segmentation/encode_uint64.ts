@@ -1,5 +1,4 @@
-// DO NOT EDIT.  Generated from
-// templates/neuroglancer/sliceview/compressed_segmentation/encode.template.ts.
+// DO NOT EDIT.  Generated from templates/sliceview/compressed_segmentation/encode.template.ts.
 /**
  * @license
  * Copyright 2016 Google Inc.
@@ -25,11 +24,11 @@ import {
   encodeChannel as encodeChannelCommon,
   encodeChannels as encodeChannelsCommon,
   writeBlock,
-} from "#/sliceview/compressed_segmentation/encode_common";
-import { getFortranOrderStrides } from "#/util/array";
-import { Uint32ArrayBuilder } from "#/util/uint32array_builder";
+} from "#src/sliceview/compressed_segmentation/encode_common.js";
+import { getFortranOrderStrides } from "#src/util/array.js";
+import type { Uint32ArrayBuilder } from "#src/util/uint32array_builder.js";
 
-export { newCache } from "#/sliceview/compressed_segmentation/encode_common";
+export { newCache } from "#src/sliceview/compressed_segmentation/encode_common.js";
 
 let tempEncodingBuffer: Uint32Array;
 let tempValuesBuffer1: Uint32Array;
@@ -49,15 +48,15 @@ export function encodeBlock(
   cache: Map<string, number>,
   output: Uint32ArrayBuilder,
 ): [number, number] {
-  const ax = actualSize[0];
-  const ay = actualSize[1];
-  const az = actualSize[2];
-  const bx = blockSize[0];
-  const by = blockSize[1];
-  const bz = blockSize[2];
+  const ax = actualSize[0],
+    ay = actualSize[1],
+    az = actualSize[2];
+  const bx = blockSize[0],
+    by = blockSize[1],
+    bz = blockSize[2];
   const sx = inputStrides[0];
-  let sy = inputStrides[1];
-  let sz = inputStrides[2];
+  let sy = inputStrides[1],
+    sz = inputStrides[2];
   sz -= sy * ay;
   sy -= sx * ax;
   if (ax * ay * az === 0) {
@@ -170,7 +169,7 @@ export function encodeChannel(
   blockSize: ArrayLike<number>,
   rawData: Uint32Array,
   volumeSize: ArrayLike<number>,
-  baseInputOffset = 0,
+  baseInputOffset: number = 0,
   inputStrides = getFortranOrderStrides(volumeSize, 2),
 ) {
   return encodeChannelCommon(
@@ -189,7 +188,7 @@ export function encodeChannels(
   blockSize: ArrayLike<number>,
   rawData: Uint32Array,
   volumeSize: ArrayLike<number>,
-  baseInputOffset = 0,
+  baseInputOffset: number = 0,
   inputStrides = getFortranOrderStrides(volumeSize, 2),
 ) {
   return encodeChannelsCommon(

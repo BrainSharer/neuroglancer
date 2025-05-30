@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-import { parseOBJFromArrayBuffer } from "#/async_computation/obj_mesh_request";
-import { requestAsyncComputation } from "#/async_computation/request";
-import { GenericSharedDataSource } from "#/chunk_manager/generic_file_source";
-import { registerSingleMeshFactory } from "#/single_mesh/backend";
-import { CancellationToken } from "#/util/cancellation";
+import { parseOBJFromArrayBuffer } from "#src/async_computation/obj_mesh_request.js";
+import { requestAsyncComputation } from "#src/async_computation/request.js";
+import { GenericSharedDataSource } from "#src/chunk_manager/generic_file_source.js";
+import { registerSingleMeshFactory } from "#src/single_mesh/backend.js";
 
 /**
  * This needs to be a global function, because it identifies the instance of GenericSharedDataSource
  * to use.
  */
-function parse(buffer: ArrayBuffer, cancellationToken: CancellationToken) {
+function parse(buffer: ArrayBuffer, abortSignal: AbortSignal) {
   return requestAsyncComputation(
     parseOBJFromArrayBuffer,
-    cancellationToken,
+    abortSignal,
     [buffer],
     buffer,
   );
@@ -35,19 +34,13 @@ function parse(buffer: ArrayBuffer, cancellationToken: CancellationToken) {
 
 registerSingleMeshFactory("obj", {
   description: "OBJ",
-  getMesh: (
-    chunkManager,
-    credentialsProvider,
-    url,
-    getPriority,
-    cancellationToken,
-  ) =>
+  getMesh: (chunkManager, credentialsProvider, url, getPriority, abortSignal) =>
     GenericSharedDataSource.getUrl(
       chunkManager,
       credentialsProvider,
       parse,
       url,
       getPriority,
-      cancellationToken,
+      abortSignal,
     ),
 });

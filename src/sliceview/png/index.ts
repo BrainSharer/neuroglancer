@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { DecodedImage } from "#/async_computation/decode_png_request";
-import pngWasmDataUrl from "./libpng.wasm";
+import type { DecodedImage } from "#src/async_computation/decode_png_request.js";
+import { transposeArray2d } from "#src/util/array.js";
 
 const libraryEnv = {
   emscripten_notify_memory_growth: () => {},
@@ -24,16 +24,26 @@ const libraryEnv = {
   },
 };
 
-const pngModulePromise = (async () => {
-  const response = await fetch(pngWasmDataUrl);
-  const wasmCode = await response.arrayBuffer();
-  const m = await WebAssembly.instantiate(wasmCode, {
-    env: libraryEnv,
-    wasi_snapshot_preview1: libraryEnv,
-  });
-  (m.instance.exports._initialize as Function)();
-  return m;
-})();
+let pngModulePromise: Promise<WebAssembly.Instance> | undefined;
+
+function getPngModulePromise() {
+  if (pngModulePromise === undefined) {
+    pngModulePromise = (async () => {
+      const m = (
+        await WebAssembly.instantiateStreaming(
+          fetch(new URL("./libpng.wasm", import.meta.url)),
+          {
+            env: libraryEnv,
+            wasi_snapshot_preview1: libraryEnv,
+          },
+        )
+      ).instance;
+      (m.exports._initialize as Function)();
+      return m;
+    })();
+  }
+  return pngModulePromise;
+}
 
 enum PngColorSpace {
   GRAYSCALE = 0,
@@ -62,13 +72,13 @@ function readHeader(buffer: Uint8Array): {
   }
 
   if (buffer.length < 8 + 4) {
-    throw new Error("png: Invalid image size: {buffer.length}");
+    throw new Error(`png: Invalid image size: ${buffer.length}`);
   }
 
   // check for header for magic sequence
   const validMagic = arrayEqualTrucated(magicSpec, buffer);
   if (!validMagic) {
-    throw new Error(`png: didn't match magic numbers: {buffer.slice(0,8)}`);
+    throw new Error(`png: didn't match magic numbers: ${buffer.slice(0, 8)}`);
   }
 
   // offset into IHDR chunk so we can read more naturally
@@ -77,7 +87,7 @@ function readHeader(buffer: Uint8Array): {
   const chunkHeaderLength = 12; // len (4), code (4), CRC (4)
 
   if (buffer.length < magicSpec.length + chunkLength + chunkHeaderLength) {
-    throw new Error("png: Invalid image size: {buffer.length}");
+    throw new Error(`png: Invalid image size: ${buffer.length}`);
   }
 
   const chunkCode = [4, 5, 6, 7].map((i) =>
@@ -151,7 +161,7 @@ function readHeader(buffer: Uint8Array): {
         `png: invalid bit depth for grayscale + alpha channel colorspace. Got: ${bitDepth}`,
       );
     }
-    numChannels = 4;
+    numChannels = 2;
   } else {
     throw new Error(`png: Invalid color space: ${colorSpace}`);
   }
@@ -163,11 +173,12 @@ export async function decompressPng(
   buffer: Uint8Array,
   width: number | undefined,
   height: number | undefined,
+  area: number | undefined,
   numComponents: number | undefined,
   bytesPerPixel: number,
   convertToGrayscale: boolean,
 ): Promise<DecodedImage> {
-  const m = await pngModulePromise;
+  const m = await getPngModulePromise();
   let { sx, sy, dataWidth, numChannels } = readHeader(buffer);
 
   if (convertToGrayscale) {
@@ -178,15 +189,17 @@ export async function decompressPng(
   if (
     (width !== undefined && sx !== width) ||
     (height !== undefined && sy !== height) ||
+    (area !== undefined && sx * sy !== area) ||
     (numComponents !== undefined && numComponents !== numChannels) ||
     bytesPerPixel !== dataWidth
   ) {
     throw new Error(
-      `png: Image decode parameters did not match expected chunk parameters.
-         Expected: width: ${width} height: ${height} channels: ${numComponents} bytes per pixel: ${bytesPerPixel} 
-         Decoded:  width: ${sx} height: ${sy} channels: ${numChannels} bytes per pixel: ${dataWidth}
-         Convert to Grayscale? ${convertToGrayscale}
-        `,
+      `png: Image decode parameters did not match expected chunk parameters.  ` +
+        `Expected: width: ${width} height: ${height} area: ${area} ` +
+        `channels: ${numComponents} bytes per pixel: ${bytesPerPixel}.  ` +
+        `Decoded:  width: ${sx} height: ${sy} channels: ${numChannels} ` +
+        `bytes per pixel: ${dataWidth}.  ` +
+        `Convert to Grayscale? ${convertToGrayscale}`,
     );
   }
 
@@ -199,14 +212,12 @@ export async function decompressPng(
 
   // heap must be referenced after creating bufPtr and imagePtr because
   // memory growth can detatch the buffer.
-  const bufPtr = (m.instance.exports.malloc as Function)(buffer.byteLength);
-  const imagePtr = (m.instance.exports.malloc as Function)(nbytes);
-  const heap = new Uint8Array(
-    (m.instance.exports.memory as WebAssembly.Memory).buffer,
-  );
+  const bufPtr = (m.exports.malloc as Function)(buffer.byteLength);
+  const imagePtr = (m.exports.malloc as Function)(nbytes);
+  const heap = new Uint8Array((m.exports.memory as WebAssembly.Memory).buffer);
   heap.set(buffer, bufPtr);
 
-  const code = (m.instance.exports.png_decompress as Function)(
+  const code = (m.exports.png_decompress as Function)(
     bufPtr,
     buffer.byteLength,
     imagePtr,
@@ -222,11 +233,16 @@ export async function decompressPng(
     // Likewise, we reference memory.buffer instead of heap.buffer
     // because memory growth during decompress could have detached
     // the buffer.
-    const image = new Uint8Array(
-      (m.instance.exports.memory as WebAssembly.Memory).buffer,
+    let image = new Uint8Array(
+      (m.exports.memory as WebAssembly.Memory).buffer,
       imagePtr,
       nbytes,
     );
+
+    if (numChannels !== 1) {
+      image = transposeArray2d(image, sx * sy, numChannels);
+    }
+
     // copy the array so it can be memory managed by JS
     // and we can free the emscripten buffer
     return {
@@ -236,7 +252,7 @@ export async function decompressPng(
       uint8Array: image.slice(0),
     };
   } finally {
-    (m.instance.exports.free as Function)(bufPtr);
-    (m.instance.exports.free as Function)(imagePtr);
+    (m.exports.free as Function)(bufPtr);
+    (m.exports.free as Function)(imagePtr);
   }
 }

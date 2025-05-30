@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-import { AsyncComputationSpec } from "#/async_computation";
-import { CANCELED, CancellationToken } from "#/util/cancellation";
-import { WORKER_RPC_ID } from "#/worker_rpc";
-import { rpc } from "#/worker_rpc_context";
+import type { AsyncComputationSpec } from "#src/async_computation/index.js";
 
-const freeWorkers: (Worker | MessagePort)[] = [];
+let numWorkers = 0;
+const freeWorkers: Worker[] = [];
 const pendingTasks = new Map<
   number,
-  { msg: any; transfer: Transferable[] | undefined }
+  { msg: any; transfer: Transferable[] | undefined; cleanup?: () => void }
 >();
 const tasks = new Map<
   number,
   {
     resolve: (value: any) => void;
     reject: (error: any) => void;
-    cleanup: () => void;
   }
 >();
 // On Safari, `navigator.hardwareConcurrency` is not defined.
@@ -39,74 +36,89 @@ const maxWorkers =
     : Math.min(12, navigator.hardwareConcurrency);
 let nextTaskId = 0;
 
-function returnWorker(worker: Worker | MessagePort) {
+function returnWorker(worker: Worker) {
   for (const [id, task] of pendingTasks) {
     pendingTasks.delete(id);
+    task.cleanup?.();
     worker.postMessage(task.msg, task.transfer as Transferable[]);
     return;
   }
   freeWorkers.push(worker);
 }
 
-function getNewWorker(): Worker | MessagePort {
-  let port: Worker | MessagePort;
-  if (typeof Worker === "undefined") {
-    // On Safari, the `Worker` constructor is not available from workers.  Instead, we request the
-    // main thread to create a worker.
-    const channel = new MessageChannel();
-    port = channel.port2;
-    rpc.invoke(
-      WORKER_RPC_ID,
-      { port: channel.port1, path: "async_computation.bundle.js" },
-      [channel.port1],
-    );
-  } else {
-    port = new Worker("async_computation.bundle.js");
-  }
-  port.onmessage = (msg) => {
+function launchWorker() {
+  ++numWorkers;
+  // Note: For compatibility with multiple bundlers, a browser-compatible URL
+  // must be used with `new URL`, which means a Node.js subpath import like
+  // "#src/async_computation.bundle.js" cannot be used.
+  const worker = new Worker(
+    /* webpackChunkName: "neuroglancer_async_computation" */
+    new URL("../async_computation.bundle.js", import.meta.url),
+    { type: "module" },
+  );
+  let ready = false;
+  worker.onmessage = (msg) => {
+    // First message indicates worker is ready.
+    if (!ready) {
+      ready = true;
+      returnWorker(worker);
+      return;
+    }
     const { id, value, error } = msg.data as {
       id: number;
       value?: any;
       error?: string;
     };
-    returnWorker(port);
+    returnWorker(worker);
     const callbacks = tasks.get(id)!;
     tasks.delete(id);
     if (callbacks === undefined) return;
-    callbacks.cleanup();
     if (error !== undefined) {
       callbacks.reject(new Error(error));
     } else {
       callbacks.resolve(value);
     }
   };
-  return port;
 }
 
 export function requestAsyncComputation<
   Signature extends (...args: any) => any,
 >(
   request: AsyncComputationSpec<Signature>,
-  cancellationToken: CancellationToken,
+  abortSignal: AbortSignal | undefined,
   transfer: Transferable[] | undefined,
   ...args: Parameters<Signature>
 ): Promise<ReturnType<Signature>> {
-  if (cancellationToken.isCanceled) return Promise.reject(CANCELED);
   const id = nextTaskId++;
   const msg = { t: request.id, id, args: args };
-  const cleanup = cancellationToken.add(() => {
-    pendingTasks.delete(id);
-    tasks.delete(id);
-  });
+
+  abortSignal?.throwIfAborted();
+
   const promise = new Promise<ReturnType<Signature>>((resolve, reject) => {
-    tasks.set(id, { resolve, reject, cleanup });
+    tasks.set(id, { resolve, reject });
   });
+
   if (freeWorkers.length !== 0) {
     freeWorkers.pop()!.postMessage(msg, transfer as Transferable[]);
-  } else if (tasks.size < maxWorkers) {
-    getNewWorker().postMessage(msg, transfer as Transferable[]);
   } else {
-    pendingTasks.set(id, { msg, transfer });
+    let cleanup: (() => void) | undefined;
+    if (abortSignal !== undefined) {
+      function abortHandler() {
+        pendingTasks.delete(id);
+        const task = tasks.get(id)!;
+        tasks.delete(id);
+        task.reject(abortSignal!.reason);
+      }
+      abortSignal.addEventListener("abort", abortHandler, { once: true });
+      cleanup = () => {
+        abortSignal.removeEventListener("abort", abortHandler);
+      };
+    }
+    pendingTasks.set(id, { msg, transfer, cleanup });
+    if (tasks.size > numWorkers && numWorkers < maxWorkers) {
+      launchWorker();
+    }
   }
+
   return promise;
 }

@@ -14,32 +14,34 @@
  * limitations under the License.
  */
 
-import { AxesLineHelper, computeAxisLineMatrix } from "#/axes_lines";
-import { DisplayContext } from "#/display_context";
-import {
-  makeRenderedPanelVisibleLayerTracker,
-  VisibleRenderLayerTracker,
-} from "#/layer";
-import { PickIDManager } from "#/object_picking";
+import { AxesLineHelper, computeAxisLineMatrix } from "#src/axes_lines.js";
+import type { DisplayContext } from "#src/display_context.js";
+import type { VisibleRenderLayerTracker } from "#src/layer/index.js";
+import { makeRenderedPanelVisibleLayerTracker } from "#src/layer/index.js";
+import { PickIDManager } from "#src/object_picking.js";
+import type {
+  FramePickingData,
+  RenderedDataViewerState,
+} from "#src/rendered_data_panel.js";
 import {
   clearOutOfBoundsPickData,
-  FramePickingData,
   pickDiameter,
   pickOffsetSequence,
   pickRadius,
   RenderedDataPanel,
-  RenderedDataViewerState,
-} from "#/rendered_data_panel";
-import { SliceView, SliceViewRenderHelper } from "#/sliceview/frontend";
-import {
+} from "#src/rendered_data_panel.js";
+import type { SliceView } from "#src/sliceview/frontend.js";
+import { SliceViewRenderHelper } from "#src/sliceview/frontend.js";
+import type {
   SliceViewPanelReadyRenderContext,
   SliceViewPanelRenderContext,
-  SliceViewPanelRenderLayer,
-} from "#/sliceview/renderlayer";
-import { TrackableBoolean } from "#/trackable_boolean";
-import { TrackableRGB } from "#/util/color";
-import { Borrowed, Owned } from "#/util/disposable";
-import { ActionEvent, registerActionListener } from "#/util/event_action_map";
+} from "#src/sliceview/renderlayer.js";
+import { SliceViewPanelRenderLayer } from "#src/sliceview/renderlayer.js";
+import type { TrackableBoolean } from "#src/trackable_boolean.js";
+import type { TrackableRGB } from "#src/util/color.js";
+import type { Borrowed, Owned } from "#src/util/disposable.js";
+import type { ActionEvent } from "#src/util/event_action_map.js";
+import { registerActionListener } from "#src/util/event_action_map.js";
 import {
   disableZProjection,
   identityMat4,
@@ -47,19 +49,17 @@ import {
   mat4,
   vec3,
   vec4,
-} from "#/util/geom";
-import { startRelativeMouseDrag } from "#/util/mouse_drag";
-import { TouchRotateInfo } from "#/util/touch_bindings";
+} from "#src/util/geom.js";
+import { startRelativeMouseDrag } from "#src/util/mouse_drag.js";
+import type { TouchRotateInfo } from "#src/util/touch_bindings.js";
 import {
   FramebufferConfiguration,
   OffscreenCopyHelper,
   TextureBuffer,
-} from "#/webgl/offscreen";
-import { ShaderBuilder } from "#/webgl/shader";
-import {
-  MultipleScaleBarTextures,
-  TrackableScaleBarOptions,
-} from "#/widget/scale_bar";
+} from "#src/webgl/offscreen.js";
+import type { ShaderBuilder } from "#src/webgl/shader.js";
+import type { TrackableScaleBarOptions } from "#src/widget/scale_bar.js";
+import { MultipleScaleBarTextures } from "#src/widget/scale_bar.js";
 
 export interface SliceViewerState extends RenderedDataViewerState {
   showScaleBar: TrackableBoolean;
@@ -100,7 +100,7 @@ const tempVec3b = vec3.create();
 const tempVec4 = vec4.create();
 
 export class SliceViewPanel extends RenderedDataPanel {
-  viewer: SliceViewerState;
+  declare viewer: SliceViewerState;
 
   private axesLineHelper = this.registerDisposer(AxesLineHelper.get(this.gl));
   private sliceViewRenderHelper = this.registerDisposer(
@@ -176,6 +176,7 @@ export class SliceViewPanel extends RenderedDataPanel {
         if (mouseState.updateUnconditionally()) {
           const initialPosition = Float32Array.from(mouseState.position);
           startRelativeMouseDrag(e.detail, (_event, deltaX, deltaY) => {
+            this.context.flagContinuousCameraMotion();
             const { pose } = this.navigationState;
             const xAxis = vec3.transformQuat(
               tempVec3,
@@ -210,6 +211,7 @@ export class SliceViewPanel extends RenderedDataPanel {
         const { mouseState } = this.viewer;
         this.handleMouseMove(detail.centerX, detail.centerY);
         if (mouseState.updateUnconditionally()) {
+          this.context.flagContinuousCameraMotion();
           this.navigationState.pose.rotateAbsolute(
             this.sliceView.projectionParameters.value
               .viewportNormalInCanonicalCoordinates,

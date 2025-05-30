@@ -14,65 +14,67 @@
  * limitations under the License.
  */
 
-import "./invlerp.css";
+import "#src/widget/invlerp.css";
 
-import svg_arrowLeft from "ikonate/icons/arrow-left.svg";
-import svg_arrowRight from "ikonate/icons/arrow-right.svg";
-import { DisplayContext, IndirectRenderedPanel } from "#/display_context";
-import { WatchableValueInterface } from "#/trackable_value";
-import { ToolActivation } from "#/ui/tool";
-import { animationFrameDebounce } from "#/util/animation_frame_debounce";
-import { DataType } from "#/util/data_type";
-import { Owned, RefCounted } from "#/util/disposable";
-import { removeChildren, updateInputFieldWidth } from "#/util/dom";
+import svg_arrowLeft from "ikonate/icons/arrow-left.svg?raw";
+import svg_arrowRight from "ikonate/icons/arrow-right.svg?raw";
+import type { DisplayContext } from "#src/display_context.js";
+import { IndirectRenderedPanel } from "#src/display_context.js";
+import type { WatchableValueInterface } from "#src/trackable_value.js";
+import type { ToolActivation } from "#src/ui/tool.js";
+import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
+import type { DataType } from "#src/util/data_type.js";
+import type { Owned } from "#src/util/disposable.js";
+import { RefCounted } from "#src/util/disposable.js";
+import { removeChildren, updateInputFieldWidth } from "#src/util/dom.js";
 import {
   EventActionMap,
   registerActionListener,
-} from "#/util/event_action_map";
+} from "#src/util/event_action_map.js";
+import type { DataTypeInterval } from "#src/util/lerp.js";
 import {
   computeInvlerp,
   computeLerp,
   dataTypeCompare,
-  DataTypeInterval,
   dataTypeIntervalEqual,
   getClampedInterval,
   getClosestEndpoint,
   getIntervalBoundsEffectiveFraction,
   getIntervalBoundsEffectiveOffset,
   parseDataTypeValue,
-} from "#/util/lerp";
-import { MouseEventBinder } from "#/util/mouse_bindings";
-import { startRelativeMouseDrag } from "#/util/mouse_drag";
-import { Uint64 } from "#/util/uint64";
-import { getWheelZoomAmount } from "#/util/wheel_zoom";
-import { WatchableVisibilityPriority } from "#/visibility_priority/frontend";
-import { getMemoizedBuffer } from "#/webgl/buffer";
-import {
-  ParameterizedEmitterDependentShaderGetter,
-  parameterizedEmitterDependentShaderGetter,
-} from "#/webgl/dynamic_shader";
-import { HistogramSpecifications } from "#/webgl/empirical_cdf";
+} from "#src/util/lerp.js";
+import { MouseEventBinder } from "#src/util/mouse_bindings.js";
+import { startRelativeMouseDrag } from "#src/util/mouse_drag.js";
+import { Uint64 } from "#src/util/uint64.js";
+import { getWheelZoomAmount } from "#src/util/wheel_zoom.js";
+import type { WatchableVisibilityPriority } from "#src/visibility_priority/frontend.js";
+import { getMemoizedBuffer } from "#src/webgl/buffer.js";
+import type { GL } from "#src/webgl/context.js";
+import type { ParameterizedEmitterDependentShaderGetter } from "#src/webgl/dynamic_shader.js";
+import { parameterizedEmitterDependentShaderGetter } from "#src/webgl/dynamic_shader.js";
+import type { HistogramSpecifications } from "#src/webgl/empirical_cdf.js";
 import {
   defineLerpShaderFunction,
   enableLerpShaderFunction,
-} from "#/webgl/lerp";
+} from "#src/webgl/lerp.js";
 import {
   defineLineShader,
   drawLines,
   initializeLineShader,
   VERTICES_PER_LINE,
-} from "#/webgl/lines";
-import { ShaderBuilder } from "#/webgl/shader";
-import { getShaderType } from "#/webgl/shader_lib";
-import { InvlerpParameters } from "#/webgl/shader_ui_controls";
-import { getSquareCornersBuffer } from "#/webgl/square_corners_buffer";
-import { setRawTextureParameters } from "#/webgl/texture";
-import { makeIcon } from "#/widget/icon";
-import { LayerControlTool } from "#/widget/layer_control";
-import { LegendShaderOptions } from "#/widget/shader_controls";
-import { Tab } from "#/widget/tab_view";
+} from "#src/webgl/lines.js";
+import { ShaderBuilder } from "#src/webgl/shader.js";
+import { getShaderType } from "#src/webgl/shader_lib.js";
+import type { InvlerpParameters } from "#src/webgl/shader_ui_controls.js";
+import { getSquareCornersBuffer } from "#src/webgl/square_corners_buffer.js";
+import { setRawTextureParameters } from "#src/webgl/texture.js";
+import { makeIcon } from "#src/widget/icon.js";
+import { AutoRangeFinder } from "#src/widget/invlerp_range_finder.js";
+import type { LayerControlTool } from "#src/widget/layer_control.js";
+import type { LegendShaderOptions } from "#src/widget/shader_controls.js";
+import { Tab } from "#src/widget/tab_view.js";
 /* BRAINSHARE STARTS */
-import { HistogramPanel } from "#/brainshare/histogram";
+import { HistogramPanel } from "#src/brainshare/histogram.js";
 /* BRAINSHARE ENDS */
 
 const inputEventMap = EventActionMap.fromObject({
@@ -80,6 +82,55 @@ const inputEventMap = EventActionMap.fromObject({
   "shift?+alt+mousedown0": { action: "adjust-window-via-drag" },
   "shift?+wheel": { action: "zoom-via-wheel" },
 });
+
+export function createCDFLineShader(gl: GL, textureUnit: symbol) {
+  const builder = new ShaderBuilder(gl);
+  defineLineShader(builder);
+  builder.addTextureSampler("sampler2D", "uHistogramSampler", textureUnit);
+  builder.addOutputBuffer("vec4", "out_color", 0);
+  builder.addAttribute("uint", "aDataValue");
+  builder.addUniform("float", "uBoundsFraction");
+  builder.addVertexCode(`
+float getCount(int i) {
+  return texelFetch(uHistogramSampler, ivec2(i, 0), 0).x;
+}
+vec4 getVertex(float cdf, int i) {
+  float x;
+  if (i == 0) {
+    x = -1.0;
+  } else if (i == 255) {
+    x = 1.0;
+  } else {
+    x = float(i) / 254.0 * uBoundsFraction * 2.0 - 1.0;
+  }
+  return vec4(x, cdf * (2.0 - uLineParams.y) - 1.0 + uLineParams.y * 0.5, 0.0, 1.0);
+}
+`);
+  builder.setVertexMain(`
+int lineNumber = int(aDataValue);
+int dataValue = lineNumber;
+float cumSum = 0.0;
+for (int i = 0; i <= dataValue; ++i) {
+  cumSum += getCount(i);
+}
+float total = cumSum + getCount(dataValue + 1);
+float cumSumEnd = dataValue == ${NUM_CDF_LINES - 1} ? cumSum : total;
+if (dataValue == ${NUM_CDF_LINES - 1}) {
+  cumSum + getCount(dataValue + 1);
+}
+for (int i = dataValue + 2; i < 256; ++i) {
+  total += getCount(i);
+}
+total = max(total, 1.0);
+float cdf1 = cumSum / total;
+float cdf2 = cumSumEnd / total;
+emitLine(getVertex(cdf1, lineNumber), getVertex(cdf2, lineNumber + 1), 1.0);
+`);
+  builder.setFragmentMain(`
+out_color = vec4(0.0, 1.0, 1.0, getLineAlpha());
+`);
+  return builder.build();
+}
 
 export class CdfController<
   T extends RangeAndWindowIntervals,
@@ -290,7 +341,7 @@ export function getUpdatedRangeAndWindowParameters<
 // 256 bins in total.  The first and last bin are for values below the lower bound/above the upper
 // bound.
 const NUM_HISTOGRAM_BINS_IN_RANGE = 254;
-const NUM_CDF_LINES = NUM_HISTOGRAM_BINS_IN_RANGE + 1;
+export const NUM_CDF_LINES = NUM_HISTOGRAM_BINS_IN_RANGE + 1;
 
 /**
  * Panel that shows Cumulative Distribution Function (CDF) of visible data.
@@ -299,20 +350,21 @@ class CdfPanel extends IndirectRenderedPanel {
   get drawOrder() {
     return 100;
   }
-  controller = this.registerDisposer(
-    new CdfController(
-      this.element,
-      this.parent.dataType,
-      () => this.parent.trackable.value,
-      (value: InvlerpParameters) => {
-        this.parent.trackable.value = value;
-      },
-    ),
-  );
+  controller;
   constructor(public parent: InvlerpWidget) {
     super(parent.display, document.createElement("div"), parent.visibility);
     const { element } = this;
     element.classList.add("neuroglancer-invlerp-cdfpanel");
+    this.controller = this.registerDisposer(
+      new CdfController(
+        element,
+        parent.dataType,
+        () => parent.trackable.value,
+        (value: InvlerpParameters) => {
+          parent.trackable.value = value;
+        },
+      ),
+    );
   }
 
   private dataValuesBuffer = this.registerDisposer(
@@ -328,58 +380,7 @@ class CdfPanel extends IndirectRenderedPanel {
   ).value;
 
   private lineShader = this.registerDisposer(
-    (() => {
-      const builder = new ShaderBuilder(this.gl);
-      defineLineShader(builder);
-      builder.addTextureSampler(
-        "sampler2D",
-        "uHistogramSampler",
-        histogramSamplerTextureUnit,
-      );
-      builder.addOutputBuffer("vec4", "out_color", 0);
-      builder.addAttribute("uint", "aDataValue");
-      builder.addUniform("float", "uBoundsFraction");
-      builder.addVertexCode(`
-float getCount(int i) {
-  return texelFetch(uHistogramSampler, ivec2(i, 0), 0).x;
-}
-vec4 getVertex(float cdf, int i) {
-  float x;
-  if (i == 0) {
-    x = -1.0;
-  } else if (i == 255) {
-    x = 1.0;
-  } else {
-    x = float(i) / 254.0 * uBoundsFraction * 2.0 - 1.0;
-  }
-  return vec4(x, cdf * (2.0 - uLineParams.y) - 1.0 + uLineParams.y * 0.5, 0.0, 1.0);
-}
-`);
-      builder.setVertexMain(`
-int lineNumber = int(aDataValue);
-int dataValue = lineNumber;
-float cumSum = 0.0;
-for (int i = 0; i <= dataValue; ++i) {
-  cumSum += getCount(i);
-}
-float total = cumSum + getCount(dataValue + 1);
-float cumSumEnd = dataValue == ${NUM_CDF_LINES - 1} ? cumSum : total;
-if (dataValue == ${NUM_CDF_LINES - 1}) {
-  cumSum + getCount(dataValue + 1);
-}
-for (int i = dataValue + 2; i < 256; ++i) {
-  total += getCount(i);
-}
-total = max(total, 1.0);
-float cdf1 = cumSum / total;
-float cdf2 = cumSumEnd / total;
-emitLine(getVertex(cdf1, lineNumber), getVertex(cdf2, lineNumber + 1), 1.0);
-`);
-      builder.setFragmentMain(`
-out_color = vec4(0.0, 1.0, 1.0, getLineAlpha());
-`);
-      return builder.build();
-    })(),
+    (() => createCDFLineShader(this.gl, histogramSamplerTextureUnit))(),
   );
 
   private regionCornersBuffer = getSquareCornersBuffer(this.gl, 0, -1, 1, 1);
@@ -660,14 +661,14 @@ function createRangeBoundInputs(
   return { container, inputs, spacers };
 }
 
-function updateInputBoundWidth(inputElement: HTMLInputElement) {
+export function updateInputBoundWidth(inputElement: HTMLInputElement) {
   updateInputFieldWidth(
     inputElement,
     Math.max(1, inputElement.value.length + 0.1),
   );
 }
 
-function updateInputBoundValue(
+export function updateInputBoundValue(
   inputElement: HTMLInputElement,
   bound: number | Uint64,
 ) {
@@ -739,12 +740,9 @@ export class InvlerpWidget extends Tab {
     new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit)
   );
   /* BRAINSHARE ENDS */
-
-  boundElements = {
-    range: createRangeBoundInputs("range", this.dataType, this.trackable),
-    window: createRangeBoundInputs("window", this.dataType, this.trackable),
-  };
+  boundElements;
   invertArrows: HTMLElement[];
+  autoRangeFinder: AutoRangeFinder;
   get texture() {
     return this.histogramSpecifications.getFramebuffers(this.display.gl)[
       this.histogramIndex
@@ -763,6 +761,11 @@ export class InvlerpWidget extends Tab {
     public legendShaderOptions: LegendShaderOptions | undefined,
   ) {
     super(visibility);
+    this.boundElements = {
+      range: createRangeBoundInputs("range", dataType, trackable),
+      window: createRangeBoundInputs("window", dataType, trackable),
+    };
+
     this.registerDisposer(
       histogramSpecifications.visibility.add(this.visibility),
     );
@@ -790,6 +793,7 @@ export class InvlerpWidget extends Tab {
     /* BRAINSHARE ENDS */
     element.classList.add("neuroglancer-invlerp-widget");
     element.appendChild(boundElements.window.container);
+    this.autoRangeFinder = this.registerDisposer(new AutoRangeFinder(this));
     this.updateView();
     this.registerDisposer(
       trackable.changed.add(
@@ -797,6 +801,11 @@ export class InvlerpWidget extends Tab {
           animationFrameDebounce(() => this.updateView()),
         ),
       ),
+    );
+    this.registerDisposer(
+      this.display.updateFinished.add(() => {
+        this.autoRangeFinder.maybeAutoComputeRange();
+      }),
     );
   }
 

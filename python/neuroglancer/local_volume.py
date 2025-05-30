@@ -42,6 +42,12 @@ class InvalidObjectIdForMesh(Exception):
 
 
 class LocalVolume(trackable_state.ChangeNotifier):
+    """Exposes a local array as a Neuroglancer data source.
+
+    Group:
+      serve-data
+    """
+
     def __init__(
         self,
         data,
@@ -166,15 +172,19 @@ class LocalVolume(trackable_state.ChangeNotifier):
             voxelOffset=self.voxel_offset,
             chunkLayout=self.chunk_layout,
             downsamplingLayout=self.downsampling_layout,
-            maxDownsampling=None
-            if math.isinf(self.max_downsampling)
-            else self.max_downsampling,
-            maxDownsampledSize=None
-            if math.isinf(self.max_downsampled_size)
-            else self.max_downsampled_size,
-            maxDownsamplingScales=None
-            if math.isinf(self.max_downsampling_scales)
-            else self.max_downsampling_scales,
+            maxDownsampling=(
+                None if math.isinf(self.max_downsampling) else self.max_downsampling
+            ),
+            maxDownsampledSize=(
+                None
+                if math.isinf(self.max_downsampled_size)
+                else self.max_downsampled_size
+            ),
+            maxDownsamplingScales=(
+                None
+                if math.isinf(self.max_downsampling_scales)
+                else self.max_downsampling_scales
+            ),
         )
         if self.max_voxels_per_chunk_log2 is not None:
             info["maxVoxelsPerChunkLog2"] = self.max_voxels_per_chunk_log2
@@ -193,7 +203,9 @@ class LocalVolume(trackable_state.ChangeNotifier):
             or np.prod(downsample_factor) > self.max_downsampling
         ):
             raise ValueError("Invalid downsampling factor.")
-        downsampled_shape = np.cast[np.int64](np.ceil(self.shape / downsample_factor))
+        downsampled_shape = np.asarray(
+            np.ceil(self.shape / downsample_factor), dtype=np.int64
+        )
         if np.any(end < start) or np.any(start < 0) or np.any(end > downsampled_shape):
             raise ValueError("Out of bounds data request.")
 
@@ -208,7 +220,7 @@ class LocalVolume(trackable_state.ChangeNotifier):
         )
         subvol = np.array(self.data[indexing_expr], copy=False)
         if subvol.dtype == "float64":
-            subvol = np.cast[np.float32](subvol)
+            subvol = np.asarray(subvol, dtype=np.float32)
 
         if np.any(downsample_factor != 1):
             if self.volume_type == "image":
