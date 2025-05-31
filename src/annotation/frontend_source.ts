@@ -24,7 +24,7 @@ import {
   ANNOTATION_REFERENCE_DELETE_RPC_ID,
   ANNOTATION_SUBSET_GEOMETRY_CHUNK_SOURCE_RPC_ID,
 } from "#src/annotation/base.js";
-import type {
+import {
   Annotation,
   AnnotationId,
   AnnotationPropertySerializer,

@@ -63,7 +63,11 @@ import { parseDataTypeValue } from "#src/util/lerp.js";
 import { getRandomHexString } from "#src/util/random.js";
 import { NullarySignal, Signal } from "#src/util/signal.js";
 import { Uint64 } from "#src/util/uint64.js";
-
+/* BRAINSHARE STARTS */
+import * as vector from "#src/util/vector.js";
+import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
+import { getZCoordinate } from "#src/annotation/polygon.js";
+/* BRAINSHARE ENDS */
 export type AnnotationId = string;
 
 export class AnnotationReference extends RefCounted {
@@ -1853,7 +1857,7 @@ export class AnnotationSource
           dist += Math.abs(points[i][j] - centroid[j]);
         }
         if (dist < minDist) {
-          center = points[i];
+          center = new Float32Array(points[i]); // Ensure correct buffer type
           minDist = dist;
         }
       }

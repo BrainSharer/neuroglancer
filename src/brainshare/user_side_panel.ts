@@ -12,11 +12,11 @@ import {
   TrackableSidePanelLocation 
 } from "#src/ui/side_panel_location.js";
 import { NullarySignal, Signal } from "#src/util/signal.js";
-import { MultiUsersTab } from "./multi_users_tab.ts";
+import { MultiUsersTab } from "#src/brainshare/multi_users_tab.js";
 import { Trackable } from "#src/util/trackable.js";
-import { StateTab  } from "./state_tab.ts";
-import { APIs } from "./service.ts";
-import { userState } from "./state_utils.ts";
+import { StateTab  } from "#src/brainshare/state_tab.js";
+import { APIs } from "#src/brainshare/service.js";
+import { userState } from "#src/brainshare/state_utils.js";
 import { emptyToUndefined } from "#src/util/json.js";
 import svg_exit from "ikonate/icons/exit.svg?raw";
 import svg_entrance from "ikonate/icons/entrance.svg?raw";

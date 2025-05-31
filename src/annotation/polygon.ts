@@ -17,12 +17,12 @@ import {
 import { 
   AnnotationLayerState 
 } from '#src/annotation/annotation_layer_state.js';
-import { isSectionValid } from '#src/annotation/volume.ts';
+import { isSectionValid } from '#src/annotation/volume.js';
 
 import { DisplayPose, NavigationState } from '#src/navigation_state.js';
 import { StatusMessage } from '#src/status.js';
 import { TrackableValue } from '#src/trackable_value.js';
-import { UserLayerWithAnnotations } from '#src/ui/annotations/index.js';
+import { UserLayerWithAnnotations } from '#src/ui/annotations.js';
 import { arraysEqual } from '#src/util/array.js';
 import { verifyInt, verifyFloat } from '#src/util/json.js';
 

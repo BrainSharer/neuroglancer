@@ -9,9 +9,9 @@ import { makeIcon } from "#src/widget/icon.js";
 import { Tab } from "#src/widget/tab_view.js";
 import { WatchableValue } from "#src/trackable_value.js";
 import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, 
-  listenToDocumentChanges } from "./state_utils.ts";
+  listenToDocumentChanges } from "#src/brainshare/state_utils.js";
 import { verifyObject } from "#src/util/json.js";
-import { APIs } from "./service.ts";
+import { APIs } from "#src/brainshare/service.js";
 
 enum MultiUsersStatus {
   disabled = 1,
@@ -47,7 +47,7 @@ class MultiUsersTabItem extends RefCounted {
     this.textElement.classList.add("neuroglancer-multi-users-tab-item-text");
     
     this.swapButton = makeIcon({ 
-      svg: svg_swap_horizontal,
+      // svg: svg_swap_horizontal,
       title: "swap",
       onClick: () => {
         const doc: any = {[editor]: false, [this.otherUsername]: true};

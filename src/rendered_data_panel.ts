@@ -16,12 +16,13 @@
 
 import "#src/rendered_data_panel.css";
 import "#src/noselect.css";
+import { AnnotationType, type Annotation, type AnnotationReference } from "#src/annotation/index.js";
 /* BRAINSHARE STARTS */
 /*
 import { Annotation } from "#/annotation";
 */
-
-import type { Annotation } from "#src/annotation/index.js";
+import { Line } from "#src/annotation/index.js"; 
+/* BRAINSHARE ENDS */
 import { getAnnotationTypeRenderHandler } from "#src/annotation/type_handler.js";
 import type { DisplayContext } from "#src/display_context.js";
 import { RenderedPanel } from "#src/display_context.js";
@@ -30,6 +31,9 @@ import { PickIDManager } from "#src/object_picking.js";
 import {
   displayToLayerCoordinates,
   layerToDisplayCoordinates,
+  /* BRAINSHARE STARTS */
+  getChunkPositionFromCombinedGlobalLocalPositions,
+  /* BRAINSHARE ENDS */
 } from "#src/render_coordinate_transform.js";
 import { AutomaticallyFocusedElement } from "#src/util/automatic_focus.js";
 import type { Borrowed } from "#src/util/disposable.js";
@@ -53,7 +57,24 @@ import type {
 import { TouchEventBinder } from "#src/util/touch_bindings.js";
 import { getWheelZoomAmount } from "#src/util/wheel_zoom.js";
 import type { ViewerState } from "#src/viewer_state.js";
-
+/* BRAINSHARE STARTS */
+import { 
+  PlaceCollectionAnnotationTool, 
+  UserLayerWithAnnotations 
+} from '#src/ui/annotations.js';
+import { 
+  getZCoordinate,
+  isPointUniqueInPolygon,
+  polygonRotateAngle, 
+  polygonScalePercentage, 
+  rotatePolygon, 
+  scalePolygon 
+} from '#src/annotation/polygon.js';
+import { StatusMessage } from '#src/status.js';
+import { isCornerPicked } from "#src/annotation/line.js";
+import * as vector from "#src/util/vector.js";
+import { getPolygonByZIndex } from "#src/annotation/volume.js";
+/* BRAINSHARE ENDS */
 declare let NEUROGLANCER_SHOW_OBJECT_SELECTION_TOOLTIP: boolean | undefined;
 
 const tempVec3 = vec3.create();

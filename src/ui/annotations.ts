@@ -18,13 +18,7 @@
  * @file User interface for display and editing annotations.
  */
 
-import svg_help from "ikonate/icons/help.svg?raw";
 import "#src/ui/annotations.css";
-import {
-  AnnotationDisplayState,
-  AnnotationLayerState,
-} from "#src/annotation/annotation_layer_state.js";
-import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
 import type {
   Annotation,
   AnnotationId,
@@ -104,7 +98,6 @@ import { setClipboard } from "#src/util/clipboard.js";
 import {
   serializeColor,
   unpackRGB,
-  useWhiteBackground,
   packColor,
   parseRGBColorSpecification,
 } from "#src/util/color.js";
@@ -131,7 +124,7 @@ import { ColorWidget } from "#src/widget/color.js";
 import { makeCopyButton } from "#src/widget/copy_button.js";
 import { makeDeleteButton } from "#src/widget/delete_button.js";
 /* BRAINSHARE STARTS */
-  import { makeSegmentationButton } from "#src/widget/segmentation_button.ts";
+  import { makeSegmentationButton } from "#src/widget/segmentation_button.js";
 /* BRAINSHARE ENDS */
 
 import type { DependentViewContext } from "#src/widget/dependent_view_widget.js";
@@ -141,6 +134,27 @@ import { makeMoveToButton } from "#src/widget/move_to_button.js";
 import { Tab } from "#src/widget/tab_view.js";
 import type { VirtualListSource } from "#src/widget/virtual_list.js";
 import { VirtualList } from "#src/widget/virtual_list.js";
+
+/* BRAINSHARE STARTS */
+import { StatusMessage } from '#src/status.js';
+import {
+  getZCoordinate,
+  isPointUniqueInPolygon,
+} from '#src/annotation/polygon.js';
+import { getPolygonsByVolumeId, isSectionValid } from '#src/annotation/volume.js';
+import {
+  AutocompleteTextInput,
+  Completer,
+  Completion,
+  CompletionResult,
+  CompletionWithDescription
+} from "#src/widget/multiline_autocomplete.js";
+import { CancellationToken } from "#src/brainshare/cancellation.js";
+import { fetchOk } from "#src/util/http_request.js";
+import { brainState, userState } from "#src/brainshare/state_utils.js";
+import { APIs } from "#src/brainshare/service.js";
+import svg_clipBoard from "ikonate/icons/clipboard.svg?raw";
+/* BRAINSHARE ENDS */
 
 export class MergedAnnotationStates
   extends RefCounted
@@ -2746,7 +2760,7 @@ function makeRelatedSegmentList(
             );
             keyboardEventBinder.allShortcutsAreGlobal = true;
             const validateInput = () => {
-              const id = new Uint64();
+              const id = new parseUint64();
               if (id.tryParseString(idElement.value)) {
                 idElement.dataset.valid = "true";
                 return id;

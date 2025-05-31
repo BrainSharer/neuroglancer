@@ -15,7 +15,7 @@ import {
   registerAnnotationTypeRenderHandler
 } from '#src/annotation/type_handler.js';
 import { MultiscaleAnnotationSource } from './frontend_source';
-import { getZCoordinate } from './polygon.ts';
+import { getZCoordinate } from '#src/annotation/polygon.js';
 
 /**
   * RenderHelper class is used for rendering the polygon annotation. Polygons 
