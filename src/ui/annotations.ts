@@ -66,8 +66,8 @@ import {
 } from "#src/coordinate_transform.js";
 /* BRAINSHARE ENDS */
 
-import type { MouseSelectionState, UserLayer } from "#src/layer/index.js";
-import type { LoadedDataSubsource } from "#src/layer/layer_data_source.js";
+import { makeLayer, type MouseSelectionState, type UserLayer } from "#src/layer/index.js";
+import type { LayerDataSource, LoadedDataSubsource } from "#src/layer/layer_data_source.js";
 import type { ChunkTransformParameters } from "#src/render_coordinate_transform.js";
 import { getChunkPositionFromCombinedGlobalLocalPositions } from "#src/render_coordinate_transform.js";
 import {
@@ -384,11 +384,13 @@ function pasteAnnotation(
 }
 
 // The autocomplete search box for importing annotations
+//TODO make sure thi code works as I got rid of Litao's cancellationToken
 const statusStrings = new Set(["", "No result", "Searching..."]);
 
 class AnnotationSearchBar extends AutocompleteTextInput {
   private completions: Completion[] = [];
   private _selectCompletion: (completion: Completion) => void;
+  abortController: any;
 
   constructor(
     config: {
@@ -398,10 +400,10 @@ class AnnotationSearchBar extends AutocompleteTextInput {
     }
   ) {
     super({
-      completer: (value: string, _cancellationToken: CancellationToken) => {
+      completer: (request) => {
         this.setHintValue("Searching...");
 
-        const completerPromise = config.completer(value, _cancellationToken);
+        const completerPromise = config.completer(request, this.abortController.signal);
         if (completerPromise === null) return null;
 
         return completerPromise.then((completionResult: CompletionResult) => {
@@ -896,10 +898,10 @@ export class AnnotationLayerView extends Tab {
       },
     });
     mutableControls.appendChild(cloudButton);
-    
+    //TODO, this code was changed a lot from Litao's original code, so it needs to be tested
     if (userState.value && userState.value.id !== 0) {
       this.searchAnnotations = new AnnotationSearchBar({
-        completer: (value: string, _cancellationToken: CancellationToken) => {
+        completer: (request) => {
           const defaultCompletionResult = {
             completions: [],
             offset: 0,
@@ -909,7 +911,7 @@ export class AnnotationLayerView extends Tab {
           }
 
           return fetchOk(
-            APIs.SEARCH_ANNOTATION + value,
+            APIs.SEARCH_ANNOTATION + request.value,
             { method: "GET" },
           ).then(
             response => response.json()
@@ -2664,14 +2666,14 @@ const newRelatedSegmentKeyMap = EventActionMap.fromObject({
   enter: { action: "commit" },
   escape: { action: "cancel" },
 });
-
+// start makeRelatedSegmentList
 function makeRelatedSegmentList(
   listName: string,
-  segments: Uint64[],
+  segments: BigUint64Array,
   segmentationDisplayState: WatchableValueInterface<
     SegmentationDisplayState | null | undefined
   >,
-  mutate?: ((newSegments: Uint64[]) => void) | undefined,
+  mutate?: ((newSegments: BigUint64Array) => void) | undefined,
 ) {
   return new DependentViewWidget(
     segmentationDisplayState,
@@ -2688,7 +2690,7 @@ function makeRelatedSegmentList(
       const copyButton = makeCopyButton({
         title: "Copy segment IDs",
         onClick: () => {
-          setClipboard(segments.map((x) => x.toString()).join(", "));
+          setClipboard(Array.from(segments, (x) => x.toString()).join(", "));
         },
       });
       headerRow.appendChild(copyButton);
@@ -2710,7 +2712,7 @@ function makeRelatedSegmentList(
         const deleteButton = makeDeleteButton({
           title: "Remove all IDs",
           onClick: () => {
-            mutate([]);
+            mutate(new BigUint64Array(0));
           },
         });
         headerRow.appendChild(deleteButton);
@@ -2760,13 +2762,14 @@ function makeRelatedSegmentList(
             );
             keyboardEventBinder.allShortcutsAreGlobal = true;
             const validateInput = () => {
-              const id = new parseUint64();
-              if (id.tryParseString(idElement.value)) {
+              try {
+                const id = parseUint64(idElement.value);
                 idElement.dataset.valid = "true";
                 return id;
+              } catch {
+                idElement.dataset.valid = "false";
+                return undefined;
               }
-              idElement.dataset.valid = "false";
-              return undefined;
             };
             validateInput();
             idElement.addEventListener("input", () => {
@@ -2775,7 +2778,7 @@ function makeRelatedSegmentList(
             idElement.addEventListener("blur", () => {
               const id = validateInput();
               if (id !== undefined) {
-                mutate([...segments, id]);
+                mutate(BigUint64Array.from([...segments, id]));
               }
               addContextDisposer();
             });
@@ -2783,7 +2786,7 @@ function makeRelatedSegmentList(
             registerActionListener(idElement, "commit", () => {
               const id = validateInput();
               if (id !== undefined) {
-                mutate([...segments, id]);
+                mutate(BigUint64Array.from([...segments, id]));
               }
               addContextDisposer();
             });
@@ -2813,7 +2816,7 @@ function makeRelatedSegmentList(
           const deleteButton = makeDeleteButton({
             title: "Remove ID",
             onClick: (event) => {
-              mutate(segments.filter((x) => !Uint64.equal(x, id)));
+              mutate(segments.filter((x) => x !== id));
               event.stopPropagation();
             },
           });
@@ -2859,6 +2862,8 @@ function makeRelatedSegmentList(
     },
   );
 }
+
+// end makeRelatedSegmentList
 
 const ANNOTATION_COLOR_JSON_KEY = "annotationColor";
 export function UserLayerWithAnnotationsMixin<
