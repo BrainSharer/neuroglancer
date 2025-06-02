@@ -32,7 +32,7 @@ import {
   TrackableCoordinateSpace,
 } from "#src/coordinate_transform.js";
 import type {
-  DataSourceProviderRegistry,
+  DataSourceRegistry,
   DataSourceSpecification,
   DataSubsource,
 } from "#src/datasource/index.js";
@@ -106,7 +106,6 @@ import {
   removeSignalBinding,
 } from "#src/util/signal_binding_updater.js";
 import type { Trackable } from "#src/util/trackable.js";
-import { Uint64 } from "#src/util/uint64.js";
 import { kEmptyFloat32Vec } from "#src/util/vector.js";
 import type { WatchableVisibilityPriority } from "#src/visibility_priority/frontend.js";
 import type { DependentViewContext } from "#src/widget/dependent_view_widget.js";
@@ -193,33 +192,25 @@ export class UserLayer extends RefCounted {
   messages = new MessageList();
 
   initializeSelectionState(state: this["selectionState"]) {
-    if (state !== undefined) {
-      state.generation = -1;
-      state.localPositionValid = false;
-      state.localPosition = kEmptyFloat32Vec;
-      state.localCoordinateSpace = undefined;
-      state.annotationId = undefined;
-      state.annotationType = undefined;
-      state.annotationBuffer = undefined;
-      state.annotationIndex = undefined;
-      state.annotationCount = undefined;
-      state.annotationSourceIndex = undefined;
-      state.annotationSubsource = undefined;
-      state.annotationPartIndex = undefined;
-      state.value = undefined;
-    } else {
-      console.log("state is undefined in initializeSelectionState");
-    }
+    state.generation = -1;
+    state.localPositionValid = false;
+    state.localPosition = kEmptyFloat32Vec;
+    state.localCoordinateSpace = undefined;
+    state.annotationId = undefined;
+    state.annotationType = undefined;
+    state.annotationBuffer = undefined;
+    state.annotationIndex = undefined;
+    state.annotationCount = undefined;
+    state.annotationSourceIndex = undefined;
+    state.annotationSubsource = undefined;
+    state.annotationPartIndex = undefined;
+    state.value = undefined;
   }
 
   resetSelectionState(state: this["selectionState"]) {
-    if (state === undefined) {
-      console.log("state is undefined in resetSelectionState");
-    } else {
-      state.localPositionValid = false;
-      state.annotationId = undefined;
-      state.value = undefined;
-    }
+    state.localPositionValid = false;
+    state.annotationId = undefined;
+    state.value = undefined;
   }
 
   selectionStateFromJson(state: this["selectionState"], json: any) {
@@ -238,10 +229,8 @@ export class UserLayer extends RefCounted {
           ),
       );
       if (localPosition === undefined) {
-        console.log('local position is undefined and setting state.localPosition to false');
         state.localPositionValid = false;
       } else {
-        console.log('local position is valid and setting state.localPosition to true');
         state.localPositionValid = true;
         state.localPosition = localPosition;
       }
@@ -288,9 +277,6 @@ export class UserLayer extends RefCounted {
   selectionStateToJson(state: this["selectionState"], forPython: boolean): any {
     forPython;
     const json: any = {};
-    if (state === undefined) {
-      console.log("state is undefined in selectionStateToJson");
-    }
     if (state.localPositionValid) {
       const { localPosition } = state;
       if (localPosition.length > 0) {
@@ -329,11 +315,6 @@ export class UserLayer extends RefCounted {
     dest: this["selectionState"],
     source: this["selectionState"],
   ) {
-    if (source === undefined) {
-      console.log("dest and source is undefined in copySelectionState");
-    }
-
-
     dest.generation = source.generation;
     dest.localPositionValid = source.localPositionValid;
     dest.localCoordinateSpace = source.localCoordinateSpace;
@@ -1094,7 +1075,7 @@ export class LayerManager extends RefCounted {
 
 export interface PickState {
   pickedRenderLayer: RenderLayer | null;
-  pickedValue: Uint64;
+  pickedValue: bigint;
   pickedOffset: number;
   pickedAnnotationLayer: AnnotationLayerState | undefined;
   pickedAnnotationId: string | undefined;
@@ -1113,7 +1094,7 @@ export class MouseSelectionState implements PickState {
   active = false;
   displayDimensions: DisplayDimensions | undefined = undefined;
   pickedRenderLayer: RenderLayer | null = null;
-  pickedValue = new Uint64(0, 0);
+  pickedValue = 0n;
   pickedOffset = 0;
   pickedAnnotationLayer: AnnotationLayerState | undefined = undefined;
   pickedAnnotationId: string | undefined = undefined;
@@ -1209,10 +1190,6 @@ export class LayerSelectedValues extends RefCounted {
         if (layer.visible && userLayer !== null) {
           const { selectionState } = userLayer;
           userLayer.resetSelectionState(selectionState);
-          if (selectionState === undefined) {
-            console.log("selectionState is undefined in update");
-            continue;
-          }
           selectionState.generation = generation;
           userLayer.captureSelectionState(selectionState, mouseState);
         }
@@ -1223,7 +1200,6 @@ export class LayerSelectedValues extends RefCounted {
   get<T extends UserLayer>(userLayer: T): T["selectionState"] | undefined {
     this.update();
     const { selectionState } = userLayer;
-    if (selectionState === undefined) return undefined;
     if (selectionState.generation !== this.changed.count) return undefined;
     return selectionState;
   }
@@ -2103,7 +2079,7 @@ export abstract class LayerListSpecification extends RefCounted {
 
   abstract rpc: RPC;
 
-  abstract dataSourceProviderRegistry: Borrowed<DataSourceProviderRegistry>;
+  abstract dataSourceProviderRegistry: Borrowed<DataSourceRegistry>;
   abstract layerManager: Borrowed<LayerManager>;
   abstract chunkManager: Borrowed<ChunkManager>;
   abstract layerSelectedValues: Borrowed<LayerSelectedValues>;
@@ -2133,7 +2109,7 @@ export class TopLevelLayerListSpecification extends LayerListSpecification {
 
   constructor(
     public display: DisplayContext,
-    public dataSourceProviderRegistry: DataSourceProviderRegistry,
+    public dataSourceProviderRegistry: DataSourceRegistry,
     public layerManager: LayerManager,
     public chunkManager: ChunkManager,
     public selectionState: Borrowed<TrackableDataSelectionState>,

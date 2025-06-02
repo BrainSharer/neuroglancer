@@ -22,21 +22,11 @@ let defaultGlobalBindings: EventActionMap | undefined;
 export function getDefaultGlobalBindings() {
   if (defaultGlobalBindings === undefined) {
     const map = new EventActionMap();
-    /* BRAINSHARE STARTS */
-    // Not used
-    /*
     map.set("keyl", "recolor");
     map.set("keyx", "clear-segments");
-    */
-    /* BRAINSHARE ENDS */
     map.set("keys", "toggle-show-slices");
     map.set("keyb", "toggle-scale-bar");
-    /* BRAINSHARE STARTS */
-    // Not used
-    /*
-    map.set("keyv", "toggle-default-annotations"); 
-    */
-    /* BRAINSHARE ENDS */
+    map.set("keyv", "toggle-default-annotations");
     map.set("keya", "toggle-axis-lines");
     map.set("keyo", "toggle-orthographic-projection");
 
@@ -45,20 +35,14 @@ export function getDefaultGlobalBindings() {
       map.set("control+digit" + i, "select-layer-" + i);
       map.set("alt+digit" + i, "toggle-pick-layer-" + i);
     }
-    /* BRAINSHARE STARTS */
-    // Remove unused shortcuts to uncluster help panel
-    /*
+
     for (let i = 0; i < 26; ++i) {
       const lowercase = String.fromCharCode(97 + i);
       const uppercase = String.fromCharCode(65 + i);
       map.set(`alt?+control?+shift+key${lowercase}`, `tool-${uppercase}`);
     }
 
-    // Rename for help panel
     map.set("keyn", "add-layer");
-    */
-    map.set("keyn", "add-image-layer");
-    /* BRAINSHARE ENDS */
     map.set("keyh", "help");
 
     map.set("space", "toggle-layout");
@@ -110,12 +94,7 @@ export function getDefaultRenderedDataPanelBindings() {
         "control+equal": "zoom-in",
         "alt+equal": "depth-range-decrease",
         "control+shift+equal": "zoom-in",
-        /* BRAINSHARE STARTS */
-        // Not used
-        /*
         "alt+shift+equal": "depth-range-decrease",
-        */
-        /* BRAINSHARE ENDS */
         "control+minus": "zoom-out",
         "alt+minus": "depth-range-increase",
         keyr: "rotate-relative-z-",
@@ -132,39 +111,17 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:wheel": { action: "z+1-via-wheel", preventDefault: true },
         "at:shift+wheel": { action: "z+10-via-wheel", preventDefault: true },
         "at:dblclick0": "select",
-        /* BRAINSHARE STARTS */
-        // Not used
-        /*
         "at:shift+dblclick0": "star",
-        */
-        /* BRAINSHARE ENDS */
         "at:control+mousedown0": "annotate",
         "at:mousedown2": "move-to-mouse-position",
         "at:alt+mousedown0": "move-annotation",
-        /* BRAINSHARE STARTS */ 
-        // Not used
-        /*
         "at:control+alt+mousedown2": "delete-annotation",
-        */
-        /* BRAINSHARE ENDS */
         "at:touchpinch": "zoom-via-touchpinch",
         "at:touchrotate": "rotate-in-plane-via-touchrotate",
         "at:touchtranslate2": "translate-in-plane-via-touchtranslate",
         "at:touchhold1": "move-to-mouse-position",
         "at:touchtap1x2": "select",
         "at:touchtap2x3": "snap",
-        /* BRAINSHARE STARTS */
-        // New shortcuts
-        "at:enter": "complete-annotation",
-        "at:escape": "undo-annotation",
-        "at:shift+dblclick0": "add-vertex-polygon",
-        "at:shift+mousedown2": "delete-vertex-polygon",
-        "at:shift+keyr": "rotate-polygon-z+",
-        "at:shift+keye": "rotate-polygon-z-",
-        "at:shift+equal": "scale-polygon-enlarge",
-        "at:shift+minus": "scale-polygon-shrink",
-        "at:alt+shift+mousedown0": "move-parent-annotation",
-        /* BRAINSHARE ENDS */
       },
       {
         label: "All Data Panels",
@@ -209,15 +166,10 @@ export function getDefaultSliceViewPanelBindings() {
           action: "translate-via-mouse-drag",
           stopPropagation: true,
         },
-        /* BRAINSHARE STARTS */
-        // Remove it for misusing
-        /*
         "at:shift+mousedown0": {
           action: "rotate-via-mouse-drag",
           stopPropagation: true,
         },
-        */
-        /* BRAINSHARE ENDS */
         "at:touchtranslate1": "translate-z-via-touchtranslate",
       },
       {

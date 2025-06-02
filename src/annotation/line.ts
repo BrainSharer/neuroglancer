@@ -43,9 +43,6 @@ import {
 import type { ShaderBuilder, ShaderProgram } from "#src/webgl/shader.js";
 import { defineVectorArrayVertexShaderInput } from "#src/webgl/shader_lib.js";
 import { defineVertexId, VertexIdHelper } from "#src/webgl/vertex_id.js";
-/* BRAINSHARE STARTS */
-import { arraysEqualWithPredicate } from '#src/util/array.js';
-/* BRAINSHARE ENDS */
 
 const FULL_OBJECT_PICK_OFFSET = 0;
 const ENDPOINTS_PICK_OFFSET = FULL_OBJECT_PICK_OFFSET + 1;
@@ -57,10 +54,6 @@ void setEndpointMarkerSize(float startSize, float endSize) {}
 void setEndpointMarkerBorderWidth(float startSize, float endSize) {}
 void setEndpointMarkerColor(vec4 startColor, vec4 endColor) {}
 void setEndpointMarkerBorderColor(vec4 startColor, vec4 endColor) {}
-/* BRAINSHARE STARTS */
-void setEndpointOpacity(float opacity) {}
-void setEndpointVisibility(float visibility) {}
-/* BRAINSHARE ENDS */
 `);
 }
 
@@ -68,10 +61,6 @@ function defineNoOpLineSetters(builder: ShaderBuilder) {
   builder.addVertexCode(`
 void setLineWidth(float width) {}
 void setLineColor(vec4 startColor, vec4 endColor) {}
-/* BRAINSHARE STARTS */
-void setLineOpacity(float opacity) {}
-void setLineVisibility(float visibility) {}
-/* BRAINSHARE ENDS */
 `);
 }
 
@@ -100,15 +89,8 @@ class RenderHelper extends AnnotationRenderHelper {
       this.defineShader(builder);
       defineLineShader(builder);
       builder.addVarying(`highp float[${rank}]`, "vModelPosition");
-      /* BRAINSHARE STARTS */
-      builder.addVarying(`highp float`, 'vLineOpacity');
-      builder.addVarying(`highp float`, 'vLineVisibility');
-      /* BRAINSHARE ENDS */
       builder.addVertexCode(`
 float ng_LineWidth;
-/* BRAINSHARE STARTS */
-float ng_Visibility;
-/* BRAINSHARE ENDS */
 `);
       defineNoOpEndpointMarkerSetters(builder);
       builder.addVertexCode(`
@@ -118,15 +100,6 @@ void setLineWidth(float width) {
 void setLineColor(vec4 startColor, vec4 endColor) {
   vColor = mix(startColor, endColor, getLineEndpointCoefficient());
 }
-/* BRAINSHARE STARTS */
-void setLineOpacity(float opacity) {
-  vLineOpacity = opacity;
-}
-void setLineVisibility(float visibility) {
-  vLineVisibility = visibility;
-  ng_Visibility = visibility;
-}
-/* BRAINSHARE ENDS */
 `);
       builder.setVertexMain(`
 float modelPositionA[${rank}] = getVertexPosition0();
@@ -135,42 +108,18 @@ for (int i = 0; i < ${rank}; ++i) {
   vModelPosition[i] = mix(modelPositionA[i], modelPositionB[i], getLineEndpointCoefficient());
 }
 ng_LineWidth = 1.0;
-/* BRAINSHARE STARTS */
-ng_Visibility = 1.0;
-/* BRAINSHARE ENDS */
-vLineOpacity = 1.0;
-vLineVisibility = 1.0;
-/* BRAINSHARE ENDS */
 vColor = vec4(0.0, 0.0, 0.0, 0.0);
 ${this.invokeUserMain}
-/* BRAINSHARE STARTS */
-/*
 emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
          uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
          ng_LineWidth);
-*/
-if (ng_Visibility == 1.0) {
-  emitLine(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionA), 1.0),
-         uModelViewProjection * vec4(projectModelVectorToSubspace(modelPositionB), 1.0),
-         ng_LineWidth);
-}
-/* BRAINSHARE ENDS */
 ${this.setPartIndex(builder)};
 `);
       builder.setFragmentMain(`
 float clipCoefficient = getSubspaceClipCoefficient(vModelPosition);
-/* BRAINSHARE STARTS */
-/*
 emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
                                 ${this.getCrossSectionFadeFactor()} *
                                 clipCoefficient));
-*/
-if (vLineVisibility == 1.0) {
-  emitAnnotation(vec4(vColor.rgb, vColor.a * getLineAlpha() *
-                                ${this.getCrossSectionFadeFactor()} *
-                                clipCoefficient * vLineOpacity));
-}
-/* BRAINSHARE ENDS */
 `);
     },
   );
@@ -183,17 +132,10 @@ if (vLineVisibility == 1.0) {
       defineCircleShader(builder, this.targetIsSliceView);
       builder.addVarying("highp float", "vClipCoefficient");
       builder.addVarying("highp vec4", "vBorderColor");
-      /* BRAINSHARE STARTS */
-      builder.addVarying('highp float', 'vEndpointOpacity');
-      builder.addVarying('highp float', 'vEndpointVisibility');
-      /* BRAINSHARE ENDS */
       defineNoOpLineSetters(builder);
       builder.addVertexCode(`
 float ng_markerDiameter;
 float ng_markerBorderWidth;
-/* BRAINSHARE STARTS */
-float ng_endPointVisibility;
-/* BRAINSHARE ENDS */
 int getEndpointIndex() {
   return gl_VertexID / ${VERTICES_PER_CIRCLE};
 }
@@ -209,15 +151,6 @@ void setEndpointMarkerColor(vec4 startColor, vec4 endColor) {
 void setEndpointMarkerBorderColor(vec4 startColor, vec4 endColor) {
   vBorderColor = mix(startColor, endColor, float(getEndpointIndex()));
 }
-/* BRAINSHARE STARTS */
-void setEndpointOpacity(float opacity) {
-  vEndpointOpacity = opacity;
-}
-void setEndpointVisibility(float visibility) {
-  ng_endPointVisibility = visibility;
-  vEndpointVisibility = visibility;
-}
-/* BRAINSHARE ENDS */
 `);
       builder.setVertexMain(`
 float modelPosition[${rank}] = getVertexPosition0();
@@ -225,37 +158,19 @@ float modelPositionB[${rank}] = getVertexPosition1();
 for (int i = 0; i < ${rank}; ++i) {
   modelPosition[i] = mix(modelPosition[i], modelPositionB[i], float(getEndpointIndex()));
 }
-/* BRAINSHARE STARTS */
-vEndpointOpacity = 1.0;
-/* BRAINSHARE ENDS */
 vClipCoefficient = getSubspaceClipCoefficient(modelPosition);
 vColor = vec4(0.0, 0.0, 0.0, 0.0);
 vBorderColor = vec4(0.0, 0.0, 0.0, 1.0);
 ng_markerDiameter = 5.0;
 ng_markerBorderWidth = 1.0;
 ${this.invokeUserMain}
-/* BRAINSHARE STARTS */
-/*
 emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
-*/
-if (ng_endPointVisibility == 1.0) {
-  emitCircle(uModelViewProjection * vec4(projectModelVectorToSubspace(modelPosition), 1.0), ng_markerDiameter, ng_markerBorderWidth);
-}
-/* BRAINSHARE ENDS */
 ${this.setPartIndex(builder, "uint(getEndpointIndex()) + 1u")};
 `);
       builder.setFragmentMain(`
 vec4 color = getCircleColor(vColor, vBorderColor);
 color.a *= vClipCoefficient;
-/* BRAINSHARE STARTS */
-color.a *= vEndpointOpacity;
-/*
 emitAnnotation(color);
-*/
-if (vEndpointVisibility == 1.0) {
-  emitAnnotation(color);
-}
-/* BRAINSHARE ENDS */
 `);
     },
   );
@@ -383,59 +298,3 @@ registerAnnotationTypeRenderHandler<Line>(AnnotationType.LINE, {
     return baseLine;
   },
 });
-
-/* BRAINSHARE STARTS */
-/**
- * 
- * @param partIndex the part of the annotation that is picked with mouse
- * @returns returns true if the part index indicates a corner is picked.
- */
-export function isCornerPicked(partIndex: number) : boolean {
-  return partIndex === FULL_OBJECT_PICK_OFFSET + 1 || 
-    partIndex === FULL_OBJECT_PICK_OFFSET + 2
-}
-/**
- * Finds which part index is picked based on the annotation and the point.
- * @param annotation The line annotation for which part index needs to be found 
- *  based on point.
- * @param point Input point of the line.
- * @returns part index corresponding to the point.
- */
-export function getPointPartIndex(
-  annotation: Line, 
-  point: Float32Array
-): number {
-  if (arraysEqualWithPredicate(
-    annotation.pointA,
-    point,
-    (a, b) => Math.abs(a - b) <= 1e-4
-  )) return FULL_OBJECT_PICK_OFFSET + 1;
-
-  if (arraysEqualWithPredicate(
-    annotation.pointB,
-    point,
-    (a, b) => Math.abs(a - b) <= 1e-4
-  )) return FULL_OBJECT_PICK_OFFSET + 2;
-
-  return -1;
-}
-/**
- * Finds the point corresponding to the part index picked.
- * @param annotation Annotation for which the point needs to be found.
- * @param partIndex input part index
- * @returns undefined if the part index is valid otherwise 
- * returns the point corresponding to the part index.
- */
-export function getEndPointBasedOnPartIndex(
-  annotation: Line, 
-  partIndex: number
-): Float32Array|undefined {
-  if (partIndex === FULL_OBJECT_PICK_OFFSET + 1) {
-    return annotation.pointA;
-  }
-  else if (partIndex === FULL_OBJECT_PICK_OFFSET + 2) {
-    return annotation.pointB;
-  }
-  return undefined;
-}
-/* BRAINSHARE ENDS */

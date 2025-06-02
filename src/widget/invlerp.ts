@@ -45,7 +45,6 @@ import {
 } from "#src/util/lerp.js";
 import { MouseEventBinder } from "#src/util/mouse_bindings.js";
 import { startRelativeMouseDrag } from "#src/util/mouse_drag.js";
-import { Uint64 } from "#src/util/uint64.js";
 import { getWheelZoomAmount } from "#src/util/wheel_zoom.js";
 import type { WatchableVisibilityPriority } from "#src/visibility_priority/frontend.js";
 import { getMemoizedBuffer } from "#src/webgl/buffer.js";
@@ -73,9 +72,6 @@ import { AutoRangeFinder } from "#src/widget/invlerp_range_finder.js";
 import type { LayerControlTool } from "#src/widget/layer_control.js";
 import type { LegendShaderOptions } from "#src/widget/shader_controls.js";
 import { Tab } from "#src/widget/tab_view.js";
-/* BRAINSHARE STARTS */
-import { HistogramPanel } from "#src/brainshare/histogram.js";
-/* BRAINSHARE ENDS */
 
 const inputEventMap = EventActionMap.fromObject({
   "shift?+mousedown0": { action: "set" },
@@ -151,7 +147,7 @@ export class CdfController<
       if (value === undefined) return;
       const clampedRange = getClampedInterval(bounds.window, bounds.range);
       const endpointIndex = getClosestEndpoint(clampedRange, value);
-      const setEndpoint = (value: number | Uint64) => {
+      const setEndpoint = (value: number | bigint) => {
         const bounds = this.getModel();
         this.setModel(
           getUpdatedRangeAndWindowParameters(
@@ -182,7 +178,7 @@ export class CdfController<
         const initialValue = this.getWindowLerp(initialRelativeX);
         // Index for bound being adjusted
         const endpointIndex = initialRelativeX < 0.5 ? 0 : 1;
-        const setEndpoint = (value: number | Uint64) => {
+        const setEndpoint = (value: number | bigint) => {
           const bounds = this.getModel();
           this.setModel(
             getUpdatedRangeAndWindowParameters(
@@ -266,7 +262,7 @@ export class CdfController<
     return computeLerp(this.getModel().window, this.dataType, relativeX);
   }
 
-  getTargetValue(event: MouseEvent): number | Uint64 | undefined {
+  getTargetValue(event: MouseEvent): number | bigint | undefined {
     const targetFraction = this.getTargetFraction(event);
     if (!Number.isFinite(targetFraction)) return undefined;
     return this.getWindowLerp(targetFraction);
@@ -299,7 +295,7 @@ export function getUpdatedRangeAndWindowParameters<
   existingBounds: T,
   boundType: "range" | "window",
   endpointIndex: number,
-  newEndpoint: number | Uint64,
+  newEndpoint: number | bigint,
   fitRangeInWindow = false,
 ): T {
   const newBounds = { ...existingBounds };
@@ -670,10 +666,10 @@ export function updateInputBoundWidth(inputElement: HTMLInputElement) {
 
 export function updateInputBoundValue(
   inputElement: HTMLInputElement,
-  bound: number | Uint64,
+  bound: number | bigint,
 ) {
   let boundString: string;
-  if (bound instanceof Uint64 || Number.isInteger(bound)) {
+  if (typeof bound === "bigint" || Number.isInteger(bound)) {
     boundString = bound.toString();
   } else {
     boundString = bound.toPrecision(6);
@@ -733,13 +729,7 @@ export function adjustInvlerpBrightnessContrast(
 }
 
 export class InvlerpWidget extends Tab {
-  cdfPanel = this.registerDisposer(new CdfPanel(this));
-  /* BRAINSHARE STARTS */
-  // Add histogram panel
-  histogramPanel = this.registerDisposer(
-    new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit)
-  );
-  /* BRAINSHARE ENDS */
+  cdfPanel;
   boundElements;
   invertArrows: HTMLElement[];
   autoRangeFinder: AutoRangeFinder;
@@ -761,6 +751,7 @@ export class InvlerpWidget extends Tab {
     public legendShaderOptions: LegendShaderOptions | undefined,
   ) {
     super(visibility);
+    this.cdfPanel = this.registerDisposer(new CdfPanel(this));
     this.boundElements = {
       range: createRangeBoundInputs("range", dataType, trackable),
       window: createRangeBoundInputs("window", dataType, trackable),
@@ -788,9 +779,6 @@ export class InvlerpWidget extends Tab {
     this.invertArrows = [makeArrow(svg_arrowRight), makeArrow(svg_arrowLeft)];
     element.appendChild(boundElements.range.container);
     element.appendChild(this.cdfPanel.element);
-    /* BRAINSHARE STARTS */
-    element.appendChild(this.histogramPanel.element);
-    /* BRAINSHARE ENDS */
     element.classList.add("neuroglancer-invlerp-widget");
     element.appendChild(boundElements.window.container);
     this.autoRangeFinder = this.registerDisposer(new AutoRangeFinder(this));
@@ -919,7 +907,7 @@ export function activateInvlerpTool(
       const curRange = control.trackable.value.range;
       const curScreenX = newEvent.screenX;
       const curScreenY = newEvent.screenY;
-      if (!dataTypeIntervalEqual(control.dataType, curRange, prevRange)) {
+      if (!dataTypeIntervalEqual(curRange, prevRange)) {
         baseRange = curRange;
         baseScreenX = prevScreenX;
         baseScreenY = prevScreenY;

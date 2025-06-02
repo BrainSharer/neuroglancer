@@ -1,3 +1,17 @@
+# @license
+# Copyright 2025 Google Inc.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Writes annotations in the Precomputed annotation format.
 
 This provides a simple way to write annotations in the precomputed format, but
@@ -20,7 +34,7 @@ import os
 import pathlib
 import struct
 from collections.abc import Sequence
-from typing import Literal, NamedTuple, Optional, Union, cast
+from typing import Literal, NamedTuple, cast
 
 import numpy as np
 
@@ -33,9 +47,7 @@ class Annotation(NamedTuple):
     relationships: Sequence[Sequence[int]]
 
 
-_PROPERTY_DTYPES: dict[
-    str, tuple[Union[tuple[str], tuple[str, tuple[int, ...]]], int]
-] = {
+_PROPERTY_DTYPES: dict[str, tuple[tuple[str] | tuple[str, tuple[int, ...]], int]] = {
     "uint8": (("|u1",), 1),
     "uint16": (("<u2",), 2),
     "uint32": (("<u4",), 3),
@@ -110,7 +122,7 @@ class AnnotationWriter:
         )
         self.related_annotations = [{} for _ in self.relationships]
 
-    def add_point(self, point: Sequence[float], id: Optional[int] = None, **kwargs):
+    def add_point(self, point: Sequence[float], id: int | None = None, **kwargs):
         if self.annotation_type != "point":
             raise ValueError(
                 f"Expected annotation type point, but received: {self.annotation_type}"
@@ -128,7 +140,7 @@ class AnnotationWriter:
         self,
         point_a: Sequence[float],
         point_b: Sequence[float],
-        id: Optional[int] = None,
+        id: int | None = None,
         **kwargs,
     ):
         if self.annotation_type != "axis_aligned_bounding_box":
@@ -141,7 +153,7 @@ class AnnotationWriter:
         self,
         point_a: Sequence[float],
         point_b: Sequence[float],
-        id: Optional[int] = None,
+        id: int | None = None,
         **kwargs,
     ):
         if self.annotation_type != "line":
@@ -154,7 +166,7 @@ class AnnotationWriter:
         self,
         point_a: Sequence[float],
         point_b: Sequence[float],
-        id: Optional[int] = None,
+        id: int | None = None,
         **kwargs,
     ):
         if len(point_a) != self.coordinate_space.rank:
@@ -172,13 +184,13 @@ class AnnotationWriter:
         coords = np.concatenate((point_a, point_b))
         self._add_obj(cast(Sequence[float], coords), id, **kwargs)
 
-    def _add_obj(self, coords: Sequence[float], id: Optional[int], **kwargs):
+    def _add_obj(self, coords: Sequence[float], id: int | None, **kwargs):
         encoded = np.zeros(shape=(), dtype=self.dtype)
-        encoded[()]["geometry"] = coords
+        encoded[()]["geometry"] = coords  # type: ignore[call-overload]
 
         for i, p in enumerate(self.properties):
             if p.id in kwargs:
-                encoded[()][f"property{i}"] = kwargs.pop(p.id)
+                encoded[()][f"property{i}"] = kwargs.pop(p.id)  # type: ignore[call-overload]
 
         related_ids = []
         for relationship in self.relationships:
@@ -221,7 +233,7 @@ class AnnotationWriter:
             for related_id in related_ids:
                 f.write(struct.pack("<Q", related_id))
 
-    def write(self, path: Union[str, pathlib.Path]):
+    def write(self, path: str | pathlib.Path):
         metadata = {
             "@type": "neuroglancer_annotations_v1",
             "dimensions": self.coordinate_space.to_json(),

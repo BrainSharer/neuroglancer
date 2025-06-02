@@ -168,7 +168,11 @@ export function newState(state: Object) {
     window.history.pushState({}, "", href.toString());
     brainState.value = json;
     StatusMessage.showTemporaryMessage("A new state has been created.", 10000);
-  })
+  }).catch(Error => {
+    console.error('Error creating new data to DB:', Error);
+    StatusMessage.showTemporaryMessage("Error: the current neuroglancer state has NOT been created.", 10000);
+    return null;
+  });
 }
 
 /**
@@ -179,6 +183,7 @@ export function newState(state: Object) {
  */
 export function saveState(stateID: number | string, state: Object) {
   const json_body = { ...brainState.value, ...state }
+  console.log("saveState", json_body);
 
   fetchOk(APIs.GET_SET_STATE + stateID, {
     method: "PUT",
@@ -189,9 +194,11 @@ export function saveState(stateID: number | string, state: Object) {
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
     brainState.value = json;
-    //TODO take this upsert out later!
-    upsertCouchState(JSON.stringify(stateID), json);
     StatusMessage.showTemporaryMessage("The current neuroglancer state has been saved.", 10000);
+  }).catch(Error => {
+    console.error('Error saving data to DB:', Error);
+    StatusMessage.showTemporaryMessage("Error: the current neuroglancer state has NOT been saved.", 10000);
+    return null;
   });
 }
 

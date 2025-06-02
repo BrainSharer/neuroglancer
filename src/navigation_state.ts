@@ -2238,14 +2238,10 @@ export class TrackableDepthRange
       const prevCanonicalVoxelPhysicalSize = this.canonicalVoxelPhysicalSize;
       if (canonicalVoxelPhysicalSize !== prevCanonicalVoxelPhysicalSize) {
         this.canonicalVoxelPhysicalSize = canonicalVoxelPhysicalSize;
-        /* BRAINSHARE STARTS */
-        // For multi-user; Solve a bug where `crossSectionDepth` is restored 
-        // incorrectly from JSON that is read from Firstore
-        // value_ =
-        //   this.value_ =
-        //   value_ =
-        //     prevCanonicalVoxelPhysicalSize / canonicalVoxelPhysicalSize;
-        /* BRAINSHARE ENDS */
+        value_ =
+          this.value_ =
+          value_ =
+            prevCanonicalVoxelPhysicalSize / canonicalVoxelPhysicalSize;
         this.changed.dispatch();
       }
     }

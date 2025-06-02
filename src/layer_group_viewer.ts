@@ -102,6 +102,7 @@ export interface LayerGroupViewerState {
   visibleLayerRoles: WatchableSet<RenderLayerRole>;
   crossSectionBackgroundColor: TrackableRGB;
   perspectiveViewBackgroundColor: TrackableRGB;
+  hideCrossSectionBackground3D: TrackableBoolean;
 }
 
 export interface LayerGroupViewerOptions {
@@ -357,6 +358,9 @@ export class LayerGroupViewer extends RefCounted {
   get enableAdaptiveDownsampling() {
     return this.viewerState.enableAdaptiveDownsampling;
   }
+  get hideCrossSectionBackground3D() {
+    return this.viewerState.hideCrossSectionBackground3D;
+  }
   get showScaleBar() {
     return this.viewerState.showScaleBar;
   }
@@ -468,17 +472,13 @@ export class LayerGroupViewer extends RefCounted {
       registerActionListener(this.element, action, handler),
     );
   }
+
   private registerActionBindings() {
-    /* BRAINSHARE STARTS */
-    /*
     this.bindAction("add-layer", () => {
-    */
-    this.bindAction("add-image-layer", () => {
       if (this.layerPanel) {
         this.layerPanel.addLayerMenu();
       }
     });
-    /* BRAINSHARE ENDS */
     this.bindAction("t-", () => {
       this.navigationState.pose.translateNonDisplayDimension(0, -1);
     });
@@ -568,7 +568,7 @@ export class LayerGroupViewer extends RefCounted {
               if (layout !== "3d") {
                 newLayout = `${layout}-3d`;
               } else {
-                newLayout = "4panel";
+                newLayout = "4panel-alt";
               }
             } else {
               newLayout = layout;

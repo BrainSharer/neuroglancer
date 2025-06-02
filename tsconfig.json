@@ -36,6 +36,5 @@
     "config",
     "docs",
     "ngauth_server",
-    "src/brainshare/docs"
   ],
 }

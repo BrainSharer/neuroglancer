@@ -250,14 +250,7 @@ div.neuroglancer-annotation-details-description {
   flex-direction: row;
   font-family: sans-serif;
   font-size: small;
-<<<<<<< HEAD
-  /* BRAINSHARE STARTS */
-  margin: 2px 0px 2px 0px;
-  justify-content: space-between;
-  /* BRIANSHARE ENDS */
-=======
   user-select: text;
->>>>>>> master
 }
 
 .neuroglancer-annotation-property-label {
@@ -289,26 +282,3 @@ input.neuroglancer-segment-list-entry-id {
   font-family: sans-serif;
   font-size: small;
 }
-
-/* BRAINSHARE STARTS */
-.neuroglancer-annotation-property-color-input {
-  width: 50px;
-  height: 100%;
-  border: 0px;
-}
-
-.neuroglancer-annotation-property-value-input {
-  width: 50px;
-  height: 100%;
-  border: 0px;
-  padding: 0px;
-  background-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
-}
-
-.neuroglancer-annotation-session-id {
-  font: 10pt sans-serif;
-  display: flex;
-  justify-content: space-between;
-}
-/* BRAINSHARE ENDS */

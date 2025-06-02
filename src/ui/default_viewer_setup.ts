@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/** BRAINSHARE STARTS */
-// import { StatusMessage } from "#src/status.js";
-// import { UrlHashBinding } from "#src/ui/url_hash_binding.js";
-/** BRAINSHARE ENDS */
+
+import { StatusMessage } from "#src/status.js";
 import {
   bindDefaultCopyHandler,
   bindDefaultPasteHandler,
@@ -25,6 +23,7 @@ import { setDefaultInputEventBindings } from "#src/ui/default_input_event_bindin
 import { makeDefaultViewer } from "#src/ui/default_viewer.js";
 import type { MinimalViewerOptions } from "#src/ui/minimal_viewer.js";
 import { bindTitle } from "#src/ui/title.js";
+import { UrlHashBinding } from "#src/ui/url_hash_binding.js";
 
 declare let NEUROGLANCER_DEFAULT_STATE_FRAGMENT: string | undefined;
 
@@ -35,11 +34,10 @@ export function setupDefaultViewer(options?: Partial<MinimalViewerOptions>) {
   const viewer = ((<any>window).viewer = makeDefaultViewer(options));
   setDefaultInputEventBindings(viewer.inputEventBindings);
 
-  /**
   const hashBinding = viewer.registerDisposer(
     new UrlHashBinding(
       viewer.state,
-      viewer.dataSourceProvider.credentialsManager,
+      viewer.dataSourceProvider.sharedKvStoreContext,
       {
         defaultFragment:
           typeof NEUROGLANCER_DEFAULT_STATE_FRAGMENT !== "undefined"
@@ -60,7 +58,6 @@ export function setupDefaultViewer(options?: Partial<MinimalViewerOptions>) {
     }),
   );
   hashBinding.updateFromUrlHash();
-  */
   viewer.registerDisposer(bindTitle(viewer.title));
 
   bindDefaultCopyHandler(viewer);

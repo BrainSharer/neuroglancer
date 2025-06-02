@@ -16,7 +16,7 @@
 
 import type { WatchableValueInterface } from "#src/trackable_value.js";
 import { WatchableValue } from "#src/trackable_value.js";
-import type { TypedArray } from "#src/util/array.js";
+import type { TypedNumberArray } from "#src/util/array.js";
 import {
   arraysEqual,
   arraysEqualWithPredicate,
@@ -288,7 +288,6 @@ export function coordinateSpaceFromJson(
     Object.keys(obj),
     allowNumericalDimensions,
   );
-  
   const rank = names.length;
   const units = new Array<string>(rank);
   const scales = new Float64Array(rank);
@@ -313,7 +312,7 @@ export function coordinateSpaceFromJson(
         if (length !== labels.length) {
           throw new Error(
             `Length of coordinates array (${length}) ` +
-            `does not match length of labels array (${labels.length})`,
+              `does not match length of labels array (${labels.length})`,
           );
         }
         units[i] = "";
@@ -497,6 +496,8 @@ export function computeCombinedLowerUpperBound(
   return { lower: targetLower, upper: targetUpper };
 }
 
+const INTEGER_BOUNDS_EPSILON = 1e-3;
+
 export function computeCombinedBounds(
   boundingBoxes: readonly TransformedBoundingBox[],
   outputRank: number,
@@ -522,17 +523,30 @@ export function computeCombinedBounds(
         outputRank,
       );
       if (result === undefined) continue;
-      const { lower: targetLower, upper: targetUpper } = result;
+      let { lower: targetLower, upper: targetUpper } = result;
       if (Number.isFinite(targetLower) && Number.isFinite(targetUpper)) {
-        const lowerFloor = Math.floor(targetLower);
-        const upperFloor = Math.floor(targetUpper);
-        if (lowerFloor === targetLower && upperFloor === targetUpper) {
+        let lowerRound: number;
+        let upperRound: number;
+        let lowerFloor: number;
+        let upperFloor: number;
+        if (
+          Math.abs(targetLower - (lowerRound = Math.round(targetLower))) <
+            INTEGER_BOUNDS_EPSILON &&
+          Math.abs(targetUpper - (upperRound = Math.round(targetUpper))) <
+            INTEGER_BOUNDS_EPSILON
+        ) {
           ++integerBounds[outputDim];
+          targetLower = lowerRound;
+          targetUpper = upperRound;
         } else if (
-          targetLower - lowerFloor === 0.5 &&
-          targetUpper - upperFloor === 0.5
+          Math.abs(targetLower - (lowerFloor = Math.floor(targetLower)) - 0.5) <
+            INTEGER_BOUNDS_EPSILON &&
+          Math.abs(targetUpper - (upperFloor = Math.floor(targetUpper)) - 0.5) <
+            INTEGER_BOUNDS_EPSILON
         ) {
           ++halfIntegerBounds[outputDim];
+          targetLower = lowerFloor + 0.5;
+          targetUpper = upperFloor + 0.5;
         }
       }
       lowerBounds[outputDim] =
@@ -1711,9 +1725,9 @@ export class CoordinateSpaceCombiner {
   }
 }
 
-export function homogeneousTransformSubmatrix<T extends TypedArray>(
+export function homogeneousTransformSubmatrix<T extends TypedNumberArray>(
   arrayConstructor: { new (n: number): T },
-  oldTransform: TypedArray,
+  oldTransform: TypedNumberArray,
   oldRank: number,
   oldRows: readonly number[],
   oldCols: readonly number[],

@@ -25,6 +25,10 @@ import { FramerateMonitor } from "#src/util/framerate.js";
 import type { mat4 } from "#src/util/geom.js";
 import { parseFixedLengthArray, verifyFloat01 } from "#src/util/json.js";
 import { NullarySignal } from "#src/util/signal.js";
+import {
+  TrackableScreenshotMode,
+  ScreenshotMode,
+} from "#src/util/trackable_screenshot_mode.js";
 import type { WatchableVisibilityPriority } from "#src/visibility_priority/frontend.js";
 import type { GL } from "#src/webgl/context.js";
 import { initializeWebGL } from "#src/webgl/context.js";
@@ -115,6 +119,8 @@ export abstract class RenderedPanel extends RefCounted {
 
   renderViewport = new RenderViewport();
 
+  boundsUpdated = new NullarySignal();
+
   private monitorState: PanelMonitorState = { isIntersecting: true };
 
   constructor(
@@ -135,7 +141,7 @@ export abstract class RenderedPanel extends RefCounted {
 
   abstract isReady(): boolean;
 
-  ensureBoundsUpdated() {
+  ensureBoundsUpdated(canScaleForScreenshot: boolean = false) {
     const { context } = this;
     context.ensureBoundsUpdated();
     const { boundsGeneration } = context;
@@ -187,22 +193,36 @@ export abstract class RenderedPanel extends RefCounted {
         // Assume this is a `display: contents;` element.
         continue;
       }
-      clippedLeft = Math.max(
+      const newClippedLeft = Math.max(
         clippedLeft,
         (rect.left - canvasLeft) * screenToCanvasPixelScaleX,
       );
-      clippedTop = Math.max(
+      const newClippedTop = Math.max(
         clippedTop,
         (rect.top - canvasTop) * screenToCanvasPixelScaleY,
       );
-      clippedRight = Math.min(
+      const newClippedRight = Math.min(
         clippedRight,
         (rect.right - canvasLeft) * screenToCanvasPixelScaleX,
       );
-      clippedBottom = Math.min(
+      const newClippedBottom = Math.min(
         clippedBottom,
         (rect.bottom - canvasTop) * screenToCanvasPixelScaleY,
       );
+      if (newClippedLeft !== clippedLeft || newClippedRight !== clippedRight) {
+        const overflowX = getComputedStyle(parent).overflowX;
+        if (overflowX === "hidden" || overflowX === "clip") {
+          clippedLeft = newClippedLeft;
+          clippedRight = newClippedRight;
+        }
+      }
+      if (newClippedTop !== clippedTop || newClippedBottom !== clippedBottom) {
+        const overflowY = getComputedStyle(parent).overflowY;
+        if (overflowY === "hidden" || overflowY === "clip") {
+          clippedTop = newClippedTop;
+          clippedBottom = newClippedBottom;
+        }
+      }
     }
     clippedTop = this.canvasRelativeClippedTop = Math.round(
       Math.max(clippedTop, 0),
@@ -221,12 +241,23 @@ export abstract class RenderedPanel extends RefCounted {
       0,
       clippedBottom - clippedTop,
     ));
-    viewport.logicalWidth = logicalWidth;
-    viewport.logicalHeight = logicalHeight;
+    if (
+      this.context.screenshotMode.value !== ScreenshotMode.OFF &&
+      canScaleForScreenshot
+    ) {
+      viewport.width = logicalWidth * screenToCanvasPixelScaleX;
+      viewport.height = logicalHeight * screenToCanvasPixelScaleY;
+      viewport.logicalWidth = logicalWidth * screenToCanvasPixelScaleX;
+      viewport.logicalHeight = logicalHeight * screenToCanvasPixelScaleY;
+    } else {
+      viewport.logicalWidth = logicalWidth;
+      viewport.logicalHeight = logicalHeight;
+    }
     viewport.visibleLeftFraction = (clippedLeft - logicalLeft) / logicalWidth;
     viewport.visibleTopFraction = (clippedTop - logicalTop) / logicalHeight;
     viewport.visibleWidthFraction = clippedWidth / logicalWidth;
     viewport.visibleHeightFraction = clippedHeight / logicalHeight;
+    this.boundsUpdated.dispatch();
   }
 
   // Sets the viewport to the clipped viewport.  Any drawing must take
@@ -410,6 +441,9 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
   rootRect: DOMRect | undefined;
   resizeGeneration = 0;
   boundsGeneration = -1;
+  screenshotMode: TrackableScreenshotMode = new TrackableScreenshotMode(
+    ScreenshotMode.OFF,
+  );
   force3DHistogramForAutoRange = false;
   private framerateMonitor = new FramerateMonitor();
 
@@ -512,6 +546,16 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
     canvas.style.zIndex = "0";
     resizeObserver.observe(canvas);
     container.appendChild(canvas);
+    // Additionally monitor for scroll events.  This catches cases not handled
+    // by the IntersectionObserver.
+    this.registerEventListener(
+      container,
+      "scroll",
+      () => {
+        this.resizeCallback();
+      },
+      { capture: true, passive: true },
+    );
     this.registerEventListener(
       canvas,
       "webglcontextlost",
@@ -599,8 +643,10 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
     const { resizeGeneration } = this;
     if (this.boundsGeneration === resizeGeneration) return;
     const { canvas } = this;
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    if (this.screenshotMode.value === ScreenshotMode.OFF) {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
     this.canvasRect = canvas.getBoundingClientRect();
     this.rootRect = this.container.getBoundingClientRect();
     this.boundsGeneration = resizeGeneration;
@@ -621,8 +667,8 @@ export class DisplayContext extends RefCounted implements FrameNumberCounter {
       orderedPanels.sort((a, b) => a.drawOrder - b.drawOrder);
     }
     for (const panel of orderedPanels) {
-      if (!panel.shouldDraw) continue;
       panel.ensureBoundsUpdated();
+      if (!panel.shouldDraw) continue;
       const { renderViewport } = panel;
       if (renderViewport.width === 0 || renderViewport.height === 0) continue;
       panel.draw();
