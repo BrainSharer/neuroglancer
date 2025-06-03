@@ -120,7 +120,7 @@ echo "$BUILD_INFO"
 
 #npm run build-python -- --no-typecheck --define NEUROGLANCER_BUILD_INFO="${BUILD_INFO}"
 npm run build -- --define NEUROGLANCER_BUILD_INFO="${BUILD_INFO}"
-cd dist/min/
+cd dist/client/
 tar zcvf ../../$PACKAGE *
 cd ../../
 
