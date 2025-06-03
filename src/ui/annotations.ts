@@ -908,11 +908,6 @@ export class AnnotationLayerView extends Tab {
     });
     mutableControls.appendChild(ellipsoidButton);
 
-
-
-
-
-
     /* BRAINSHARE STARTS */
     const polygonButton = makeIcon({
       text: annotationTypeHandlers[AnnotationType.POLYGON].icon,
@@ -3527,7 +3522,10 @@ export function UserLayerWithAnnotationsMixin<
 
                 const { relatedSegments } = annotation;
                 for (let i = 0, count = relationships.length; i < count; ++i) {
-                  const related = relatedSegments === undefined ? new BigUint64Array(0) : relatedSegments[i];
+                  const related =
+                    relatedSegments === undefined
+                      ? new BigUint64Array(0)
+                      : relatedSegments[i];
                   if (related.length === 0 && sourceReadonly) continue;
                   const relationshipIndex = i;
                   const relationship = relationships[i];
@@ -3542,30 +3540,30 @@ export function UserLayerWithAnnotationsMixin<
                         sourceReadonly
                           ? undefined
                           : (newIds) => {
-                            const annotation = reference.value;
-                            if (annotation == null) {
-                              return;
-                            }
-                            let { relatedSegments } = annotation;
-                            if (relatedSegments === undefined) {
-                              relatedSegments =
-                                annotationLayer.source.relationships.map(
-                                  () => new BigUint64Array(0),
-                                );
-                            } else {
-                              relatedSegments = relatedSegments.slice();
-                            }
-                            relatedSegments[relationshipIndex] = newIds;
-                            const newAnnotation = {
-                              ...annotation,
-                              relatedSegments,
-                            };
-                            annotationLayer.source.update(
-                              reference,
-                              newAnnotation,
-                            );
-                            annotationLayer.source.commit(reference);
-                          },
+                              const annotation = reference.value;
+                              if (annotation == null) {
+                                return;
+                              }
+                              let { relatedSegments } = annotation;
+                              if (relatedSegments === undefined) {
+                                relatedSegments =
+                                  annotationLayer.source.relationships.map(
+                                    () => new BigUint64Array(0),
+                                  );
+                              } else {
+                                relatedSegments = relatedSegments.slice();
+                              }
+                              relatedSegments[relationshipIndex] = newIds;
+                              const newAnnotation = {
+                                ...annotation,
+                                relatedSegments,
+                              };
+                              annotationLayer.source.update(
+                                reference,
+                                newAnnotation,
+                              );
+                              annotationLayer.source.commit(reference);
+                            },
                       ),
                     ).element,
                   );

@@ -55,7 +55,6 @@ import {
   /* BRAINSHARE STARTS */
   verifyBoolean,
   verifyStringArray,
-//TODO  verifyOptionalInt,
   /* BRAINSHARE ENDS */
 } from "#src/util/json.js";
 import { parseDataTypeValue } from "#src/util/lerp.js";
@@ -64,7 +63,6 @@ import { NullarySignal, Signal } from "#src/util/signal.js";
 /* BRAINSHARE STARTS */
 import * as vector from "#src/util/vector.js";
 import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
-// import { getZCoordinate } from "#/annotation/polygon";
 /* BRAINSHARE ENDS */
 
 export type AnnotationId = string;
@@ -2271,7 +2269,7 @@ export class AnnotationSerializer {
  */
 export function isTypeCollection(annotation: Annotation) : boolean {
   return annotation.type === AnnotationType.POLYGON 
-    //TODO || annotation.type === AnnotationType.VOLUME
+    || annotation.type === AnnotationType.VOLUME
     || annotation.type === AnnotationType.CLOUD
 }
 
@@ -2291,14 +2289,12 @@ export function isChildDummyAnnotation(annotation: Annotation) : boolean {
  * @param annotation Input annotation element.
  * @returns boolean indicating if the annotation is dummy or not.
  */
-/*TODTO
 export function isDummyAnnotation(annotation: Annotation) : boolean {
   return annotation.type === AnnotationType.LINE && (
     annotation.parentAnnotationId !== null 
     || annotation.parentAnnotationId !== undefined
   );
 }
-*/
 /**
  * An interface to indicate a collection annotation.
  * Collection annotation contains child collection of annotations.
