@@ -111,7 +111,12 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:wheel": { action: "z+1-via-wheel", preventDefault: true },
         "at:shift+wheel": { action: "z+10-via-wheel", preventDefault: true },
         "at:dblclick0": "select",
+        /* BRAINSHARE STARTS */
+        // Not used
+        /*
         "at:shift+dblclick0": "star",
+        */
+        /* BRAINSHARE ENDS */
         "at:control+mousedown0": "annotate",
         "at:mousedown2": "move-to-mouse-position",
         "at:alt+mousedown0": "move-annotation",
@@ -122,6 +127,18 @@ export function getDefaultRenderedDataPanelBindings() {
         "at:touchhold1": "move-to-mouse-position",
         "at:touchtap1x2": "select",
         "at:touchtap2x3": "snap",
+        /* BRAINSHARE STARTS */
+        // New shortcuts
+        "at:enter": "complete-annotation",
+        "at:escape": "undo-annotation",
+        "at:shift+dblclick0": "add-vertex-polygon",
+        "at:shift+mousedown2": "delete-vertex-polygon",
+        "at:shift+keyr": "rotate-polygon-z+",
+        "at:shift+keye": "rotate-polygon-z-",
+        "at:shift+equal": "scale-polygon-enlarge",
+        "at:shift+minus": "scale-polygon-shrink",
+        "at:alt+shift+mousedown0": "move-parent-annotation",
+        /* BRAINSHARE ENDS */
       },
       {
         label: "All Data Panels",

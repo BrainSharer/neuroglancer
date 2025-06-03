@@ -450,6 +450,63 @@ export class AnnotationUserLayer extends Base {
       ANNOTATION_PROPERTIES_JSON_KEY,
       parseAnnotationPropertySpecs,
     );
+    if (this.localAnnotationProperties === undefined) {
+      this.localAnnotationProperties = [
+        {
+          identifier: "color",
+          type: "rgb",
+          default: 65535,
+          description: "color",
+        },
+        {
+          identifier: "visibility",
+          type: "float32",
+          default: 1.0,
+          description: "visibility",
+          min: 0,
+          max: 1,
+          step: 1,
+        },
+        {
+          identifier: "opacity",
+          type: "float32",
+          default: 1,
+          description: "opacity",
+          min: 0,
+          max: 1,
+          step: 0.01,
+        },
+        {
+          identifier: "point_size",
+          type: "float32",
+          default: 5,
+          description: "point marker size",
+          min: 0,
+          max: 10,
+          step: 0.01,
+        },
+        {
+          identifier: "point_border_width",
+          type: "float32",
+          default: 3,
+          description: "point marker border width",
+          min: 0,
+          max: 5,
+          step: 0.01,
+        },
+        {
+          identifier: "line_width",
+          type: "float32",
+          default: 1.0,
+          description: "line width",
+          min: 0,
+          max: 5,
+          step: 0.01,
+        },
+      ];
+    }
+    /* BRAINSHARE ENDS */
+
     this.localAnnotationRelationships = verifyOptionalObjectProperty(
       specification,
       ANNOTATION_RELATIONSHIPS_JSON_KEY,

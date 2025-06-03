@@ -124,11 +124,27 @@ export class WatchableAnnotationRelationshipStates extends WatchableMap<
   }
 }
 
+/* BRAINSHARE STARTS */
 const DEFAULT_FRAGMENT_MAIN = `
 void main() {
-  setColor(defaultColor());
+  setColor(prop_color());
+
+  setPointVisibility(prop_visibility());
+  setLineVisibility(prop_visibility());
+  setEndpointVisibility(prop_visibility());
+
+  setPointOpacity(prop_opacity());
+  setLineOpacity(prop_opacity());
+  setEndpointOpacity(prop_opacity());
+
+  setPointMarkerSize(prop_point_size());
+  setPointMarkerBorderWidth(prop_point_border_width());
+  setEndpointMarkerSize(prop_point_size());
+  setEndpointMarkerBorderWidth(prop_point_border_width());
+  setLineWidth(prop_line_width());
 }
 `;
+/* BRAINSHARE ENDS */
 
 export class AnnotationDisplayState extends RefCounted {
   annotationProperties = new WatchableValue<

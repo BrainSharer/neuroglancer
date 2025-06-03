@@ -474,6 +474,12 @@ export class LayerGroupViewer extends RefCounted {
   }
 
   private registerActionBindings() {
+    this.bindAction("add-image-layer", () => {
+      if (this.layerPanel) {
+        this.layerPanel.addLayerMenu();
+      }
+    });
+
     this.bindAction("add-layer", () => {
       if (this.layerPanel) {
         this.layerPanel.addLayerMenu();

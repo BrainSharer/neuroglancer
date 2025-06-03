@@ -18,6 +18,11 @@ import "#src/annotation/bounding_box.js";
 import "#src/annotation/line.js";
 import "#src/annotation/point.js";
 import "#src/annotation/ellipsoid.js";
+/* BRAINSHARE STARTS */
+import "#src/annotation/polygon.js";
+//TODOimport "#src/annotation/volume.js";
+import "#src/annotation/cloud.js";
+/* BRAINSHARE ENDS */
 
 import type {
   AnnotationLayerState,
