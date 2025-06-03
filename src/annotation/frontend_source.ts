@@ -30,8 +30,15 @@ import type {
   AnnotationPropertySerializer,
   AnnotationPropertySpec,
   AnnotationSourceSignals,
-  SerializedAnnotations,
+  SerializedAnnotations
 } from "#src/annotation/index.js";
+/* BRAINSHARE STARTS */
+import {
+  isChildDummyAnnotation,
+  isTypeCollection, 
+  Collection
+} from "#src/annotation/index.js"
+/* BRAINSHARE ENDS */
 import {
   AnnotationReference,
   AnnotationType,
@@ -753,6 +760,154 @@ export class MultiscaleAnnotationSource
     }
     return existing;
   }
+
+  /* BRAINSHARE STARTS */
+  /**
+   * Takes an annotation id as input and returns the parent if the annotation type is line and parent is polygon.
+   * @param id annotation id
+   * @returns Returns parent annotation id if annotation type is line otherwise returns the current id.
+   */
+  getNonDummyAnnotationReference(id: AnnotationId): AnnotationReference {
+    const reference = this.getReference(id);
+    if (!reference.value) return reference;
+
+    const annotation = reference.value;
+    if (annotation.parentAnnotationId) {
+      const parentRef = this.getReference(annotation.parentAnnotationId);
+      if (parentRef.value && isChildDummyAnnotation(parentRef.value)) {
+        reference.dispose();
+        parentRef.dispose();
+        return this.getNonDummyAnnotationReference(annotation.parentAnnotationId);
+      }
+      parentRef.dispose();
+    }
+    
+    return reference;
+  }
+
+  //@ts-ignore
+  makeAllParentsVisible(annotationId: AnnotationId) : void {
+    return; // TODO: to implement this
+  }
+
+  /**
+   * Takes an annotation id as input and finds the top most ancestor of it.
+   * @param id annotation id input
+   * @returns Reference to the top most ancestor of it.
+   */
+  getTopMostAnnotationReference(id: AnnotationId): AnnotationReference {
+    const reference = this.getReference(id);
+    if (!reference.value) return reference;
+
+    const annotation = reference.value;
+    if (annotation.parentAnnotationId) {
+      const parentId = annotation.parentAnnotationId;
+      reference.dispose();
+      return this.getTopMostAnnotationReference(parentId);
+    }
+    
+    return reference;
+  }
+  /**
+   * Takes a annotation reference and update the color of that annotation.
+   * @param reference 
+   * @param color 
+   * @returns void
+   */
+  updateColor(reference: AnnotationReference, color: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const colorIdx = this.properties.findIndex(x => x.identifier === 'color');
+    if (newAnn.properties.length <= colorIdx) return;
+    newAnn.properties[colorIdx] = color;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection>newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateColor(childRef, color);
+        childRef.dispose();
+      }
+    }
+  }
+
+  /**
+   * Takes a annotation reference and update the visibility of that annotation.
+   * @param reference 
+   * @param visibility 
+   * @returns void
+   */
+   updateVisibility(reference: AnnotationReference, visibility: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const visibilityIdx = this.properties.findIndex(x => x.identifier === 'visibility');
+    if (newAnn.properties.length <= visibilityIdx) return;
+    newAnn.properties[visibilityIdx] = visibility;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection>newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateVisibility(childRef, visibility);
+        childRef.dispose();
+      }
+    }
+  }
+  /**
+   * Takes a annotation id and finds the visibility of that annotation.
+   * @param annotationId 
+   * @returns void
+   */
+   getVisibility(annotationId: string): number {
+    const reference = this.getReference(annotationId);
+    if (!reference.value) {
+      reference.dispose();
+      return 1.0;
+    }
+    const ann = reference.value;
+    const visibilityIdx = this.properties.findIndex(x => x.identifier === 'visibility');
+    if (ann.properties.length <= visibilityIdx) {
+      reference.dispose();
+      return 1.0;
+    }
+    return ann.properties[visibilityIdx];
+  }
+  /**
+   * Takes the annotation reference and updates its description with new string.
+   * @param reference 
+   * @param description 
+   * @returns 
+   */
+  updateDescription(reference: AnnotationReference, description: string|undefined) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value, description};
+    this.update(reference, newAnn);
+  }
+
+  updateProperty(reference: AnnotationReference, id: string, value: number) {
+    if (!reference.value) return;
+    const newAnn = {...reference.value};
+    const propertyIndex = this.properties.findIndex(
+      x => x.identifier === id
+    );
+    if (newAnn.properties.length <= propertyIndex) return;
+    newAnn.properties[propertyIndex] = value;
+    this.update(reference, newAnn);
+
+    if (isTypeCollection(newAnn)) {
+      const collection = <Collection> newAnn;
+      for (let i = 0; i < collection.childAnnotationIds.length; i++) {
+        const childRef = this.getReference(collection.childAnnotationIds[i]);
+        this.updateProperty(childRef, id, value);
+        childRef.dispose();
+      }
+    }
+  }
+  /* BRAINSHARE ENDS */
+
+
 
   private forEachPossibleChunk(
     annotation: Annotation,
