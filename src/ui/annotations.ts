@@ -34,7 +34,8 @@ import type {
   Cloud,
   Ellipsoid,
   Line,
-  Polygon
+  Polygon,
+  Volume
 } from "#src/annotation/index.js";
   /* BRAINSHARE STARTS */
 import {
@@ -69,6 +70,7 @@ import {
 /* BRAINSHARE ENDS */
 
 import type { MouseSelectionState, UserLayer } from "#src/layer/index.js";
+import { makeLayer } from "#src/layer/index.js";
 import type { LayerDataSource, LoadedDataSubsource } from "#src/layer/layer_data_source.js";
 import type { ChunkTransformParameters } from "#src/render_coordinate_transform.js";
 import { getChunkPositionFromCombinedGlobalLocalPositions } from "#src/render_coordinate_transform.js";
@@ -131,7 +133,7 @@ import { ColorWidget } from "#src/widget/color.js";
 import { makeCopyButton } from "#src/widget/copy_button.js";
 import { makeDeleteButton } from "#src/widget/delete_button.js";
 /* BRAINSHARE STARTS */
-  //TODO import { makeSegmentationButton } from "#/widget/segmentation_button";
+import { makeSegmentationButton } from "#src/widget/segmentation_button.js";
 /* BRAINSHARE ENDS */
 
 import type { DependentViewContext } from "#src/widget/dependent_view_widget.js";
@@ -147,7 +149,7 @@ import {
   getZCoordinate,
   isPointUniqueInPolygon,
 } from '#src/annotation/polygon.js';
-// import { getPolygonsByVolumeId, isSectionValid } from '#/annotation/volume';
+import { getPolygonsByVolumeId, isSectionValid } from '#src/annotation/volume.js';
 
 import {
   AutocompleteTextInput,
@@ -238,7 +240,7 @@ function getCenterPosition(center: Float32Array, annotation: Annotation) {
       break;
     /* BRAINSHARE STARTS */
     case AnnotationType.POLYGON:
-    //TODO case AnnotationType.VOLUME:
+    case AnnotationType.VOLUME:
     case AnnotationType.CLOUD:
       center.set(annotation.centroid);
       break
@@ -314,7 +316,7 @@ function pasteAnnotation(
     return undefined;
   }
   
-  //TODO delete annotations[0].parentAnnotationId;
+  delete annotations[0].parentAnnotationId;
 
   if (parentRef && parentRef.value) {
     if ((
@@ -332,7 +334,7 @@ function pasteAnnotation(
       return undefined;
     }
   }
-  /*TODO
+  
   if (parentRef && parentRef.value) {
     if ((
       parentRef.value.type === AnnotationType.VOLUME &&
@@ -352,7 +354,7 @@ function pasteAnnotation(
       return undefined;
     }
   }
-  */
+  
 
   const newAnnotations: Annotation[] = [];
   if (position === undefined) {
@@ -362,7 +364,7 @@ function pasteAnnotation(
   }
   else {
     if (parentRef && parentRef.value) {
-      /*TODO
+      
       if (parentRef.value.type === AnnotationType.VOLUME) {
         if (!isSectionValid(
           annotationSource,
@@ -377,7 +379,7 @@ function pasteAnnotation(
           return;
         }
       }
-      */
+      
     }
 
     const positionInputSpace = new Float64Array(position);
@@ -407,7 +409,7 @@ function pasteAnnotation(
       newAnnotations[i],
       //commit= 
       true,
-      //TODO i == 0 ? parentRef : undefined,
+      i == 0 ? parentRef : undefined,
     );
   }
 
@@ -417,7 +419,7 @@ function pasteAnnotation(
 // The autocomplete search box for importing annotations
 const statusStrings = new Set(["", "No result", "Searching..."]);
 
-//TODO I am taking out the CancellationToken
+// I am taking out the CancellationToken
 class AnnotationSearchBar extends AutocompleteTextInput {
   private completions: Completion[] = [];
   private _selectCompletion: (completion: Completion) => void;
@@ -921,7 +923,7 @@ export class AnnotationLayerView extends Tab {
     });
     mutableControls.appendChild(polygonButton);
 
-    /*TODO
+    
     const volumeButton = makeIcon({
       text: annotationTypeHandlers[AnnotationType.VOLUME].icon,
       title: 'Annotate volume',
@@ -930,7 +932,7 @@ export class AnnotationLayerView extends Tab {
       },
     });
     mutableControls.appendChild(volumeButton);
-    */
+    
     const cloudButton = makeIcon({
       text: annotationTypeHandlers[AnnotationType.CLOUD].icon,
       title: 'Annotate cloud',
@@ -1501,7 +1503,7 @@ export class AnnotationLayerView extends Tab {
 
         /* BRAINSHARE STARTS */
 
-    /*TODO segmentation button is for volumes
+    /* segmentation button is for volumes */
     let segmentationButton: HTMLElement | undefined;
 
     const maybeAddSegmentationButton = () => {
@@ -1550,7 +1552,7 @@ export class AnnotationLayerView extends Tab {
       segmentationButton.classList.add("neuroglancer-annotation-list-entry-delete");
       element.appendChild(segmentationButton);
     };
-    */
+    
     /* BRAINSHARE ENDS */
 
 
@@ -1593,6 +1595,9 @@ export class AnnotationLayerView extends Tab {
           chunkTransform.modelTransform.localToRenderLayerDimensions,
         );
         maybeAddDeleteButton();
+        /* BRAINSHARE STARTS */
+        maybeAddSegmentationButton();
+        /* BRAINSHARE ENDS */
       },
     );
     if (annotation.description) {
@@ -1721,7 +1726,7 @@ const ANNOTATE_BOUNDING_BOX_TOOL_ID = "annotateBoundingBox";
 const ANNOTATE_ELLIPSOID_TOOL_ID = "annotateSphere";
 /* BRAINSHARE STARTS */
 const ANNOTATE_POLYGON_TOOL_ID = 'annotatePolygon';
-//TODO const ANNOTATE_VOLUME_TOOL_ID = 'annotateVolume';
+const ANNOTATE_VOLUME_TOOL_ID = 'annotateVolume';
 const ANNOTATE_CLOUD_TOOL_ID = 'annotateCloud';
 /* BRAINSHARE ENDS */
 
@@ -2134,7 +2139,7 @@ export abstract class PlaceCollectionAnnotationTool extends PlaceAnnotationTool 
   }
 }
 
-/* TODO
+
 export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
   constructor(
     public layer: UserLayerWithAnnotations,
@@ -2257,7 +2262,7 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
     return ANNOTATE_VOLUME_TOOL_ID;
   }
 }
-*/
+
 export class PlaceCloudTool extends PlaceCollectionAnnotationTool {
   constructor(
     public layer: UserLayerWithAnnotations,
@@ -2463,7 +2468,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           const zCoord = getZCoordinate(point);
           if (zCoord === undefined) return;
 
-          /* TODO
+          
           if (!isSectionValid(annotationLayer.source, parentRef.id, zCoord)) {
             StatusMessage.showTemporaryMessage(
               "A polygon already exists in this section for the volume, \
@@ -2472,7 +2477,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
             );
             return;
           }
-          */
+          
 
           // Copy the properties
           annotation.properties = Object.assign(
@@ -2481,7 +2486,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           );
 
           // Calculate the insertion index for in parent's child ID list
-          /* TODO
+          
           const polygons = getPolygonsByVolumeId(
             annotationLayer.source,
             parentRef.id
@@ -2494,7 +2499,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
             );
             index = binarySearchInsert(polygonZCoods, zCoord, (a, b) => a - b)
           }
-          */
+          
         }
 
         const reference = annotationLayer.source.add(
@@ -2727,13 +2732,13 @@ registerLegacyTool(
   (layer, options) =>
     new PlacePolygonTool(<UserLayerWithAnnotations>layer, options)
 );
-/* TODO
+
 registerLegacyTool(
   ANNOTATE_VOLUME_TOOL_ID,
   (layer, options) =>
     new PlaceVolumeTool(<UserLayerWithAnnotations>layer, options)
 );
-*/
+
 registerLegacyTool(
   ANNOTATE_CLOUD_TOOL_ID,
   (layer, options) =>
@@ -3387,7 +3392,7 @@ export function UserLayerWithAnnotationsMixin<
                   });
                 }
 
-                //TODO removing the cancellation token
+                // removing the cancellation token
                 if (userState.value && userState.value.id !== 0) {
                   const searchAnnotationLabels = new AnnotationSearchBar({
                     completer: (
@@ -3594,7 +3599,7 @@ export function UserLayerWithAnnotationsMixin<
                   parent.appendChild(childAnnotationTitleDiv);
 
                   if (
-                    //TODO annotation.type === AnnotationType.VOLUME ||
+                    annotation.type === AnnotationType.VOLUME ||
                     annotation.type === AnnotationType.CLOUD
                   ) {
                     const editPasteDiv = document.createElement("div");
@@ -3607,7 +3612,7 @@ export function UserLayerWithAnnotationsMixin<
                       title: "Add a child annotation",
                       onClick: () => {
                         if (!annotation) return;
-                        /*TODO
+                        
                         if (annotation.type === AnnotationType.VOLUME) {
                           this.tool.value = new PlaceVolumeTool(
                             this,
@@ -3616,7 +3621,7 @@ export function UserLayerWithAnnotationsMixin<
                           );
                         }
                         else
-                        */ 
+                        
                         if (annotation.type === AnnotationType.CLOUD) {
                           this.tool.value = new PlaceCloudTool(
                             this,

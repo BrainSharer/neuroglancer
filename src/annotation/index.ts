@@ -88,8 +88,9 @@ export enum AnnotationType {
   LINE = 1,
   AXIS_ALIGNED_BOUNDING_BOX = 2,
   ELLIPSOID = 3,
-    /* BRAINSHARE STARTS */
+  /* BRAINSHARE STARTS */
   POLYGON,
+  VOLUME,
   CLOUD,
   /* BRAINSHARE ENDS */
 }
@@ -101,6 +102,7 @@ export const annotationTypes = [
   AnnotationType.ELLIPSOID,
     /* BRAINSHARE STARTS */
   AnnotationType.POLYGON,
+  AnnotationType.VOLUME,
   AnnotationType.CLOUD,
   /* BRAINSHARE ENDS */
 ];
@@ -709,7 +711,7 @@ export interface Ellipsoid extends AnnotationBase {
 
 /* BRAINSHARE STARTS */
 //export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid;
-export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid | Polygon | Cloud;
+export type Annotation = Line | Point | AxisAlignedBoundingBox | Ellipsoid | Polygon | Volume | Cloud;
 /* BRAINSHARE ENDS */
 
 export interface AnnotationTypeHandler<T extends Annotation = Annotation> {
@@ -1112,6 +1114,90 @@ export const annotationTypeHandlers: Record<
       };
     },
     visitGeometry(annotation: Polygon, callback) {
+      callback(annotation.centroid, false);
+    },
+  },
+  [AnnotationType.VOLUME]: {
+    icon: "▣",
+    description: "Volume",
+    toJSON: (annotation: Volume) => {
+      return {
+        source: Array.from(annotation.source),
+        centroid: Array.from(annotation.centroid),
+        childAnnotationIds: annotation.childAnnotationIds,
+        childrenVisible: annotation.childrenVisible,
+      }
+    },
+    restoreState: (annotation: Volume, obj: any, rank: number) => {
+      annotation.source = verifyObjectProperty(
+        obj, "source", x => parseFixedLengthArray(
+          new Float32Array(rank), x, verifyFiniteFloat
+        )
+      );
+      annotation.centroid = verifyObjectProperty(
+        obj, "centroid", x => parseFixedLengthArray(
+          new Float32Array(rank), x, verifyFiniteFloat
+        )
+      );
+      annotation.childAnnotationIds = [];
+      if (obj.hasOwnProperty("childAnnotationIds")) {
+        annotation.childAnnotationIds = verifyObjectProperty(
+          obj, "childAnnotationIds", verifyStringArray
+        );
+      }
+      annotation.childrenVisible = true;
+      if (obj.hasOwnProperty("childrenVisible")) {
+        const value = verifyObjectProperty(
+          obj, "childrenVisible", verifyBoolean
+        );
+        annotation.childrenVisible = value;
+      }
+    },
+    serializedBytes: (rank) => 2 * 4 * rank,
+    serialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      annotation: Volume
+    ) => {
+      serializeTwoFloatVectors(
+        buffer, 
+        offset, 
+        isLittleEndian, 
+        rank, 
+        annotation.source,
+        annotation.centroid,
+      );
+    },
+    deserialize: (
+      buffer: DataView, 
+      offset: number, 
+      isLittleEndian: boolean, 
+      rank: number, 
+      id: string
+    ): Volume => {
+      const source = new Float32Array(rank);
+      const centroid = new Float32Array(rank);
+      deserializeTwoFloatVectors(
+        buffer,
+        offset,
+        isLittleEndian,
+        rank,
+        source,
+        centroid,
+      );
+      return {
+        type: AnnotationType.VOLUME, 
+        source, 
+        centroid,
+        id, 
+        properties: [], 
+        childAnnotationIds: [], 
+        childrenVisible: false
+      };
+    },
+    visitGeometry(annotation: Volume, callback) {
       callback(annotation.centroid, false);
     },
   },
@@ -2154,8 +2240,10 @@ export class AnnotationSerializer {
     AxisAlignedBoundingBox[], 
     Ellipsoid[], 
     Polygon[], 
+    Volume[],
     Cloud[],
   ] = [
+    [],
     [], 
     [], 
     [], 
@@ -2233,11 +2321,10 @@ export interface Polygon extends Collection {
 /**
  * An interface to indicate Volume annotation. Inherits collection interface.
  */
-/*TODO
 export interface Volume extends Collection {
   type: AnnotationType.VOLUME;
 }
-*/
+
 
 export interface Cloud extends Collection {
   type: AnnotationType.CLOUD;
@@ -2254,8 +2341,8 @@ export function getSortPoint(ann: Annotation): Float32Array {
       return ann.center;
     case AnnotationType.POLYGON:
       return ann.source;
-    //TODO case AnnotationType.VOLUME:
-    //  return ann.source;
+    case AnnotationType.VOLUME:
+     return ann.source;
     case AnnotationType.CLOUD:
       return ann.source;
   }
@@ -2355,9 +2442,9 @@ export function getAnnotationPoints(annotation: Annotation): any {
     case AnnotationType.ELLIPSOID:
       return { center: annotation.center, radii: annotation.radii }
     case AnnotationType.POLYGON:
-    //TODO case AnnotationType.VOLUME:
+    case AnnotationType.VOLUME:
     case AnnotationType.CLOUD:
-    //TODO  return { source: annotation.source, centroid: annotation.centroid }
+      return { source: annotation.source, centroid: annotation.centroid }
   }
   return {};
 }
