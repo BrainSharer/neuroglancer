@@ -55,6 +55,7 @@ import {
   /* BRAINSHARE STARTS */
   verifyBoolean,
   verifyStringArray,
+  verifyOptionalInt
   /* BRAINSHARE ENDS */
 } from "#src/util/json.js";
 import { parseDataTypeValue } from "#src/util/lerp.js";
@@ -1373,6 +1374,15 @@ function restoreAnnotation(
     relatedSegments,
     properties,
     type,
+    /* BRAINSHARE STARTS */
+    // Restore new properties from JSON
+    parentAnnotationId: verifyObjectProperty(
+      obj, 
+      "parentAnnotationId", 
+      verifyOptionalString,
+    ),
+    sessionID: verifyObjectProperty(obj, "sessionID", verifyOptionalInt),
+    /* BRAINSHARE ENDS */
   } as Annotation;
   annotationTypeHandlers[type].restoreState(result, obj, schema.rank);
   return result;
@@ -2347,7 +2357,7 @@ export function getSortPoint(ann: Annotation): Float32Array {
 
 export function portableJsonToAnnotations(
   obj: any,
-  annotationSouce: AnnotationSource | MultiscaleAnnotationSource,
+  annotationSource: AnnotationSource | MultiscaleAnnotationSource,
   inputCoordinateSpace: CoordinateSpace,
   parentId?: string,
 ): Annotation[] {
@@ -2355,8 +2365,7 @@ export function portableJsonToAnnotations(
   if (!units.every((unit) => unit === "m")) {
     return [];
   }
-
-  const annotation = restoreAnnotation(obj, annotationSouce, true);
+  const annotation = restoreAnnotation(obj, annotationSource, true);
   const scaledAnnotation = annotationPointsMetersToPixels(annotation, scales);
   if (parentId) {
     scaledAnnotation.parentAnnotationId = parentId;
@@ -2370,7 +2379,7 @@ export function portableJsonToAnnotations(
     for (const childJson of obj.childJsons) {
       const subAnnotations = portableJsonToAnnotations(
         childJson, 
-        annotationSouce,
+        annotationSource,
         inputCoordinateSpace,
         scaledAnnotation.id,
       );

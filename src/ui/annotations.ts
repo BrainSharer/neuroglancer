@@ -159,11 +159,12 @@ import {
   CompletionResult,
   CompletionWithDescription
 } from "#src/widget/multiline_autocomplete.js";
-// import { CancellationToken } from "#/util/cancellation";
+//import { CancellationToken } from "#src/brainshare/cancellation.js";
 import { fetchOk } from "#src/util/http_request.js";
 import { brainState, userState } from "#src/brainshare/state_utils.js";
 import { APIs } from "#src/brainshare/service.js";
 import svg_clipBoard from "ikonate/icons/clipboard.svg?raw";
+import { ProgressListener } from "#src/util/progress_listener.js";
 
 /* BRAINSHARE ENDS */
 export class MergedAnnotationStates
@@ -295,7 +296,7 @@ function pasteAnnotation(
 ): Annotation[] | undefined {
   let { outputSpace, inputSpace } = transform;
   if (inputSpace === undefined) inputSpace = outputSpace;
-
+  // at this point sessionID is in json
   let annotations: Annotation[];
   try {
     annotations = portableJsonToAnnotations(
@@ -315,6 +316,7 @@ function pasteAnnotation(
     );
     return undefined;
   }
+  // session ID is missing now
   
   delete annotations[0].parentAnnotationId;
 
@@ -363,8 +365,7 @@ function pasteAnnotation(
     }
   }
   else {
-    if (parentRef && parentRef.value) {
-      
+    if (parentRef && parentRef.value) {      
       if (parentRef.value.type === AnnotationType.VOLUME) {
         if (!isSectionValid(
           annotationSource,
@@ -412,7 +413,6 @@ function pasteAnnotation(
       i == 0 ? parentRef : undefined,
     );
   }
-
   return newAnnotations;
 }
 
@@ -432,18 +432,16 @@ class AnnotationSearchBar extends AutocompleteTextInput {
     }
   ) {
     super({
-      completer: (request) => {
+      completer: (request, _abortSignal: AbortSignal, _progress: ProgressListener) => {
         this.setHintValue("Searching...");
 
-        // Provide dummy AbortSignal and ProgressListener if not available
-        const completerPromise = config.completer(request, undefined as any, undefined as any);
+        const completerPromise = config.completer(request, _abortSignal, _progress);
         if (completerPromise === null) return null;
 
         return completerPromise.then((completionResult: CompletionResult) => {
           this.completions = completionResult.completions;
           if (this.completions.length === 0) this.setHintValue("No result");
           else this.setHintValue("");
-
           return completionResult;
         });
       },
@@ -548,15 +546,11 @@ export function uploadAnnotation(
     inputCoordinateSpace = transform.outputSpace;
   }
   const ann = annRef.value!;
-  console.log('ann to upload');
-  console.log(ann);
   const annJson = annotationToPortableJson(
     ann,
     annotationLayer.source,
     inputCoordinateSpace,
   )
-  console.log('annJson');
-  console.log(annJson);
 
   if (
     !brainState.value ||
@@ -579,8 +573,6 @@ export function uploadAnnotation(
     annotator: userState.value.id,
     label: labels[0],
   }
-  console.log('json body for annotations')
-  console.log(jsonBody);
   StatusMessage.showTemporaryMessage("Uploading annotation...", 5000);
   return fetchOk(
     `${APIs.GET_SET_ANNOTATION}${save ? ann.sessionID : ""}`, { 
@@ -998,7 +990,6 @@ export class AnnotationLayerView extends Tab {
 
             // annotation["sessionID"] = json.id;
             // setClipboard(JSON.stringify(annotation));
-            
             const annotationSessionId = json["id"];
             const annotationPortableJson = json["annotation"];
             if (annotationSessionId === undefined) {
@@ -1008,7 +999,6 @@ export class AnnotationLayerView extends Tab {
               throw new Error("No annotation found in returned JSON.");
             }
             annotationPortableJson["sessionID"] = annotationSessionId;
-            
             let annotationLayerState: AnnotationLayerState | undefined;
             for (const state of this.layer.annotationStates.states) {
               if (!state.source.readonly) {
@@ -1054,19 +1044,6 @@ export class AnnotationLayerView extends Tab {
       this.element.appendChild(this.searchAnnotations.element);
     }
     /* BRAINSHARE ENDS */
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     const helpIcon = makeIcon({
       title:
@@ -1880,9 +1857,6 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
           parentRef
         );
         /* BRAINSHARE ENDS */
-
-
-
         this.layer.selectAnnotation(annotationLayer, reference.id, true);
         const mouseDisposer = mouseState.changed.add(updatePointB);
         const disposer = () => {
@@ -3305,8 +3279,6 @@ export function UserLayerWithAnnotationsMixin<
                     text: "new",
                     title: "Export this annotation to the database",
                     onClick: () => {
-                      console.log("Exporting annotation to the database");
-                      console.log('this datasource', this.dataSources[0]);
                       uploadAnnotation(
                         reference, 
                         this.dataSources[0], 
@@ -3376,7 +3348,6 @@ export function UserLayerWithAnnotationsMixin<
 
                 const addLabelToDescription = (label: string) => {
                   if (!annotation) return;
-                  
                   let newDescription = annotation.description;
                   if (newDescription) newDescription += "\n" + label;
                   else newDescription = label;
