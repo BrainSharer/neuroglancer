@@ -238,7 +238,7 @@ export async function fetchUserDocument(stateID: string): Promise<CouchUserDocum
 
 
 export async function upsertCouchUser(stateID: string, users: any) {
-  console.log("method upsertCouchUser with ID: " + stateID);
+  console.log("method upsertCouchUser with ID: " + stateID + " and users: ", users);
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
   let couchState: CouchUserDocument = {_id: stateID, users };
   if (revision !== null) { 
@@ -343,7 +343,8 @@ export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): 
   const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
   headers["Authorization"] = `Basic ${credentials}`;
 
-
+  console.log("Fetching changes from CouchDB:", changesUrl);
+  
   const response = await fetch(changesUrl, {
     method: 'POST',
     headers,
@@ -393,6 +394,8 @@ export function listenToDocumentChanges(options: ListenOptions) {
   (async () => {
     try {
       const res = await fetch(url, fetchOptions);
+
+      console.log("Listening to CouchDB changes url:", url.toString());
 
       if (!res.ok || !res.body) {
         throw new Error(`Fetch error: ${res.status} ${res.statusText}`);
@@ -469,6 +472,8 @@ export class CouchDBDocumentListener {
     const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
     headers.append('Authorization', `Basic ${credentials}`);
     headers.append('Content-Type', 'application/json');
+
+    console.log("Listening to CouchDB changes url:", url);
 
     try {
       const response = await fetch(url.toString(), {

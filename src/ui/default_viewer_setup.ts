@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-import { StatusMessage } from "#src/status.js";
+/* BRAINSHARE STARTS */
+// import { StatusMessage } from "#src/status.js";
+/* BRAINSHARE ENDS */
 import {
   bindDefaultCopyHandler,
   bindDefaultPasteHandler,
@@ -23,8 +25,9 @@ import { setDefaultInputEventBindings } from "#src/ui/default_input_event_bindin
 import { makeDefaultViewer } from "#src/ui/default_viewer.js";
 import type { MinimalViewerOptions } from "#src/ui/minimal_viewer.js";
 import { bindTitle } from "#src/ui/title.js";
-import { UrlHashBinding } from "#src/ui/url_hash_binding.js";
-
+/* BRAINSHARE STARTS */
+// import { UrlHashBinding } from "#src/ui/url_hash_binding.js";
+/* BRAINSHARE ENDS */
 declare let NEUROGLANCER_DEFAULT_STATE_FRAGMENT: string | undefined;
 
 /**
@@ -34,6 +37,8 @@ export function setupDefaultViewer(options?: Partial<MinimalViewerOptions>) {
   const viewer = ((<any>window).viewer = makeDefaultViewer(options));
   setDefaultInputEventBindings(viewer.inputEventBindings);
 
+  /* BRAINSHARE STARTS */
+  /** 
   const hashBinding = viewer.registerDisposer(
     new UrlHashBinding(
       viewer.state,
@@ -46,6 +51,7 @@ export function setupDefaultViewer(options?: Partial<MinimalViewerOptions>) {
       },
     ),
   );
+
   viewer.registerDisposer(
     hashBinding.parseError.changed.add(() => {
       const { value } = hashBinding.parseError;
@@ -58,6 +64,8 @@ export function setupDefaultViewer(options?: Partial<MinimalViewerOptions>) {
     }),
   );
   hashBinding.updateFromUrlHash();
+  */
+/* BRAINSHARE ENDS */
   viewer.registerDisposer(bindTitle(viewer.title));
 
   bindDefaultCopyHandler(viewer);

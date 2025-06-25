@@ -19,6 +19,24 @@ export const APIs = {
 };
 EOF
 )
+SERVICE_MOTHRA=$(cat <<'EOF'
+export const APIs = {
+  IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
+  API_ENDPOINT: "https://mothra.eddyod.com/brainsharer",
+  GOOGLE_LOGIN: "https://mothra.eddyod.com/brainsharer/accounts/google/login/?next=",
+  LOCAL_LOGIN: "https://mothra.eddyod.com/brainsharer/admin/login/?next=",
+  LOGOUT: "https://mothra.eddyod.com/brainsharer/local/logout/",
+  ADMIN_PORTAL: "https://mothra.eddyod.com/brainsharer/admin/",
+  REFRESH_TOKEN: "https://mothra.eddyod.com/brainsharer/api-token-refresh/",
+  GET_SET_STATE: "https://mothra.eddyod.com/brainsharer/neuroglancer/",
+  GET_SET_ANNOTATION: "https://mothra.eddyod.com/brainsharer/annotations/api/",
+  SEARCH_ANNOTATION: "https://mothra.eddyod.com/brainsharer/annotations/search/",
+  GET_ANNOTATION_LABELS: "https://mothra.eddyod.com/brainsharer/annotations/labels/",
+  GET_SET_COUCH_STATE: "https://nosql.eddyod.com/neuroglancer",
+  GET_SET_COUCH_USER: "https://nosql.eddyod.com/users",
+};
+EOF
+)
 SERVICE_TOBOR=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
@@ -73,11 +91,11 @@ EOF
 )
 
 if [ "$1" == "" ] || [ $# -gt 1 ]; then
-    echo "Enter either 'production' or 'demo' or 'tobor' or 'local' as an argument."
+    echo "Enter either 'production' or 'demo' or 'tobor' or 'local' or 'mothra' as an argument."
 	exit 0
 fi
 
-if ! [[ "$1" =~ ^(demo|production|tobor|local)$ ]]; then
+if ! [[ "$1" =~ ^(demo|production|mothra|tobor|local)$ ]]; then
     echo "Enter either 'production' or 'demo' or 'tobor' as an argument."
 	exit 0
 fi
@@ -96,6 +114,13 @@ if [ "$1" == "production" ]; then
     BUILD_INFO="{'tag':'Production Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
     PACKAGE="neuroglancer.production.tar.gz"
     echo "$SERVICE_PRODUCTION" > "$SERVICE_PATH"
+fi
+
+if [ "$1" == "mothra" ]; then
+    BUILD_INFO="{'tag':'Mothra Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
+    PACKAGE="neuroglancer.mothra.tar.gz"
+    echo "$SERVICE_MOTHRA" > "$SERVICE_PATH"
+    echo "$SERVICE_MOTHRA"
 fi
 
 if [ "$1" == "tobor" ]; then

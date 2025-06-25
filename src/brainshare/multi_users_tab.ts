@@ -2,7 +2,7 @@ import "./multi_users_tab.css";
 
 import debounce from "lodash/debounce";
 // Update the path below to the actual location of swap-horizontal.svg in your project
-// import svg_swap_horizontal from "../../assets/icons/swap-horizontal.svg";
+import svg_swap_horizontal from "ikonate/icons/swap-horizontal.svg?raw";
 import { RefCounted } from "#src/util/disposable.js";
 import { getCachedJson, Trackable } from "#src/util/trackable.js";
 import { makeIcon } from "#src/widget/icon.js";
@@ -41,23 +41,38 @@ class MultiUsersTabItem extends RefCounted {
   ) {
     super();
 
-    const { state_id, editor } = this.multiUsersState.value;
+    const { state_id, editor, usernames } = this.multiUsersState.value;
+    let updated_usernames = usernames;
+
     this.element.classList.add("neuroglancer-multi-users-tab-item");
     this.numberElement.classList.add("neuroglancer-multi-users-tab-item-number");
     this.textElement.classList.add("neuroglancer-multi-users-tab-item-text");
     
     this.swapButton = makeIcon({ 
-      // svg: svg_swap_horizontal,
+      svg: svg_swap_horizontal,
       title: "swap",
       onClick: () => {
-        const doc: any = {[editor]: false, [this.otherUsername]: true};
-        upsertCouchUser(state_id, doc);
+        // const doc: any = {[editor]: false, [this.otherUsername]: true};
+        let users: any = {[editor]: true};
+        updated_usernames = updated_usernames.filter(user => user !== editor);
+        users[editor] = false;
+        updated_usernames.forEach((user) => {
+          users[user] = false;
+        });
+        users[this.otherUsername] = true;
+        console.log('Swapping user:', editor,  'to user. Editor is now: ', this.otherUsername)
+        console.log('editor:', editor);
+        console.log('updated usernames:', updated_usernames);
+        console.log('users:', users);
+        console.log('State ID:', state_id);
+
+        upsertCouchUser(state_id, users);
       },
     });
     this.swapButton.classList.add("neuroglancer-multi-users-tab-item-icon");
     this.element.appendChild(this.numberElement);
     this.element.appendChild(this.textElement);
-    // this.element.appendChild(this.swapButton);
+    this.element.appendChild(this.swapButton);
   }
 }
 
@@ -325,9 +340,7 @@ export class MultiUsersTab extends Tab {
         console.log('updated usernames:', updated_usernames);
         console.log('users:', users);
 
-
         upsertCouchUser(state_id, users);
-        //this.stateDocumentListener.close(); // stops the listener
         console.log('We need to remove state listener in observing');
         this.stateDocumentListener.stop();
       };
