@@ -60,12 +60,6 @@ class MultiUsersTabItem extends RefCounted {
           users[user] = false;
         });
         users[this.otherUsername] = true;
-        console.log('Swapping user:', editor,  'to user. Editor is now: ', this.otherUsername)
-        console.log('editor:', editor);
-        console.log('updated usernames:', updated_usernames);
-        console.log('users:', users);
-        console.log('State ID:', state_id);
-
         upsertCouchUser(state_id, users);
       },
     });
