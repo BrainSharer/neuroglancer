@@ -577,9 +577,10 @@ export function uploadAnnotation(
   return fetchOk(
     `${APIs.GET_SET_ANNOTATION}${save ? ann.sessionID : ""}`, { 
     method: save ? "PUT" : "POST",
-    credentials: 'omit',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${userState.value.access}`,
     },
     body: JSON.stringify(jsonBody, null, 0),
   }).then(
@@ -930,6 +931,7 @@ export class AnnotationLayerView extends Tab {
     mutableControls.appendChild(cloudButton);
     
     if (userState.value && userState.value.id !== 0) {
+      const access = userState.value.access;
       this.searchAnnotations = new AnnotationSearchBar({
         completer: (request: CompletionRequest, _signal: AbortSignal) => {
           const defaultCompletionResult = {
@@ -942,7 +944,13 @@ export class AnnotationLayerView extends Tab {
 
           return fetchOk(
             APIs.SEARCH_ANNOTATION + request.value,
-            { method: "GET" },
+              { method: "GET" ,
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${access}`,
+                }
+              }
           ).then(
             response => response.json()
           ).then(json => {
@@ -975,7 +983,13 @@ export class AnnotationLayerView extends Tab {
           );
           fetchOk(
             APIs.GET_SET_ANNOTATION + annotationId,
-            { method: "GET" },
+              { method: "GET" ,
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${access}`,
+                }
+              }
           ).then(
             response => response.json()
           ).then(json => {
@@ -3360,6 +3374,7 @@ export function UserLayerWithAnnotationsMixin<
 
                 // removing the cancellation token
                 if (userState.value && userState.value.id !== 0) {
+                  const access = userState.value.access;
                   const searchAnnotationLabels = new AnnotationSearchBar({
                     completer: (
                       request: CompletionRequest,
@@ -3375,7 +3390,13 @@ export function UserLayerWithAnnotationsMixin<
 
                       return fetchOk(
                         APIs.GET_ANNOTATION_LABELS + request.value,
-                        { method: "GET" },
+                        { method: "GET" ,
+                          credentials: "include",
+                          headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${access}`,
+                          }
+                        }
                       ).then(
                         response => response.json()
                       ).then(json => {

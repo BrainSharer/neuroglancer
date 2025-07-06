@@ -64,6 +64,7 @@ export interface User {
   id: number;
   username: string;
   lab: string;
+  access: string;
 }
 
 export interface UrlParams {
@@ -79,8 +80,8 @@ export interface UrlParams {
 export function getUrlParams(): any {
   const href = new URL(location.href);
   const stateID = href.searchParams.get("id");
-  const loaded = Boolean(Number(href.searchParams.get("loaded")));
-  const locationVariables = { stateID, loaded };
+  // const loaded = Boolean(Number(href.searchParams.get("loaded")));
+  const locationVariables = { stateID };
   return locationVariables;
 }
 
@@ -123,9 +124,9 @@ export function getState(
     response => response.json()
   ).then(json => {
     brainState.value = json;
-    console.log("brainState", brainState.value);
+    console.debug("brainState", brainState.value);
   }).catch(err => {
-    console.log(err);
+    console.error(err);
     StatusMessage.showTemporaryMessage(
       "The brain ID is not in the database. Please check again."
     );
@@ -151,13 +152,15 @@ export function getState(
  */
 export function newState(state: Object) {
   const json_body = { ...brainState.value, ...state }
-  console.log("newState", json_body);
+  console.debug("newState", json_body);
+  const access = getCookie("access") ?? "";
 
   fetchOk(APIs.GET_SET_STATE, {
     method: "POST",
-    credentials: "omit",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${access}`,
     },
     body: JSON.stringify(json_body, null, 0),
   }).then(
@@ -183,13 +186,15 @@ export function newState(state: Object) {
  */
 export function saveState(stateID: number | string, state: Object) {
   const json_body = { ...brainState.value, ...state }
-  console.log("saveState", json_body);
+  console.debug("saveState", json_body);
+  const access = getCookie("access") ?? "";
 
   fetchOk(APIs.GET_SET_STATE + stateID, {
     method: "PUT",
-    credentials: "omit",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${access}`,
     },
     body: JSON.stringify(json_body, null, 0),
   }).then(response => response.json()).then(json => {
@@ -211,10 +216,10 @@ export function saveState(stateID: number | string, state: Object) {
 export async function fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
   if (revision === null) {
-    console.log("No user found when looking for revision");
+    console.error("No user found when looking for revision");
     return null;
   } else {
-    console.log('found user revision', revision);
+    console.debug('found user revision', revision);
   }
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -238,7 +243,7 @@ export async function fetchUserDocument(stateID: string): Promise<CouchUserDocum
 
 
 export async function upsertCouchUser(stateID: string, users: any) {
-  console.log("method upsertCouchUser with ID: " + stateID + " and users: ", users);
+  console.debug("method upsertCouchUser with ID: " + stateID + " and users: ", users);
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
   let couchState: CouchUserDocument = {_id: stateID, users };
   if (revision !== null) { 
@@ -255,10 +260,10 @@ export async function upsertCouchUser(stateID: string, users: any) {
 export async function fetchStateDocument(stateID: string): Promise<CouchStateDocument | null> {
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
   if (revision === null) { 
-    console.log("No state found when looking for revision");
+    console.error("No state found when looking for revision");
     return null;
   } else {
-    console.log('found state revision', revision);
+    console.debug('found state revision', revision);
   }
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -282,9 +287,9 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
 }
 export async function upsertCouchState(stateID: string, state: Object) {
   if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
-    console.log("Upserting the State interface structure");
+    console.debug("Upserting the State interface structure");
   } else {
-    console.log("state does NOT match the State interface structure");
+    console.error("state does NOT match the State interface structure");
     return;
   }
   
@@ -343,7 +348,7 @@ export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): 
   const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
   headers["Authorization"] = `Basic ${credentials}`;
 
-  console.log("Fetching changes from CouchDB:", changesUrl);
+  console.debug("Fetching changes from CouchDB:", changesUrl);
   
   const response = await fetch(changesUrl, {
     method: 'POST',
@@ -395,7 +400,7 @@ export function listenToDocumentChanges(options: ListenOptions) {
     try {
       const res = await fetch(url, fetchOptions);
 
-      console.log("Listening to CouchDB changes url:", url.toString());
+      console.debug("Listening to CouchDB changes url:", url.toString());
 
       if (!res.ok || !res.body) {
         throw new Error(`Fetch error: ${res.status} ${res.statusText}`);
@@ -473,7 +478,7 @@ export class CouchDBDocumentListener {
     headers.append('Authorization', `Basic ${credentials}`);
     headers.append('Content-Type', 'application/json');
 
-    console.log("Listening to CouchDB changes url:", url);
+    console.debug("Listening to CouchDB changes url:", url);
 
     try {
       const response = await fetch(url.toString(), {

@@ -694,7 +694,7 @@ export class Viewer extends RefCounted implements ViewerState {
       const success = getState(urlParams.stateID);
       if (success) {
         success.then(() => {; 
-          if (!urlParams.loaded && brainState.value !== null) {
+          if (brainState.value !== null) {
             this.state.reset();
             this.state.restoreState(verifyObject(
               brainState.value.neuroglancer_state
@@ -704,7 +704,7 @@ export class Viewer extends RefCounted implements ViewerState {
             );
 
             const href = new URL(location.href);
-            href.searchParams.set("loaded", "1");
+            // href.searchParams.set("loaded", "1");
             window.history.pushState({}, '', href.toString());
           }
         });

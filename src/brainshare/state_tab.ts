@@ -4,7 +4,7 @@ import { Trackable, getCachedJson } from "#src/util/trackable.js";
 import { StatusMessage } from "#src/status.js";
 import { makeIcon } from "#src/widget/icon.js";
 import { Tab } from "#src/widget/tab_view.js";
-import { verifyObject } from "#src/util/json.js";
+// import { verifyObject } from "#src/util/json.js";
 import { 
   State, 
   brainState, 
@@ -132,6 +132,7 @@ export class StateTab extends Tab {
         buttonGroupDiv.appendChild(saveButton);
       }
 
+      /** 
       const loadButton = makeIcon({
         text: "Load",
         title: "Load the JSON state stored in the database",
@@ -143,7 +144,7 @@ export class StateTab extends Tab {
         }
       });
       buttonGroupDiv.appendChild(loadButton);
-
+      */
       let key: keyof State;
       for (key in brainState.value) {
         if (!displayKeys.has(key)) continue;

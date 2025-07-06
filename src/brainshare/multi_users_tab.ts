@@ -164,7 +164,7 @@ export class MultiUsersTab extends Tab {
             const cacheState = getCachedJson(this.viewerState);
             const { generation, value } = cacheState;
             if ((generation !== undefined) && (generation !== this.prevStateGeneration)) {
-                console.log('Updating state to CouchDB:', state_id, generation);
+                console.debug('Updating state to CouchDB:', state_id, generation);
                 this.prevStateGeneration = cacheState.generation;
                 upsertCouchState(state_id, verifyObject(value))
             }
@@ -178,12 +178,12 @@ export class MultiUsersTab extends Tab {
             dbUrl: APIs.GET_SET_COUCH_USER,
             docId: state_id,
             onChange: (change) => {
-              console.log('User change detected:', change);
+              console.debug('User change detected:', change);
               if (change.doc === undefined) {
-                console.log('User document change detected but change.doc is undefined');
+                console.debug('User document change detected but change.doc is undefined');
               } 
               if (change.doc.users === undefined) {
-                console.log('User document change detected but change.doc.users is undefined');
+                console.debug('User document change detected but change.doc.users is undefined');
               } 
 
               const data = change.doc.users;
@@ -199,7 +199,7 @@ export class MultiUsersTab extends Tab {
                   editor === username ? MultiUsersStatus.sharing
                     : MultiUsersStatus.observing
                 ) : MultiUsersStatus.disabled;
-                console.log('User document change detected: status', status);
+                console.debug('User document change detected: status', status);
                 this.multiUsersState.value = {
                   status,
                   username,
@@ -289,18 +289,18 @@ export class MultiUsersTab extends Tab {
       };
     }
     else if (status === MultiUsersStatus.observing) {
-      console.log('Observing state', state_id);
+      console.debug('Observing state', state_id);
       this.stateDocumentListener = listenToDocumentChanges({
         dbUrl: APIs.GET_SET_COUCH_STATE,
         docId: state_id,
         onChange: (change) => {
-          console.log('State change detected while observing:', change);
+          console.debug('State change detected while observing:', change);
           const data = change.doc;
           if ((data !== undefined) && (data.state !== undefined)) {
             const state: Object = data.state;
             if (state !== undefined && typeof state === "object") {
-              console.log('State document change detected:');
-              console.log(state);
+              console.debug('State document change detected:');
+              console.debug(state);
               this.viewerState.reset();
 
               try {
@@ -329,13 +329,13 @@ export class MultiUsersTab extends Tab {
         updated_usernames.forEach((user) => {
           users[user] = false;
         });
-        console.log('Stopping observing for user', username)
-        console.log('editor:', editor);
-        console.log('updated usernames:', updated_usernames);
-        console.log('users:', users);
+        console.debug('Stopping observing for user', username)
+        console.debug('editor:', editor);
+        console.debug('updated usernames:', updated_usernames);
+        console.debug('users:', users);
 
         upsertCouchUser(state_id, users);
-        console.log('We need to remove state listener in observing');
+        console.debug('We need to remove state listener in observing');
         this.stateDocumentListener.stop();
       };
     }
@@ -387,10 +387,10 @@ export class MultiUsersTab extends Tab {
     const state_id = String(brainState.value.id);
 
     fetchUserDocument(state_id).then((result) => {
-      console.log('fetchuserDocument result:', result);
+      console.debug('fetchuserDocument result:', result);
       if ((result !== null) && (result.users !== undefined) && (Object.keys(result.users).length !== 0)) {
         const data = result.users;
-        console.log('Users found data users:', data);
+        console.debug('Users found data users:', data);
         const editors = Object.keys(data).filter(
           key => data[key]
         );
@@ -410,7 +410,7 @@ export class MultiUsersTab extends Tab {
           usernames,
         };
       } else {
-        console.log('Users found but no data doc', result);
+        console.debug('Users found but no data doc', result);
         this.multiUsersState.value = {
           status: MultiUsersStatus.disabled,
           username,
