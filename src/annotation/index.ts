@@ -2362,9 +2362,15 @@ export function portableJsonToAnnotations(
   parentId?: string,
 ): Annotation[] {
   const { scales, units } = inputCoordinateSpace;
+  /** 
   if (!units.every((unit) => unit === "m")) {
     return [];
   }
+  */
+ if (!units.slice(0, 3).every((unit) => unit === "m")) {
+    return [];
+  }
+
   const annotation = restoreAnnotation(obj, annotationSource, true);
   const scaledAnnotation = annotationPointsMetersToPixels(annotation, scales);
   if (parentId) {

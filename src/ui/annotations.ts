@@ -309,7 +309,7 @@ function pasteAnnotation(
     }
   }
   catch (e) {
-    console.log(e);
+    console.error(e);
     StatusMessage.showTemporaryMessage(
       "The annotation to paste is invalid. Please see console for details.",
       5000,
