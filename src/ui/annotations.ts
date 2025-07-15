@@ -550,7 +550,8 @@ export function uploadAnnotation(
     ann,
     annotationLayer.source,
     inputCoordinateSpace,
-  )
+  );
+
 
   if (
     !brainState.value ||
@@ -558,7 +559,7 @@ export function uploadAnnotation(
     !annRef.value!.description ||
     !brainState.value.animal
   ) {
-    console.log("Brain or user state is not defined.");
+    console.error("Brain or user state is not defined.");
     StatusMessage.showTemporaryMessage("Cannot create annotation, animal or annotation description missing.", 5000);
     return;
   }
@@ -599,7 +600,7 @@ export function uploadAnnotation(
     ann.sessionID = json.id;
     annotationLayer.source.update(annRef, ann);
   }).catch(err => {
-    console.log(err);
+    console.error(err);
     StatusMessage.showTemporaryMessage(
       "There is an error in uploading the annotation.\
       Please see console for details.",
@@ -933,7 +934,7 @@ export class AnnotationLayerView extends Tab {
     if (userState.value && userState.value.id !== 0) {
       const access = userState.value.access;
       this.searchAnnotations = new AnnotationSearchBar({
-        completer: (request: CompletionRequest, _signal: AbortSignal) => {
+        completer: async (request: CompletionRequest, _signal: AbortSignal) => {
           const defaultCompletionResult = {
             completions: [],
             offset: 0,
@@ -942,20 +943,20 @@ export class AnnotationLayerView extends Tab {
             makeElement: makeAnnotationCompletionElement,
           }
 
-          return fetchOk(
-            APIs.SEARCH_ANNOTATION + request.value,
-              { method: "GET" ,
+          try {
+            const response = await fetchOk(
+              APIs.SEARCH_ANNOTATION + request.value,
+              {
+                method: "GET",
                 credentials: "include",
                 headers: {
                   "Content-Type": "application/json",
                   "Authorization": `Bearer ${access}`,
                 }
               }
-          ).then(
-            response => response.json()
-          ).then(json => {
+            );
+            const json = await response.json();
             if (!Array.isArray(json)) throw new Error("JSON is not an array");
-
             return {
               ...defaultCompletionResult,
               completions: json.map((annotation: any) => ({
@@ -964,15 +965,14 @@ export class AnnotationLayerView extends Tab {
                 timestamp: annotation.updated,
               })),
             };
-          }).catch(err => {
-            console.log(err);
+          } catch (err) {
+            console.error(err);
             StatusMessage.showTemporaryMessage(
               "There is an error in searching annotations. \
               Please see console for details.",
-              5000,
-            );
+              5000);
             return defaultCompletionResult;
-          })
+          }
         },
         selectCompletion: (completion) => {
           const annotationId = completion.value;
@@ -1522,7 +1522,7 @@ export class AnnotationLayerView extends Tab {
                 5000,
               );
             }).catch(err => {
-              console.log(err);
+              console.error(err);
               StatusMessage.showTemporaryMessage(
                 "There is an error in creating the mesh.\
                 Please see console for details.",
@@ -3383,7 +3383,7 @@ export function UserLayerWithAnnotationsMixin<
                       const defaultCompletionResult = {
                         completions: [],
                         offset: 0,
-                        showSingleResult: false,
+                        showSingleResult: true,
                         selectSingleResult: false,
                         makeElement: makeAnnotationCompletionElement,
                       }
@@ -3412,7 +3412,7 @@ export function UserLayerWithAnnotationsMixin<
                           })),
                         };
                       }).catch(err => {
-                        console.log(err);
+                        console.error(err);
                         StatusMessage.showTemporaryMessage(
                           "There is an error in searching annotations labels.\
                           Please see console for details.",

@@ -216,7 +216,6 @@ export function saveState(stateID: number | string, state: Object) {
 export async function fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
   if (revision === null) {
-    console.error("No user found when looking for revision");
     return null;
   } else {
     console.debug('found user revision', revision);
@@ -237,7 +236,6 @@ export async function fetchUserDocument(stateID: string): Promise<CouchUserDocum
     return null;
   }
   const data: CouchUserDocument = await response.json();
-  StatusMessage.showTemporaryMessage("A couch user data has been fetched." + data._rev, 10000);
   return data;
 }
 
@@ -278,7 +276,6 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
       headers,
     });
     const data: CouchStateDocument = await response.json();
-    StatusMessage.showTemporaryMessage("A couch state has been fetched." + data._rev, 10000);
     return data;
   } catch (error) {
     console.error('Error fetching CouchDB state document:', error);

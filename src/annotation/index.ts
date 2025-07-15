@@ -807,10 +807,35 @@ export const annotationTypeHandlers: Record<
       };
     },
     restoreState(annotation: Line, obj: any, rank: number) {
-      annotation.pointA = verifyObjectProperty(obj, "pointA", (x) => parseFixedLengthArray(new Float32Array(rank), x, verifyFiniteFloat)
-      );
-      annotation.pointB = verifyObjectProperty(obj, "pointB", (x) => parseFixedLengthArray(new Float32Array(rank), x, verifyFiniteFloat)
-      );
+    /* BRAINSHARE STARTS */
+    /** make sure the arrays are of the correct length and rank. The extra t variable changes this */
+      if ('pointA' in obj && 'pointB' in obj) {
+        obj.pointA = obj.pointA.map((e: null) => (e === null ? 0 : e));
+        obj.pointB = obj.pointB.map((e: null) => (e === null ? 0 : e))
+        const withoutTime = 3; 
+        const withTime = 4;
+
+        if (obj.pointA.length === withoutTime && rank === withTime) {
+          obj.pointA.push(0);
+          obj.pointB.push(0);
+        }
+
+        if (obj.pointA.length === withTime && rank === withoutTime) {
+          obj.pointA.pop();
+          obj.pointB.pop();
+        }
+
+        if (obj.pointA.length !== rank || obj.pointB.length !== rank) {
+          console.error(
+            `Invalid pointA or pointB length: expected ${rank}, got ${obj.pointA.length} and ${obj.pointB.length}`
+          );
+        }
+
+      }
+    /* BRAINSHARE ENDS */
+
+      annotation.pointA = verifyObjectProperty(obj, "pointA", (x) => parseFixedLengthArray(new Float32Array(rank), x, verifyFiniteFloat));
+      annotation.pointB = verifyObjectProperty(obj, "pointB", (x) => parseFixedLengthArray(new Float32Array(rank), x, verifyFiniteFloat));
     },
     serializedBytes(rank: number) {
       return 2 * 4 * rank;
@@ -1044,6 +1069,11 @@ export const annotationTypeHandlers: Record<
       }
     },
     restoreState: (annotation: Polygon, obj: any, rank: number) => {
+      if (obj.source !== undefined && obj.source.length !== rank) {        
+        obj.source.push(0);
+        obj.centroid.push(0);
+      }
+
       annotation.source = verifyObjectProperty(
         obj, "source", x => parseFixedLengthArray(
           new Float32Array(rank), x, verifyFiniteFloat
@@ -1128,6 +1158,10 @@ export const annotationTypeHandlers: Record<
       }
     },
     restoreState: (annotation: Volume, obj: any, rank: number) => {
+      if (obj.source !== undefined && obj.source.length !== rank) {
+        obj.source.push(0);
+        obj.centroid.push(0);
+      }
       annotation.source = verifyObjectProperty(
         obj, "source", x => parseFixedLengthArray(
           new Float32Array(rank), x, verifyFiniteFloat
@@ -1535,10 +1569,14 @@ export class AnnotationSource
       }
       parentRef.dispose();
     }
+
     /* BRAINSHARE ENDS */
 
     reference.changed.dispatch();
-    this.changed.dispatch();
+    /* BRAINSHARE STARTS */
+    // This screws up the resetting of the annotation source
+    // this.changed.dispatch(); 
+    /* BRAINSHARE ENDS */
     this.childUpdated.dispatch(annotation);
   }
 
@@ -1678,8 +1716,8 @@ export class AnnotationSource
         return {...ann, center: this.roundZCoordinate(ann.center)};
       case AnnotationType.POLYGON:
         return {...ann, source: this.roundZCoordinate(ann.source)};
-      //TODO case AnnotationType.VOLUME:
-      //  return {...ann, source: this.roundZCoordinate(ann.source)};
+      case AnnotationType.VOLUME:
+        return {...ann, source: this.roundZCoordinate(ann.source)};
     }
     return ann;
   }
@@ -1689,15 +1727,22 @@ export class AnnotationSource
    * integral part of z + 0.5
    * This is required for fixing the bug: 
    * https://github.com/ActiveBrainAtlas2/activebrainatlasadmin/issues/130
+   * This also has to take into account the rank of the point. It might be 3 or 4
+   * If there is a time element, it will be 4, otherwise it will be 3. 
+   * The z element should be at index 2 for both 3 and 4 rank length points.
    * @param point Input point to be rounded off
    * @returns Rounded point
    */
   roundZCoordinate(point: Float32Array): Float32Array {
+    /**
     if (point.length == 3) {
       point[2] = Math.floor(point[2]) + 0.5;
     } else if (point.length == 4) {
-      point[3] = Math.floor(point[3]) + 0.5;
+      point[3] = Math.floor(point[3]) + 0.666;
     }
+    */
+    const l = 2;
+    point[l] = Math.floor(point[l]) + 0.5;
     return point;
   }
 
@@ -2354,6 +2399,13 @@ export function getSortPoint(ann: Annotation): Float32Array {
   }
 }
 
+function checkValueOccurrences<T>(arr: readonly T[], value: T, n: number): boolean {
+  // Filter the array to get only the elements that match the value
+  const occurrences = arr.filter(item => item === value);
+
+  // Check if the count of occurrences equals n
+  return occurrences.length === n;
+}
 
 export function portableJsonToAnnotations(
   obj: any,
@@ -2362,12 +2414,9 @@ export function portableJsonToAnnotations(
   parentId?: string,
 ): Annotation[] {
   const { scales, units } = inputCoordinateSpace;
-  /** 
-  if (!units.every((unit) => unit === "m")) {
-    return [];
-  }
-  */
- if (!units.slice(0, 3).every((unit) => unit === "m")) {
+
+  if (checkValueOccurrences(units, "m", 3) === false) {
+    console.error("Data is not in meters, cannot convert to annotations.");
     return [];
   }
 
@@ -2384,7 +2433,7 @@ export function portableJsonToAnnotations(
     }
     for (const childJson of obj.childJsons) {
       const subAnnotations = portableJsonToAnnotations(
-        childJson, 
+        childJson,
         annotationSource,
         inputCoordinateSpace,
         scaledAnnotation.id,
@@ -2475,10 +2524,7 @@ export function annotationPointsPixelsToMeters(
   
   return {...annotation, ...points};
 }
-export function annotationPointsMetersToPixels(
-  annotation: Annotation,
-  scales: Float64Array,
-): any {
+export function annotationPointsMetersToPixels(annotation: Annotation, scales: Float64Array): any {
   const rank = scales.length;
   const points = getAnnotationPoints(annotation);
   Object.keys(points).forEach((key) => {
