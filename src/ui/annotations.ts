@@ -165,6 +165,7 @@ import { brainState, userState } from "#src/brainshare/state_utils.js";
 import { APIs } from "#src/brainshare/service.js";
 import svg_clipBoard from "ikonate/icons/clipboard.svg?raw";
 import { ProgressListener } from "#src/util/progress_listener.js";
+import { getCookie } from "typescript-cookie";
 
 /* BRAINSHARE ENDS */
 export class MergedAnnotationStates
@@ -1499,6 +1500,8 @@ export class AnnotationLayerView extends Tab {
       if ((annotation.type !== AnnotationType.VOLUME) || (annotation.sessionID === undefined)) {
         return;
       }
+      const access = getCookie("access") ?? "";
+
       segmentationButton = makeSegmentationButton({
         title: "Create 3D Mesh",
         onClick: (event) => {
@@ -1509,26 +1512,32 @@ export class AnnotationLayerView extends Tab {
             StatusMessage.showTemporaryMessage("Creating 3D mesh ...", 15000);
 
             return fetchOk(
-              `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}`, 
-              { method: "GET"},
-            ).then(
-              response => response.json()
-            ).then(json => {
-              const manager = this.layer.manager;
-              const segmentationLayer = makeLayer(manager, json.name, {type: 'segmentation', 'source': json.url});
-              manager.add(segmentationLayer);              
-              StatusMessage.showTemporaryMessage(
-                "The 3D mesh has been created.",
-                5000,
-              );
-            }).catch(err => {
-              console.error(err);
-              StatusMessage.showTemporaryMessage(
-                "There is an error in creating the mesh.\
+              `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}`,
+              {
+                method: "GET",
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${access}`
+                },
+              }).then(
+                response => response.json()
+              ).then(json => {
+                const manager = this.layer.manager;
+                const segmentationLayer = makeLayer(manager, json.name, { type: 'segmentation', 'source': json.url });
+                manager.add(segmentationLayer);
+                StatusMessage.showTemporaryMessage(
+                  "The 3D mesh has been created.",
+                  5000,
+                );
+              }).catch(err => {
+                console.error(err);
+                StatusMessage.showTemporaryMessage(
+                  "There is an error in creating the mesh.\
                 Please see console for details.",
-                15000,
-              );
-            })
+                  15000,
+                );
+              })
 
           } finally {
             ref.dispose();
