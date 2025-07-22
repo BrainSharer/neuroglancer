@@ -97,6 +97,7 @@ import { getDefaultAnnotationListBindings } from "#src/ui/default_input_event_bi
 import { LegacyTool, registerLegacyTool } from "#src/ui/tool.js";
 import { animationFrameDebounce } from "#src/util/animation_frame_debounce.js";
 import type { ArraySpliceOp } from "#src/util/array.js";
+import { arraysEqual } from "#src/util/array.js";
 import { setClipboard } from "#src/util/clipboard.js";
 import {
   serializeColor,
@@ -323,23 +324,6 @@ function pasteAnnotation(
 
   if (parentRef && parentRef.value) {
     if ((
-        parentRef.value.type === AnnotationType.CLOUD &&
-        annotations[0].type !== AnnotationType.POINT
-      )) {
-      StatusMessage.showTemporaryMessage(
-        `The annotation to paste (${
-          AnnotationType[annotations[0].type].toLowerCase()
-        }) can not be a child of the selected annotation (${
-          AnnotationType[parentRef.value.type].toLowerCase()
-        }).`,
-        5000,
-      );
-      return undefined;
-    }
-  }
-  
-  if (parentRef && parentRef.value) {
-    if ((
       parentRef.value.type === AnnotationType.VOLUME &&
       annotations[0].type !== AnnotationType.POLYGON
     ) || (
@@ -357,7 +341,6 @@ function pasteAnnotation(
       return undefined;
     }
   }
-  
 
   const newAnnotations: Annotation[] = [];
   if (position === undefined) {
@@ -366,7 +349,7 @@ function pasteAnnotation(
     }
   }
   else {
-    if (parentRef && parentRef.value) {      
+    if (parentRef && parentRef.value) {
       if (parentRef.value.type === AnnotationType.VOLUME) {
         if (!isSectionValid(
           annotationSource,
@@ -381,7 +364,6 @@ function pasteAnnotation(
           return;
         }
       }
-      
     }
 
     const positionInputSpace = new Float64Array(position);
@@ -409,8 +391,7 @@ function pasteAnnotation(
   for (let i = 0; i < newAnnotations.length; i++) {
     annotationSource.add(
       newAnnotations[i],
-      //commit= 
-      true,
+      /*commit=*/ true,
       i == 0 ? parentRef : undefined,
     );
   }
@@ -758,10 +739,16 @@ export class AnnotationLayerView extends Tab {
         localDimensionIndices.push(localDim);
       }
     }
-    this.localDimensionIndices = localDimensionIndices;
-    this.globalDimensionIndices = globalDimensionIndices;
-    ++this.curCoordinateSpaceGeneration;
+    if (
+      !arraysEqual(globalDimensionIndices, this.globalDimensionIndices) ||
+      !arraysEqual(localDimensionIndices, this.localDimensionIndices)
+    ) {
+      this.localDimensionIndices = localDimensionIndices;
+      this.globalDimensionIndices = globalDimensionIndices;
+      ++this.curCoordinateSpaceGeneration;
+    }
   }
+
 
   constructor(
     public layer: Borrowed<UserLayerWithAnnotations>,
@@ -1767,6 +1754,8 @@ export class PlacePointTool extends PlaceAnnotationTool {
       }
       /* BRAINSHARE ENDS */
 
+      console.log('PlacePointTool: adding annotation', annotation);
+      console.log('PlacePointTool: adding parentRef', parentRef);
       const reference = annotationLayer.source.add(
         annotation,
         /*commit=*/ true,
@@ -2894,6 +2883,7 @@ function makeRelatedSegmentList(
           const deleteButton = makeDeleteButton({
             title: "Remove ID",
             onClick: (event) => {
+              // mutate(BigUint64Array.from(Array.from(segments).filter((x) => x !== id)));
               mutate(segments.filter((x) => x !== id));
               event.stopPropagation();
             },
@@ -2996,6 +2986,7 @@ export function UserLayerWithAnnotationsMixin<
             ) {
               const existingValue =
                 this.annotationDisplayState.hoverState.value;
+              /* BRAINSHARE STARTS */              
               const reference =
                 pickedAnnotationLayer.source.getNonDummyAnnotationReference(
                   mouseState.pickedAnnotationId!
@@ -3522,11 +3513,11 @@ export function UserLayerWithAnnotationsMixin<
                 }
 
                 const { relatedSegments } = annotation;
+                console.log('relatedSegments', relatedSegments);
                 for (let i = 0, count = relationships.length; i < count; ++i) {
-                  const related =
-                    relatedSegments === undefined
-                      ? new BigUint64Array(0)
-                      : relatedSegments[i];
+                  const related = relatedSegments === undefined? new BigUint64Array(0) : relatedSegments[i];
+
+                  console.log('related', related);
                   if (related.length === 0 && sourceReadonly) continue;
                   const relationshipIndex = i;
                   const relationship = relationships[i];
