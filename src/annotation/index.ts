@@ -63,6 +63,7 @@ import { getRandomHexString } from "#src/util/random.js";
 import { NullarySignal, Signal } from "#src/util/signal.js";
 /* BRAINSHARE STARTS */
 import * as vector from "#src/util/vector.js";
+// import { getZCoordinate } from "#src/annotation/polygon.js";
 import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
 /* BRAINSHARE ENDS */
 
@@ -584,60 +585,7 @@ export function ensureUniqueAnnotationPropertyIds(
     ids.add(p.identifier);
   }
 }
-/** 
-function parseAnnotationPropertySpec(obj: unknown): AnnotationPropertySpec {
-  verifyObject(obj);
-  const identifier = verifyObjectProperty(obj, "id", parseAnnotationPropertyId);
-  const type = verifyObjectProperty(obj, "type", parseAnnotationPropertyType);
-  const description = verifyOptionalObjectProperty(
-    obj,
-    "description",
-    verifyString,
-  );
-  const defaultValue = verifyOptionalObjectProperty(
-    obj,
-    "default",
-    (x) => annotationPropertyTypeHandlers[type].deserializeJson(x),
-    0,
-  );
-  let enumValues: number[] | undefined;
-  let enumLabels: string[] | undefined;
-  switch (type) {
-    case "rgb":
-    case "rgba":
-      break;
-    default: {
-      const dataType: DataType = DataType[type.toUpperCase() as any] as any;
-      enumValues = verifyOptionalObjectProperty(
-        obj,
-        "enum_values",
-        (valuesObj) =>
-          parseArray(
-            valuesObj,
-            (x) => parseDataTypeValue(dataType, x) as number,
-          ),
-      );
-      if (enumValues !== undefined) {
-        enumLabels = verifyObjectProperty(obj, "enum_labels", (labelsObj) =>
-          parseFixedLengthArray(
-            new Array<string>(enumValues!.length),
-            labelsObj,
-            verifyString,
-          ),
-        );
-      }
-    }
-  }
-  return {
-    type,
-    identifier,
-    description,
-    default: defaultValue,
-    enumValues,
-    enumLabels,
-  } as AnnotationPropertySpec;
-}
-*/
+
 function parseAnnotationPropertySpec(obj: unknown): AnnotationPropertySpec {
   verifyObject(obj);
   const identifier = verifyObjectProperty(obj, "id", parseAnnotationPropertyId);
@@ -735,6 +683,11 @@ function annotationPropertySpecToJson(spec: AnnotationPropertySpec) {
     type: spec.type,
     default:
       defaultValue === 0 ? undefined : handler.serializeJson(defaultValue),
+    /* BRAINSHARE STARTS */
+    min: (<AnnotationNumericPropertySpec> spec).min,
+    max: (<AnnotationNumericPropertySpec> spec).max,
+    step: (<AnnotationNumericPropertySpec> spec).step,
+    /* BRAINSHARE ENDS */
     enum_labels: enumLabels,
     enum_values: enumValues,
   };
@@ -898,7 +851,7 @@ export const annotationTypeHandlers: Record<
     restoreState(annotation: Line, obj: any, rank: number) {
     /* BRAINSHARE STARTS */
     /** make sure the arrays are of the correct length and rank. The extra t variable changes this */
-    /** 
+    
       if ('pointA' in obj && 'pointB' in obj) {
         obj.pointA = obj.pointA.map((e: null) => (e === null ? 0 : e));
         obj.pointB = obj.pointB.map((e: null) => (e === null ? 0 : e))
@@ -922,7 +875,7 @@ export const annotationTypeHandlers: Record<
         }
 
       }
-    */
+    
     /* BRAINSHARE ENDS */
 
       annotation.pointA = verifyObjectProperty(obj, "pointA", (x) => parseFixedLengthArray(new Float32Array(rank), x, verifyFiniteFloat));
@@ -968,7 +921,13 @@ export const annotationTypeHandlers: Record<
     },
     visitGeometry(annotation: Line, callback) {
       callback(annotation.pointA, false);
+      /* BRAINSHARE STARTS */
+      // Only show the end point if the line is part of a polygon
+      /*
       callback(annotation.pointB, false);
+      */
+      if (!annotation.parentAnnotationId) callback(annotation.pointB, false);
+      /* BRAINSHARE ENDS */
     },
   },
   [AnnotationType.POINT]: {
@@ -1642,7 +1601,6 @@ export class AnnotationSource
       if (parentRef.value && isTypeCollection(parentRef.value)) {
         const parAnnotation = <Collection> parentRef.value;
         this.updateCollectionSource(parAnnotation);
-        console.log("Updating parAnnotation", parAnnotation);
         this.updateCollectionCentroid(parAnnotation);
         this.update(parentRef, <Annotation> parAnnotation);
       }
@@ -1825,6 +1783,12 @@ export class AnnotationSource
     return point;
   }
 
+  getZCoordinate(point: Float32Array): number | undefined {
+    if (point.length < 3) return undefined;
+    return Math.floor(point[2]);
+  }
+
+
   /**
    * Takes an annotation id as input and returns the parent if the annotation 
    * type is line and parent is polygon.
@@ -1882,7 +1846,6 @@ export class AnnotationSource
       }
       annotation.source = line.pointA;
     } 
-    /*TODO
     else if (annotation.type === AnnotationType.VOLUME) {
       const polygon = <Polygon>reference.value;
       if (!polygon) {
@@ -1891,7 +1854,6 @@ export class AnnotationSource
       }
       annotation.source = polygon.source;
     }
-    */
     else if (annotation.type === AnnotationType.CLOUD) {
       const point = <Point>reference.value;
       if (!point) {
@@ -1908,7 +1870,6 @@ export class AnnotationSource
 
   updateCollectionCentroid(annotation: Collection): void {
     if (annotation.childAnnotationIds.length === 0) return;
-    console.log('childRefs', annotation.childAnnotationIds);
     const childRefs = annotation.childAnnotationIds.map(
       (childId) => this.getReference(childId)
     )
@@ -1916,10 +1877,9 @@ export class AnnotationSource
     if (!annotation.centroid) return;
     const rank = annotation.centroid.length;
     if (annotation.type === AnnotationType.POLYGON) {
-      console.log('Rank on centroid is ', rank);
       const centroid = new Float32Array(rank);
       childRefs.forEach((childRef) => {
-        console.log('childRef', childRef);
+        if (!childRef.value) return;
         const line = <Line>childRef.value;
         for (let i = 0; i < rank; i++) {
           centroid[i] += line.pointA[i];
@@ -1928,21 +1888,21 @@ export class AnnotationSource
       for (let i = 0; i < rank; i++) centroid[i] /= childRefs.length;
       annotation.centroid = centroid;
     }
-    /*TODO
+    
     else if (annotation.type === AnnotationType.VOLUME) {
       const centroids = childRefs.map(
         childRef => (<Polygon>childRef.value).centroid
       );
       centroids.sort((a, b) => {
-        const z0 = getZCoordinate(a);
-        const z1 = getZCoordinate(b);
+        const z0 = this.getZCoordinate(a);
+        const z1 = this.getZCoordinate(b);
         if (z0 == undefined) return -1;
         if (z1 == undefined) return 1;
         return z1 - z0;
       });
       annotation.centroid = centroids[Math.floor(centroids.length / 2)]
     }
-      */
+      
 
     else if (annotation.type === AnnotationType.CLOUD) {
       const centroid = new Float32Array(rank);
@@ -2257,6 +2217,12 @@ export class LocalAnnotationSource extends AnnotationSource {
           annotation.center = mapVector(annotation.center);
           annotation.radii = mapVector(annotation.radii);
           break;
+        /* BRAINSHARE STARTS */
+        case AnnotationType.VOLUME:
+        case AnnotationType.POLYGON:
+          annotation.source = mapVector(annotation.source);
+          break;
+        /* BRAINSHARE ENDS */
       }
     }
     if (this.rank_ !== sourceRank) {
@@ -2527,7 +2493,6 @@ export function portableJsonToAnnotations(
   return annotations;
 }
 
-/* TODO */
 export function annotationToPortableJson(
   annotation: Annotation, 
   annotationSouce: AnnotationSource | MultiscaleAnnotationSource,

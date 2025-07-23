@@ -100,7 +100,7 @@ registerAnnotationTypeRenderHandler<Polygon>(AnnotationType.POLYGON, {
     out.set(ann.source);
   },
   updateViaRepresentativePoint(oldAnnotation, position) {
-    return {...oldAnnotation, source: new Float32Array(position)};
+    return { ...oldAnnotation, source: new Float32Array(position) };
   }
 });
 
