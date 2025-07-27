@@ -1832,6 +1832,8 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
     if (mouseState.updateUnconditionally()) {
       const updatePointB = () => {
         const state = inProgressAnnotation.value!;
+        console.log('PlaceTwoCornerAnnotationTool: updatePointB');
+        console.log(state);
         const reference = state.reference;
         const newAnnotation = this.getUpdatedAnnotation(
           reference.value!,

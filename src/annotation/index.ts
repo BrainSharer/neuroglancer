@@ -1644,6 +1644,7 @@ export class AnnotationSource
     // Update parent annotation
     if (reference.value!.parentAnnotationId) {
       const parentRef = this.getReference(reference.value!.parentAnnotationId);
+      console.log("Deleting children and updating parent reference: ", parentRef);
 
       if (parentRef.value && isTypeCollection(parentRef.value)) {
         let parAnnotation = <Collection> parentRef.value;
@@ -1658,7 +1659,10 @@ export class AnnotationSource
         this.update(parentRef, <Annotation> parAnnotation);
       }
       parentRef.dispose();
+    } else{
+      console.log("Deleting annotation without parent reference: ", reference.value!.id);
     }
+
     /* BRAINSHARE ENDS */
 
     reference.value = null;
@@ -1873,13 +1877,16 @@ export class AnnotationSource
     const childRefs = annotation.childAnnotationIds.map(
       (childId) => this.getReference(childId)
     )
+    console.log("children references: ", childRefs);
     
     if (!annotation.centroid) return;
     const rank = annotation.centroid.length;
     if (annotation.type === AnnotationType.POLYGON) {
       const centroid = new Float32Array(rank);
       childRefs.forEach((childRef) => {
-        if (!childRef.value) return;
+        if (!childRef.value) {
+          return;
+        }
         const line = <Line>childRef.value;
         for (let i = 0; i < rank; i++) {
           centroid[i] += line.pointA[i];
@@ -1890,9 +1897,12 @@ export class AnnotationSource
     }
     
     else if (annotation.type === AnnotationType.VOLUME) {
+      console.log("Updating centroid for volume annotation");
+      
       const centroids = childRefs.map(
         childRef => (<Polygon>childRef.value).centroid
       );
+      console.log("Centroids not sorted by z coordinate: ", centroids);
       centroids.sort((a, b) => {
         const z0 = this.getZCoordinate(a);
         const z1 = this.getZCoordinate(b);
@@ -1900,7 +1910,7 @@ export class AnnotationSource
         if (z1 == undefined) return 1;
         return z1 - z0;
       });
-      annotation.centroid = centroids[Math.floor(centroids.length / 2)]
+      annotation.centroid = centroids[Math.floor(centroids.length / 2)];
     }
       
 
