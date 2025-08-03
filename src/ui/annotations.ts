@@ -3515,7 +3515,6 @@ export function UserLayerWithAnnotationsMixin<
                 }
 
                 const { relatedSegments } = annotation;
-                console.log('relatedSegments', relatedSegments);
                 for (let i = 0, count = relationships.length; i < count; ++i) {
                   const related = relatedSegments === undefined? new BigUint64Array(0) : relatedSegments[i];
 

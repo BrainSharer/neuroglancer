@@ -1611,7 +1611,7 @@ export class AnnotationSource
 
     reference.changed.dispatch();
     /* BRAINSHARE STARTS */
-    // This screws up the resetting of the annotation source
+    // This was screwing up the resetting of the annotation source
     this.changed.dispatch(); 
     /* BRAINSHARE ENDS */
     this.childUpdated.dispatch(annotation);
@@ -1644,7 +1644,6 @@ export class AnnotationSource
     // Update parent annotation
     if (reference.value!.parentAnnotationId) {
       const parentRef = this.getReference(reference.value!.parentAnnotationId);
-      console.log("Deleting children and updating parent reference: ", parentRef);
 
       if (parentRef.value && isTypeCollection(parentRef.value)) {
         let parAnnotation = <Collection> parentRef.value;
@@ -1659,9 +1658,7 @@ export class AnnotationSource
         this.update(parentRef, <Annotation> parAnnotation);
       }
       parentRef.dispose();
-    } else{
-      console.log("Deleting annotation without parent reference: ", reference.value!.id);
-    }
+    } 
 
     /* BRAINSHARE ENDS */
 
@@ -1787,11 +1784,6 @@ export class AnnotationSource
     return point;
   }
 
-  getZCoordinate(point: Float32Array): number | undefined {
-    if (point.length < 3) return undefined;
-    return Math.floor(point[2]);
-  }
-
 
   /**
    * Takes an annotation id as input and returns the parent if the annotation 
@@ -1877,16 +1869,12 @@ export class AnnotationSource
     const childRefs = annotation.childAnnotationIds.map(
       (childId) => this.getReference(childId)
     )
-    console.log("children references: ", childRefs);
     
     if (!annotation.centroid) return;
     const rank = annotation.centroid.length;
     if (annotation.type === AnnotationType.POLYGON) {
       const centroid = new Float32Array(rank);
       childRefs.forEach((childRef) => {
-        if (!childRef.value) {
-          return;
-        }
         const line = <Line>childRef.value;
         for (let i = 0; i < rank; i++) {
           centroid[i] += line.pointA[i];
@@ -1897,15 +1885,13 @@ export class AnnotationSource
     }
     
     else if (annotation.type === AnnotationType.VOLUME) {
-      console.log("Updating centroid for volume annotation");
       
       const centroids = childRefs.map(
         childRef => (<Polygon>childRef.value).centroid
       );
-      console.log("Centroids not sorted by z coordinate: ", centroids);
       centroids.sort((a, b) => {
-        const z0 = this.getZCoordinate(a);
-        const z1 = this.getZCoordinate(b);
+        const z0 = getZCoordinate(a);
+        const z1 = getZCoordinate(b);
         if (z0 == undefined) return -1;
         if (z1 == undefined) return 1;
         return z1 - z0;
@@ -2517,18 +2503,20 @@ export function annotationToPortableJson(
   const scaledAnnotation = annotationPointsPixelsToMeters(annotation, scales);
   const result = annotationToJson(scaledAnnotation, annotationSouce);
   delete result.id;
+  /** 
   if (result.hasOwnProperty("centroid")) {
     result.centroid = result.centroid.slice(0, 3);
   }
   if (result.hasOwnProperty("source")) {
     result.source = result.source.slice(0, 3);
   }
-
+*/
   if (annotation.childAnnotationIds) {
     result.childJsons = [];
     for (const childId of annotation.childAnnotationIds) {
       const childRef = annotationSouce.getReference(childId);
       if (!childRef || !childRef.value) continue;
+      /** TODO
       if (childRef.value.type === AnnotationType.LINE) {
         const line = <Line>childRef.value;
         const pointA = line.pointA.slice(0, 3);
@@ -2536,6 +2524,7 @@ export function annotationToPortableJson(
         childRef.value.pointA = pointA;
         childRef.value.pointB = pointB;
       }
+      */
       const childJson = annotationToPortableJson(
         childRef.value, 
         annotationSouce, 
@@ -2608,5 +2597,9 @@ export function translateAnnotationPoints(
   return {...annotation, ...points};
 }
 
+function getZCoordinate(point: Float32Array): number | undefined {
+    if (point.length < 3) return undefined;
+    return Math.floor(point[2]);
+  }
 
 /* BRAINSHARE ENDS */
