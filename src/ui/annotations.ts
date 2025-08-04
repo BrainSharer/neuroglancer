@@ -1754,8 +1754,6 @@ export class PlacePointTool extends PlaceAnnotationTool {
       }
       /* BRAINSHARE ENDS */
 
-      console.log('PlacePointTool: adding annotation', annotation);
-      console.log('PlacePointTool: adding parentRef', parentRef);
       const reference = annotationLayer.source.add(
         annotation,
         /*commit=*/ true,
@@ -1832,8 +1830,6 @@ abstract class TwoStepAnnotationTool extends PlaceAnnotationTool {
     if (mouseState.updateUnconditionally()) {
       const updatePointB = () => {
         const state = inProgressAnnotation.value!;
-        console.log('PlaceTwoCornerAnnotationTool: updatePointB');
-        console.log(state);
         const reference = state.reference;
         const newAnnotation = this.getUpdatedAnnotation(
           reference.value!,
