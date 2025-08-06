@@ -3514,7 +3514,6 @@ export function UserLayerWithAnnotationsMixin<
                 for (let i = 0, count = relationships.length; i < count; ++i) {
                   const related = relatedSegments === undefined? new BigUint64Array(0) : relatedSegments[i];
 
-                  console.log('related', related);
                   if (related.length === 0 && sourceReadonly) continue;
                   const relationshipIndex = i;
                   const relationship = relationships[i];
