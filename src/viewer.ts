@@ -1220,6 +1220,9 @@ export class Viewer extends RefCounted implements ViewerState {
       this.showPerspectiveSliceViews.toggle(),
     );
     this.bindAction("toggle-show-statistics", () => this.showStatistics());
+    /* BRAINSHARE STARTS */
+    this.bindAction("reset-view", () => this.navigationState.pose.reset());
+    /* BRAINSHARE ENDS */
   }
 
   toggleHelpPanel() {

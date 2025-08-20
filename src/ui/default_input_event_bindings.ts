@@ -29,6 +29,9 @@ export function getDefaultGlobalBindings() {
     map.set("keyv", "toggle-default-annotations");
     map.set("keya", "toggle-axis-lines");
     map.set("keyo", "toggle-orthographic-projection");
+    /* BRAINSHARE STARTS */
+    map.set("keyc", "reset-view");
+    /* BRAINSHARE ENDS */
 
     for (let i = 1; i <= 9; ++i) {
       map.set("digit" + i, "toggle-layer-" + i);
