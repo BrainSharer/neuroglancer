@@ -370,6 +370,11 @@ class TrackableViewerState extends CompoundTrackable {
       viewer.perspectiveViewBackgroundColor,
     );
   }
+
+  reset() {
+    super.reset();
+    this.viewer.sidePanelManager.reset();
+  }
 }
 
 export class Viewer extends RefCounted implements ViewerState {
