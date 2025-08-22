@@ -3644,12 +3644,30 @@ export function UserLayerWithAnnotationsMixin<
                   }
 
                   const childrenGrid = addPositionGrid();
+                  let sortedChildren: AnnotationReference[] = [];
                   for (const childId of annotation.childAnnotationIds) {
-                    const childRef = annotationLayer.source.getReference(
-                      childId
-                    );
+                    const childRef = annotationLayer.source.getReference(childId);
+                    sortedChildren.push(childRef);
+                  }
+
+                  sortedChildren.sort((a, b) => {
+                    let aZ = 0;
+                    let bZ = 0;
+                    if (a.value && 'centroid' in a.value && b.value && 'centroid' in b.value) {
+                      aZ = a.value && 'centroid' in a.value ? a.value.centroid[2] : 0;
+                      bZ = b.value && 'centroid' in b.value ? b.value.centroid[2] : 0;
+                    } else if (a.value && 'point' in a.value && b.value && 'point' in b.value) {
+                      aZ = a.value && 'point' in a.value ? a.value.point[2] : 0;
+                      bZ = b.value && 'point' in b.value ? b.value.point[2] : 0;
+                    }
+                    return aZ - bZ;
+                  });
+
+                  // fill up list with sorted references
+                  for (const childRef of sortedChildren) {
                     addListEntry(childrenGrid, childRef);
                   }
+
                 }
 
                 /* BRAINSHARE ENDS */
