@@ -2,19 +2,22 @@
  * @file Support for rendering volume annotations.
  */
 
-import {
+import type {
   AnnotationReference,
   AnnotationSource,
-  AnnotationType,
   Polygon,
   Volume
 } from '#src/annotation/index.js';
 import {
-  AnnotationRenderContext,
+  AnnotationType
+} from '#src/annotation/index.js';
+import type {
+  AnnotationRenderContext} from '#src/annotation/type_handler.js';
+import {
   AnnotationRenderHelper,
   registerAnnotationTypeRenderHandler
 } from '#src/annotation/type_handler.js';
-import { MultiscaleAnnotationSource } from '#src/annotation/frontend_source.js';
+import type { MultiscaleAnnotationSource } from '#src/annotation/frontend_source.js';
 import { getZCoordinate } from '#src/annotation/polygon.js';
 
 /**

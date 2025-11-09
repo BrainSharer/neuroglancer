@@ -63,7 +63,7 @@ import {
 /*
 import { CoordinateSpace } from "#/coordinate_transform";
 */
-import {
+import type {
   CoordinateSpace,
   CoordinateTransformSpecification,
 } from "#src/coordinate_transform.js";
@@ -152,20 +152,22 @@ import {
 } from '#src/annotation/polygon.js';
 import { getPolygonsByVolumeId, isSectionValid } from '#src/annotation/volume.js';
 
-import {
-  AutocompleteTextInput,
+import type {
   Completer,
   Completion,
   CompletionRequest,
   CompletionResult,
   CompletionWithDescription
 } from "#src/widget/multiline_autocomplete.js";
+import {
+  AutocompleteTextInput
+} from "#src/widget/multiline_autocomplete.js";
 //import { CancellationToken } from "#src/brainshare/cancellation.js";
 import { fetchOk } from "#src/util/http_request.js";
 import { brainState, userState } from "#src/brainshare/state_utils.js";
 import { APIs } from "#src/brainshare/service.js";
 import svg_clipBoard from "ikonate/icons/clipboard.svg?raw";
-import { ProgressListener } from "#src/util/progress_listener.js";
+import type { ProgressListener } from "#src/util/progress_listener.js";
 import { getCookie } from "typescript-cookie";
 
 /* BRAINSHARE ENDS */
@@ -519,7 +521,7 @@ export function uploadAnnotation(
   annRef: AnnotationReference,
   dataSource: LayerDataSource,
   annotationLayer: AnnotationLayerState,
-  save: Boolean,
+  save: boolean,
 ): Promise<void> | undefined {
   const transform = dataSource.spec.transform;
   if (transform === undefined) return;

@@ -1,10 +1,11 @@
 import "./multi_users_tab.css";
 
-import debounce from "lodash/debounce";
+import { debounce } from "lodash-es"
 // Update the path below to the actual location of swap-horizontal.svg in your project
 import svg_swap_horizontal from "ikonate/icons/swap-horizontal.svg?raw";
 import { RefCounted } from "#src/util/disposable.js";
-import { getCachedJson, Trackable } from "#src/util/trackable.js";
+import type { Trackable } from "#src/util/trackable.js";
+import { getCachedJson } from "#src/util/trackable.js";
 import { makeIcon } from "#src/widget/icon.js";
 import { Tab } from "#src/widget/tab_view.js";
 import { WatchableValue } from "#src/trackable_value.js";
@@ -76,7 +77,7 @@ export class MultiUsersTab extends Tab {
   header = document.createElement("div");
   actionButton = makeIcon({ text: "Action" });
 
-  private userItems = new Map<String, MultiUsersTabItem>();
+  private userItems = new Map<string, MultiUsersTabItem>();
   private prevStateGeneration: number | undefined;
   private throttledUpdateStateToCouch: () => void;
 
@@ -297,7 +298,7 @@ export class MultiUsersTab extends Tab {
           console.debug('State change detected while observing:', change);
           const data = change.doc;
           if ((data !== undefined) && (data.state !== undefined)) {
-            const state: Object = data.state;
+            const state: object = data.state;
             if (state !== undefined && typeof state === "object") {
               console.debug('State document change detected:');
               console.debug(state);

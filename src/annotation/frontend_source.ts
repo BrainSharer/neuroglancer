@@ -31,12 +31,13 @@ import type {
   AnnotationPropertySpec,
   AnnotationSourceSignals,
   SerializedAnnotations
+, 
+  Collection
 } from "#src/annotation/index.js";
 /* BRAINSHARE STARTS */
 import {
   isChildDummyAnnotation,
-  isTypeCollection, 
-  Collection
+  isTypeCollection
 } from "#src/annotation/index.js"
 /* BRAINSHARE ENDS */
 import {

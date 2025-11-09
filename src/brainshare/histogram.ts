@@ -12,7 +12,7 @@ import {
 import { ShaderBuilder } from '#src/webgl/shader.js';
 import { getSquareCornersBuffer } from '#src/webgl/square_corners_buffer.js';
 import { setRawTextureParameters } from '#src/webgl/texture.js';
-import { InvlerpWidget } from '#src/widget/invlerp.js';
+import type { InvlerpWidget } from '#src/widget/invlerp.js';
 import { 
   computeInvlerp, 
   getIntervalBoundsEffectiveFraction 

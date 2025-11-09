@@ -2,12 +2,14 @@
  * @file Support for rendering cloud annotations.
  */
 
+import type {
+  Cloud} from '#src/annotation/index.js';
 import {
-  AnnotationType,
-  Cloud,
+  AnnotationType
 } from '#src/annotation/index.js';
+import type {
+  AnnotationRenderContext} from '#src/annotation/type_handler.js';
 import {
-  AnnotationRenderContext,
   AnnotationRenderHelper,
   registerAnnotationTypeRenderHandler
 } from '#src/annotation/type_handler.js';

@@ -29,7 +29,7 @@ export interface CouchStateDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
   _deleted?: boolean;   // If true, marks the document as deleted
-  state: Object;
+  state: object;
 }
 
 interface CouchDbChange {
@@ -150,7 +150,7 @@ export function getState(
  * @param state the JSON state
  * @returns the JSON state
  */
-export function newState(state: Object) {
+export function newState(state: object) {
   const json_body = { ...brainState.value, ...state }
   console.debug("newState", json_body);
   const access = getCookie("access") ?? "";
@@ -184,7 +184,7 @@ export function newState(state: Object) {
  * @param state the JSON state
  * @returns the JSON state
  */
-export function saveState(stateID: number | string, state: Object) {
+export function saveState(stateID: number | string, state: object) {
   const json_body = { ...brainState.value, ...state }
   console.debug("saveState", json_body);
   const access = getCookie("access") ?? "";
@@ -282,7 +282,7 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
     return null;
   }
 }
-export async function upsertCouchState(stateID: string, state: Object) {
+export async function upsertCouchState(stateID: string, state: object) {
   if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
     console.debug("Upserting the State interface structure");
   } else {

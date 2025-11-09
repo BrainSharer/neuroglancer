@@ -17,12 +17,13 @@
 import "#src/rendered_data_panel.css";
 import "#src/noselect.css";
 
-import type { Annotation } from "#src/annotation/index.js";
+import type { Annotation , 
+  AnnotationReference, 
+  Line 
+} from "#src/annotation/index.js";
 /* BRAINSHARE STARTS */
 import { 
-  AnnotationReference, 
-  AnnotationType, 
-  Line 
+  AnnotationType 
 } from '#src/annotation/index.js';
 /* BRAINSHARE ENDS */
 import { getAnnotationTypeRenderHandler } from "#src/annotation/type_handler.js";
@@ -61,9 +62,11 @@ import { TouchEventBinder } from "#src/util/touch_bindings.js";
 import { getWheelZoomAmount } from "#src/util/wheel_zoom.js";
 import type { ViewerState } from "#src/viewer_state.js";
 /* BRAINSHARE STARTS */
-import { 
-  PlaceCollectionAnnotationTool, 
+import type { 
   UserLayerWithAnnotations 
+} from '#src/ui/annotations.js';
+import { 
+  PlaceCollectionAnnotationTool 
 } from '#src/ui/annotations.js';
 import { 
   //TODO getZCoordinate,

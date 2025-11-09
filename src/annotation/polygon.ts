@@ -3,26 +3,28 @@
  */
 
 import { quat, vec3 } from 'gl-matrix';
-import {
+import type {
   AnnotationReference, 
-  AnnotationType, 
   Line, 
-  Polygon,
+  Polygon} from '#src/annotation/index.js';
+import { 
+  AnnotationType
 } from '#src/annotation/index.js';
-import {
-  AnnotationRenderContext, 
+import type {
+  AnnotationRenderContext} from '#src/annotation/type_handler.js';
+import { 
   AnnotationRenderHelper, 
   registerAnnotationTypeRenderHandler
 } from '#src/annotation/type_handler.js';
-import { 
+import type { 
   AnnotationLayerState 
 } from '#src/annotation/annotation_layer_state.js';
 //TODO import { isSectionValid } from '#src/annotation/volume.js';
 
-import { DisplayPose, NavigationState } from '#src/navigation_state.js';
+import type { DisplayPose, NavigationState } from '#src/navigation_state.js';
 //TODO import { StatusMessage } from '#src/status.js';
 import { TrackableValue } from '#src/trackable_value.js';
-import { UserLayerWithAnnotations } from '#src/ui/annotations.js';
+import type { UserLayerWithAnnotations } from '#src/ui/annotations.js';
 import { arraysEqual } from '#src/util/array.js';
 import { verifyInt, verifyFloat } from '#src/util/json.js';
 

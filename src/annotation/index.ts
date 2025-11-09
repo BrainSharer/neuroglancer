@@ -64,7 +64,7 @@ import { NullarySignal, Signal } from "#src/util/signal.js";
 /* BRAINSHARE STARTS */
 import * as vector from "#src/util/vector.js";
 // import { getZCoordinate } from "#src/annotation/polygon.js";
-import { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
+import type { MultiscaleAnnotationSource } from "#src/annotation/frontend_source.js";
 /* BRAINSHARE ENDS */
 
 export type AnnotationId = string;

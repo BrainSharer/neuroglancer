@@ -1,12 +1,14 @@
 import "./state_tab.css"
 
-import { Trackable, getCachedJson } from "#src/util/trackable.js";
+import type { Trackable} from "#src/util/trackable.js";
+import { getCachedJson } from "#src/util/trackable.js";
 import { StatusMessage } from "#src/status.js";
 import { makeIcon } from "#src/widget/icon.js";
 import { Tab } from "#src/widget/tab_view.js";
 // import { verifyObject } from "#src/util/json.js";
+import type { 
+  State} from "#src/brainshare/state_utils.js";
 import { 
-  State, 
   brainState, 
   newState, 
   saveState, 

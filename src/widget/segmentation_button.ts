@@ -15,7 +15,8 @@
  */
 
 import svg_bin from "ikonate/icons/download.svg?raw";
-import { makeIcon, MakeIconOptions } from "#src/widget/icon.js";
+import type { MakeIconOptions } from "#src/widget/icon.js";
+import { makeIcon } from "#src/widget/icon.js";
 
 export function makeSegmentationButton(options: MakeIconOptions = {}) {
   const icon = makeIcon({ svg: svg_bin, ...options });

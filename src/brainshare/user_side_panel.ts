@@ -2,18 +2,20 @@ import "#src/ui/layer_side_panel.css";
 
 
 
-import { SidePanel, SidePanelManager } from "#src/ui/side_panel.js";
+import type { SidePanelManager } from "#src/ui/side_panel.js";
+import { SidePanel } from "#src/ui/side_panel.js";
 import { Tab, TabView } from "#src/widget/tab_view.js";
 import { makeIcon } from "#src/widget/icon.js";
 import { CachedWatchableValue, WatchableValue } from "#src/trackable_value.js";
+import type { 
+  SidePanelLocation} from "#src/ui/side_panel_location.js";
 import { 
   DEFAULT_SIDE_PANEL_LOCATION, 
-  SidePanelLocation, 
   TrackableSidePanelLocation 
 } from "#src/ui/side_panel_location.js";
 import { NullarySignal, Signal } from "#src/util/signal.js";
 import { MultiUsersTab } from "#src/brainshare/multi_users_tab.js";
-import { Trackable } from "#src/util/trackable.js";
+import type { Trackable } from "#src/util/trackable.js";
 import { StateTab  } from "#src/brainshare/state_tab.js";
 import { APIs } from "#src/brainshare/service.js";
 import { userState } from "#src/brainshare/state_utils.js";
