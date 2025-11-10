@@ -734,7 +734,8 @@ export function adjustInvlerpBrightnessContrast(
 export class InvlerpWidget extends Tab {
   cdfPanel;
   /* BRAINSHARE STARTS */
-  histogramPanel = this.registerDisposer(new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit));
+  // histogramPanel = this.registerDisposer(new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit));
+  histogramPanel;
   /* BRAINSHARE ENDS */
   boundElements;
   invertArrows: HTMLElement[];
@@ -758,6 +759,7 @@ export class InvlerpWidget extends Tab {
   ) {
     super(visibility);
     this.cdfPanel = this.registerDisposer(new CdfPanel(this));
+    this.histogramPanel = this.registerDisposer(new HistogramPanel(this, NUM_CDF_LINES, histogramSamplerTextureUnit));
     this.boundElements = {
       range: createRangeBoundInputs("range", dataType, trackable),
       window: createRangeBoundInputs("window", dataType, trackable),

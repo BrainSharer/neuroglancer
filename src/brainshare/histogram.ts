@@ -1,8 +1,7 @@
 import './histogram.css';
 
-import { RenderedPanel } from '#src/display_context.js';
+import { IndirectRenderedPanel } from '#src/display_context.js';
 import { getMemoizedBuffer } from '#src/webgl/buffer.js';
-// import {computeInvlerp, getIntervalBoundsEffectiveFraction} from '#/webgl/lerp';
 import { 
   defineLineShader, 
   drawLines, 
@@ -12,20 +11,20 @@ import {
 import { ShaderBuilder } from '#src/webgl/shader.js';
 import { getSquareCornersBuffer } from '#src/webgl/square_corners_buffer.js';
 import { setRawTextureParameters } from '#src/webgl/texture.js';
-import type { InvlerpWidget } from '#src/widget/invlerp.js';
+import { InvlerpWidget } from '#src/widget/invlerp.js';
 import { 
   computeInvlerp, 
   getIntervalBoundsEffectiveFraction 
 } from '#src/util/lerp.js';
 
-export class HistogramPanel extends RenderedPanel {
+const histogramSamplerTextureUnit = Symbol("histogramSamplerTexture");
+
+
+export class HistogramPanel extends IndirectRenderedPanel {
   get drawOrder() {
     return 100;
   }
-  constructor(
-    public parent: InvlerpWidget, 
-    public NUM_CDF_LINES: number, 
-    public histogramSamplerTextureUnit: symbol) 
+  constructor(public parent: InvlerpWidget) 
   {
     super(parent.display, document.createElement('div'), parent.visibility);
     const {element} = this;
@@ -34,7 +33,7 @@ export class HistogramPanel extends RenderedPanel {
 
   private dataValuesBuffer = this.registerDisposer(
     getMemoizedBuffer(this.gl, WebGL2RenderingContext.ARRAY_BUFFER, () => {
-      const {NUM_CDF_LINES} = this;
+      const NUM_CDF_LINES = 256;
       const array = new Uint8Array(NUM_CDF_LINES * VERTICES_PER_LINE);
       for (let i = 0; i < NUM_CDF_LINES; ++i) {
         for (let j = 0; j < VERTICES_PER_LINE; ++j) {
@@ -47,7 +46,7 @@ export class HistogramPanel extends RenderedPanel {
 
   private lineShader = this.registerDisposer((() => {
     const builder = new ShaderBuilder(this.gl);
-    const {histogramSamplerTextureUnit} = this;
+    // const {histogramSamplerTextureUnit} = this;
     defineLineShader(builder);
     builder.addTextureSampler(
       'sampler2D', 'uHistogramSampler', 
@@ -107,71 +106,77 @@ out_color = uColor;
     return builder.build();
   })());
 
-  draw() {
+  drawIndirect() {
     const {
-      lineShader, 
-      gl, 
-      regionShader, 
-      parent: {dataType, trackable: {value: bounds}}, 
-      NUM_CDF_LINES, 
-      histogramSamplerTextureUnit,
+      lineShader,
+      gl,
+      regionShader,
+      parent: {
+        dataType,
+        trackable: { value: bounds },
+      },
     } = this;
     this.setGLLogicalViewport();
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(WebGL2RenderingContext.COLOR_BUFFER_BIT);
     gl.enable(WebGL2RenderingContext.BLEND);
     gl.blendFunc(
-      WebGL2RenderingContext.SRC_ALPHA, 
-      WebGL2RenderingContext.ONE_MINUS_SRC_ALPHA
+      WebGL2RenderingContext.SRC_ALPHA,
+      WebGL2RenderingContext.ONE_MINUS_SRC_ALPHA,
     );
     gl.disable(WebGL2RenderingContext.DEPTH_TEST);
     gl.disable(WebGL2RenderingContext.STENCIL_TEST);
     {
       regionShader.bind();
-      gl.uniform4f(regionShader.uniform('uColor'), 0.2, 0.2, 0.2, 1.0);
-      const fraction0 = computeInvlerp(bounds.window, bounds.range[0]),
-            fraction1 = computeInvlerp(bounds.window, bounds.range[1]);
+      gl.uniform4f(regionShader.uniform("uColor"), 0.2, 0.2, 0.2, 1.0);
+      const fraction0 = computeInvlerp(bounds.window, bounds.range[0]);
+      const fraction1 = computeInvlerp(bounds.window, bounds.range[1]);
       const effectiveFraction = getIntervalBoundsEffectiveFraction(
-        dataType, 
-        bounds.window
+        dataType,
+        bounds.window,
       );
       gl.uniform2f(
-        regionShader.uniform('uBounds'), 
+        regionShader.uniform("uBounds"),
         Math.min(fraction0, fraction1) * effectiveFraction,
-        Math.max(
-          fraction0, 
-          fraction1
-        ) * effectiveFraction + (1 - effectiveFraction)
+        Math.max(fraction0, fraction1) * effectiveFraction +
+          (1 - effectiveFraction),
       );
-      const aVertexPosition = regionShader.attribute('aVertexPosition');
+      const aVertexPosition = regionShader.attribute("aVertexPosition");
       this.regionCornersBuffer.bindToVertexAttrib(
-          aVertexPosition, /*componentsPerVertexAttribute=*/ 2,
-          /*attributeType=*/ WebGL2RenderingContext.FLOAT);
+        aVertexPosition,
+        /*componentsPerVertexAttribute=*/ 2,
+        /*attributeType=*/ WebGL2RenderingContext.FLOAT,
+      );
       gl.drawArrays(WebGL2RenderingContext.TRIANGLE_FAN, 0, 4);
       gl.disableVertexAttribArray(aVertexPosition);
     }
     if (this.parent.histogramSpecifications.producerVisibility.visible) {
-      const {renderViewport} = this;
+      const { renderViewport } = this;
       lineShader.bind();
-      initializeLineShader(lineShader, {
-        width: renderViewport.logicalWidth, 
-        height: renderViewport.logicalHeight
-      }, /*featherWidthInPixels=*/ 1.0);
-      const histogramTextureUnit = lineShader.textureUnit(
-        histogramSamplerTextureUnit
+      initializeLineShader(
+        lineShader,
+        {
+          width: renderViewport.logicalWidth,
+          height: renderViewport.logicalHeight,
+        },
+        /*featherWidthInPixels=*/ 1.0,
       );
+
+      const histogramTextureUnit = lineShader.textureUnit(histogramSamplerTextureUnit,);
       gl.uniform1f(
-        lineShader.uniform('uBoundsFraction'), 
-        getIntervalBoundsEffectiveFraction(dataType, bounds.window)
+        lineShader.uniform("uBoundsFraction"),
+        getIntervalBoundsEffectiveFraction(dataType, bounds.window),
       );
       gl.activeTexture(WebGL2RenderingContext.TEXTURE0 + histogramTextureUnit);
       gl.bindTexture(WebGL2RenderingContext.TEXTURE_2D, this.parent.texture);
       setRawTextureParameters(gl);
-      const aDataValue = lineShader.attribute('aDataValue');
-      this.dataValuesBuffer.bindToVertexAttribI( 
-        aDataValue, 
-        /*componentsPerVertexAttribute=*/ 1, 
-        /*attributeType=*/ WebGL2RenderingContext.UNSIGNED_BYTE
+      const aDataValue = lineShader.attribute("aDataValue");
+      this.dataValuesBuffer.bindToVertexAttribI(
+        aDataValue,
+        /*componentsPerVertexAttribute=*/ 1,
+        /*attributeType=*/ WebGL2RenderingContext.UNSIGNED_BYTE,
       );
-      drawLines(gl, /*linesPerInstance=*/ NUM_CDF_LINES, /*numInstances=*/ 1);
+      drawLines(gl, /*linesPerInstance=*/ 255, /*numInstances=*/ 1);
       gl.disableVertexAttribArray(aDataValue);
       gl.bindTexture(WebGL2RenderingContext.TEXTURE_2D, null);
     }

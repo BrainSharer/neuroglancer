@@ -17,6 +17,9 @@
 import "#src/viewer.css";
 import "#src/ui/layer_data_sources_tab.js";
 import "#src/noselect.css";
+/* BRAINSHARE STARTS */
+import svg_apple from "./brainshare/AppleMac.svg?raw";
+/* BRAINSHARE ENDS */
 import svg_camera from "ikonate/icons/camera.svg?raw";
 import svg_controls_alt from "ikonate/icons/controls-alt.svg?raw";
 import svg_layers from "ikonate/icons/layers.svg?raw";
@@ -453,6 +456,7 @@ export class Viewer extends RefCounted implements ViewerState {
   partialViewport = new TrackableWindowedViewport();
   statisticsDisplayState = new StatisticsDisplayState();
   helpPanelState = new HelpPanelState();
+  helpMacPanelState = new Text;
   settingsPanelState = new ViewerSettingsPanelState();
   layerSelectedValues = this.registerDisposer(
     new LayerSelectedValues(this.layerManager, this.mouseState),
@@ -911,6 +915,26 @@ export class Viewer extends RefCounted implements ViewerState {
       );
       topRow.appendChild(button);
     }
+    /* BRAINSHARE STARTS */
+    {
+      const button = makeIcon({ svg: svg_apple, title: "Show Mac Help" });
+      this.registerEventListener(button, "click", () => {
+          // const dialog = document.getElementById("myDialog") as HTMLDialogElement;
+          // showModal() displays the dialog and a backdrop, creating a true modal
+          // dialog.showModal();
+          alert("To use Neuroglancer on a Mac, hold the 'Command' key where 'Control' is indicated in the help documentation.");
+
+
+      });
+      this.registerDisposer(
+        new ElementVisibilityFromTrackableBoolean(
+          this.uiControlVisibility.showEditStateButton,
+          button,
+        ),
+      );
+      topRow.appendChild(button);
+    }
+    /* BRAINSHARE ENDS */
 
     {
       const button = makeIcon({ svg: svg_camera, title: "Screenshot" });
