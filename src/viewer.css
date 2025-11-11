@@ -34,3 +34,13 @@
   max-width: 80%;
   color: #fff;
 }
+
+dialog {
+  background-color: #CCC; /* White background */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0.8, 0.2); /* Subtle shadow */
+  width: 90%; /* Adjust width as needed */
+  max-width: 500px; /* Maximum width for larger screens */
+  position: relative; /* For positioning close button */
+}

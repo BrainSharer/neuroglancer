@@ -157,6 +157,7 @@ import {
   getUrlParams, 
   getUser 
 } from "#src/brainshare/state_utils.js";
+import { makeMinimalViewer } from "./ui/minimal_viewer";
 /* BRAINSHARE ENDS */
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
 
@@ -915,26 +916,6 @@ export class Viewer extends RefCounted implements ViewerState {
       );
       topRow.appendChild(button);
     }
-    /* BRAINSHARE STARTS */
-    {
-      const button = makeIcon({ svg: svg_apple, title: "Show Mac Help" });
-      this.registerEventListener(button, "click", () => {
-          // const dialog = document.getElementById("myDialog") as HTMLDialogElement;
-          // showModal() displays the dialog and a backdrop, creating a true modal
-          // dialog.showModal();
-          alert("To use Neuroglancer on a Mac, hold the 'Command' key where 'Control' is indicated in the help documentation.");
-
-
-      });
-      this.registerDisposer(
-        new ElementVisibilityFromTrackableBoolean(
-          this.uiControlVisibility.showEditStateButton,
-          button,
-        ),
-      );
-      topRow.appendChild(button);
-    }
-    /* BRAINSHARE ENDS */
 
     {
       const button = makeIcon({ svg: svg_camera, title: "Screenshot" });
@@ -988,7 +969,35 @@ export class Viewer extends RefCounted implements ViewerState {
       topRow.appendChild(button.element);
     }
 
-     /* BRAINSHARE STARTS */
+    /* BRAINSHARE STARTS */
+    {
+      const button = makeIcon({ svg: svg_apple, title: "Show Mac Help" });
+      this.registerEventListener(button, "click", () => {
+        // const dialog = document.getElementById("dialog") as HTMLDialogElement;
+        // showModal() displays the dialog and a backdrop, creating a true modal
+        // dialog.showModal();
+        //  creditLink.showModal();
+        // const helptext = "Shortcuts for neuroglancer on a Mac";
+        // alert(helptext);
+        const dialog = document.createElement("dialog");
+        dialog.innerHTML = `
+          <h4>Shortcuts for neuroglancer on a Mac</h4>
+          <p>1 This is some content inside the dialog.</p>
+          <p>2 This is some content inside the dialog.</p>
+          <p>3 This is some content inside the dialog.</p>
+          <p>4 This is some content inside the dialog.</p>
+          <p>5 This is some content inside the dialog.</p>
+          <button id="closeDialog">Close</button>
+        `;        
+        document.body.appendChild(dialog);
+        dialog.showModal();
+        const closeButton = dialog.querySelector('#closeDialog') as HTMLButtonElement;
+        closeButton.addEventListener('click', () => {
+          dialog.close(); // Close the dialog
+        });      });
+      topRow.appendChild(button);
+    }
+
     {
       const { userSidePanelState } = this;
       const button = this.registerDisposer(
