@@ -973,12 +973,6 @@ export class Viewer extends RefCounted implements ViewerState {
     {
       const button = makeIcon({ svg: svg_apple, title: "Show Mac Help" });
       this.registerEventListener(button, "click", () => {
-        // const dialog = document.getElementById("dialog") as HTMLDialogElement;
-        // showModal() displays the dialog and a backdrop, creating a true modal
-        // dialog.showModal();
-        //  creditLink.showModal();
-        // const helptext = "Shortcuts for neuroglancer on a Mac";
-        // alert(helptext);
         const dialog = document.createElement("dialog");
         dialog.innerHTML = `
           <h4>Shortcuts for neuroglancer on a Mac</h4>
