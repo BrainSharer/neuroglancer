@@ -973,14 +973,12 @@ export class Viewer extends RefCounted implements ViewerState {
     {
       const button = makeIcon({ svg: svg_apple, title: "Show Mac Help" });
       this.registerEventListener(button, "click", () => {
+        /**
         const dialog = document.createElement("dialog");
         dialog.innerHTML = `
           <h4>Shortcuts for neuroglancer on a Mac</h4>
           <p>1 This is some content inside the dialog.</p>
           <p>2 This is some content inside the dialog.</p>
-          <p>3 This is some content inside the dialog.</p>
-          <p>4 This is some content inside the dialog.</p>
-          <p>5 This is some content inside the dialog.</p>
           <button id="closeDialog">Close</button>
         `;        
         document.body.appendChild(dialog);
@@ -988,7 +986,11 @@ export class Viewer extends RefCounted implements ViewerState {
         const closeButton = dialog.querySelector('#closeDialog') as HTMLButtonElement;
         closeButton.addEventListener('click', () => {
           dialog.close(); // Close the dialog
-        });      });
+        });      
+        */
+       window.open('https://brainsharer.org/docs/mac_help/', '_blank');
+      });
+     
       topRow.appendChild(button);
     }
 

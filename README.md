@@ -1,3 +1,13 @@
+## Brainsharer fork of Neuroglancer
+
+This is a fork of the Neuroglancer project developed at the Kleinfeld lab at UCSD San Diego CA. Major changes include:
+
+- User management system hooked up to Django/Mysql/Nginx
+- Real time collaboration with CouchDB
+- Polygon, volume and cloud based editing of annotations, including import/export
+- Polygon to 3D segmentation mesh on the fly creation
+
+
 ## Neuroglancer: Web-based volumetric data visualization
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
