@@ -24,3 +24,5 @@ export function makeSegmentationButton(options: MakeIconOptions = {}) {
   svg.style.fill = "white";
   return icon;
 }
+
+

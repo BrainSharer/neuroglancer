@@ -1477,11 +1477,10 @@ export class AnnotationLayerView extends Tab {
       element.appendChild(deleteButton);
     };
 
-        /* BRAINSHARE STARTS */
+    /* BRAINSHARE STARTS */
 
     /* segmentation button is for volumes */
     let segmentationButton: HTMLElement | undefined;
-
     const maybeAddSegmentationButton = () => {
       if (state.source.readonly) return;
       if (segmentationButton !== undefined) return;
@@ -1497,6 +1496,83 @@ export class AnnotationLayerView extends Tab {
           event.stopPropagation();
           event.preventDefault();
           const ref = state.source.getReference(annotation.id);
+          const dialog = document.createElement("dialog");
+          dialog.innerHTML = `
+          <div id="inputContainer"></div>          
+          <button id="runDialog">Run</button>
+          <button id="closeDialog">Close</button>
+        `;
+
+          const inputContainer = dialog.querySelector('#inputContainer') as HTMLDivElement;
+          inputContainer.innerHTML = `
+          <h4>Set the standard deviation for smoothing in x,y,z</h4>
+            <label for="stdDevX">Std Dev X:</label>
+            <input type="number" id="stdDevX" name="stdDevX" value="1" min="0.2" max="10.0" step="0.1"><br>
+            <label for="stdDevY">Std Dev Y:</label>
+            <input type="number" id="stdDevY" name="stdDevY" value="1" min="0.2" max="10.0" step="0.1"><br>
+            <label for="stdDevZ">Std Dev Z:</label>
+            <input type="number" id="stdDevZ" name="stdDevZ" value="1" min="0.2" max="10.0"  step="0.1"><br>
+          `;
+          const closeButton = dialog.querySelector('#closeDialog') as HTMLButtonElement;
+          closeButton.addEventListener('click', () => {
+            dialog.close(); // Close the dialog
+          });
+          const runButton = dialog.querySelector('#runDialog') as HTMLButtonElement;
+          document.body.appendChild(dialog);
+          dialog.showModal();
+
+          runButton.addEventListener('click', () => {
+          const stdDevX = (document.getElementById('stdDevX') as HTMLInputElement).value;
+          const stdDevY = (document.getElementById('stdDevY') as HTMLInputElement).value;
+          const stdDevZ = (document.getElementById('stdDevZ') as HTMLInputElement).value;
+          inputContainer.innerHTML = `
+            <h4>Creating 3D mesh with the following parameters:</h4>
+            <p>Std Dev X: ${stdDevX}</p>
+            <p>Std Dev Y: ${stdDevY}</p>
+            <p>Std Dev Z: ${stdDevZ}</p>
+            <p>Please wait...</p>
+          `;
+          runButton.disabled = true;
+            try {
+              StatusMessage.showTemporaryMessage("Creating 3D mesh ...", 15000);
+
+              return fetchOk(
+                `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}/${stdDevX}/${stdDevY}/${stdDevZ}`,
+                {
+                  method: "GET",
+                  credentials: "include",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${access}`
+                  },
+                }).then(
+                  response => response.json()
+                ).then(json => {
+                  const manager = this.layer.manager;
+                  const segmentationLayer = makeLayer(manager, json.name, { type: 'segmentation', 'source': json.url });
+                  manager.add(segmentationLayer);
+                  StatusMessage.showTemporaryMessage(
+                    "The 3D mesh has been created.",
+                    5000,
+                  );
+                  dialog.close(); // Close the dialog
+                }).catch(err => {
+                  console.error(err);
+                  StatusMessage.showTemporaryMessage(
+                    "There is an error in creating the mesh.\
+                Please see console for details.",
+                    15000,
+                  );
+                })
+
+            } finally {
+              ref.dispose();
+            }
+
+
+          });
+
+        /**
           try {
             StatusMessage.showTemporaryMessage("Creating 3D mesh ...", 15000);
 
@@ -1531,6 +1607,7 @@ export class AnnotationLayerView extends Tab {
           } finally {
             ref.dispose();
           }
+          */
         },
       });
       segmentationButton.classList.add("neuroglancer-annotation-list-entry-delete");
