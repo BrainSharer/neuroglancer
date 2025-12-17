@@ -1511,7 +1511,16 @@ export class AnnotationLayerView extends Tab {
             <label for="stdDevY">Std Dev Y:</label>
             <input type="number" id="stdDevY" name="stdDevY" value="1" min="0.2" max="10.0" step="0.1"><br>
             <label for="stdDevZ">Std Dev Z:</label>
-            <input type="number" id="stdDevZ" name="stdDevZ" value="1" min="0.2" max="10.0"  step="0.1"><br>
+            <input type="number" id="stdDevZ" name="stdDevZ" value="1" min="0.2" max="10.0"  step="0.1"><br><br>
+            <fieldset>
+              <legend>Do you want interpolation in the Z plane?</legend>
+
+              <input type="radio" id="interpolateYes" name="interpolate" value="1" checked>
+              <label for="interpolateYes">Yes</label><br>
+
+              <input type="radio" id="interpolateNo" name="interpolate" value="0">
+              <label for="interpolateNo">No</label>
+            </fieldset><br>
           `;
           const closeButton = dialog.querySelector('#closeDialog') as HTMLButtonElement;
           closeButton.addEventListener('click', () => {
@@ -1525,11 +1534,13 @@ export class AnnotationLayerView extends Tab {
           const stdDevX = (document.getElementById('stdDevX') as HTMLInputElement).value;
           const stdDevY = (document.getElementById('stdDevY') as HTMLInputElement).value;
           const stdDevZ = (document.getElementById('stdDevZ') as HTMLInputElement).value;
+          const interpolate = (document.querySelector('input[name="interpolate"]:checked') as HTMLInputElement).value;
           inputContainer.innerHTML = `
             <h4>Creating 3D mesh with the following parameters:</h4>
             <p>Std Dev X: ${stdDevX}</p>
             <p>Std Dev Y: ${stdDevY}</p>
             <p>Std Dev Z: ${stdDevZ}</p>
+            <p>Interpolate in Z plane: ${interpolate === "1" ? "Yes" : "No"}</p>
             <p>Please wait...</p>
           `;
           runButton.disabled = true;
@@ -1537,7 +1548,7 @@ export class AnnotationLayerView extends Tab {
               StatusMessage.showTemporaryMessage("Creating 3D mesh ...", 15000);
 
               return fetchOk(
-                `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}/${stdDevX}/${stdDevY}/${stdDevZ}`,
+                `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}/${stdDevX}/${stdDevY}/${stdDevZ}/${interpolate}`,
                 {
                   method: "GET",
                   credentials: "include",

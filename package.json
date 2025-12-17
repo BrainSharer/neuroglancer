@@ -88,6 +88,7 @@
     "codemirror": "^5.61.1",
     "core-js": "^3.46.0",
     "crc-32": "^1.2.2",
+    "fast-json-patch": "^3.1.1",
     "gl-matrix": "3.1.0",
     "ikonate": "github:mikolajdobrucki/ikonate#a86b4107c6ec717e7877f880a930d1ccf0b59d89",
     "lodash-es": "^4.17.21",

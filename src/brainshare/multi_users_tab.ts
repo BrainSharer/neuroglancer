@@ -10,7 +10,8 @@ import { makeIcon } from "#src/widget/icon.js";
 import { Tab } from "#src/widget/tab_view.js";
 import { WatchableValue } from "#src/trackable_value.js";
 import { brainState, userState, upsertCouchState, upsertCouchUser, fetchUserDocument, 
-  listenToDocumentChanges } from "#src/brainshare/state_utils.js";
+  listenToDocumentChanges, 
+  State} from "#src/brainshare/state_utils.js";
 import { verifyObject } from "#src/util/json.js";
 import { APIs } from "#src/brainshare/service.js";
 
@@ -298,8 +299,8 @@ export class MultiUsersTab extends Tab {
           console.debug('State change detected while observing:', change);
           const data = change.doc;
           if ((data !== undefined) && (data.state !== undefined)) {
-            const state: object = data.state;
-            if (state !== undefined && typeof state === "object") {
+            const state: State = data.state;
+            if (state !== undefined && typeof state === 'object') {
               console.debug('State document change detected:');
               console.debug(state);
               this.viewerState.reset();

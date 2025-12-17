@@ -5,6 +5,10 @@ import { WatchableValue } from "#src/trackable_value.js";
 import { APIs } from "#src/brainshare/service.js";
 import { AUTHs} from "#src/brainshare/couchdb_store.js";
 
+import { applyPatch, observe, Observer } from "fast-json-patch";
+import jsonpatch from "fast-json-patch";
+
+
 interface ChangeResult {
   seq: string;
   id: string;
@@ -29,7 +33,7 @@ export interface CouchStateDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
   _deleted?: boolean;   // If true, marks the document as deleted
-  state: object;
+  state: State;
 }
 
 interface CouchDbChange {
@@ -150,7 +154,7 @@ export function getState(
  * @param state the JSON state
  * @returns the JSON state
  */
-export function newState(state: object) {
+export function newState(state: State) {
   const json_body = { ...brainState.value, ...state }
   console.debug("newState", json_body);
   const access = getCookie("access") ?? "";
@@ -184,7 +188,7 @@ export function newState(state: object) {
  * @param state the JSON state
  * @returns the JSON state
  */
-export function saveState(stateID: number | string, state: object) {
+export function saveState(stateID: number | string, state: State) {
   const json_body = { ...brainState.value, ...state }
   console.debug("saveState", json_body);
   const access = getCookie("access") ?? "";
@@ -282,7 +286,8 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
     return null;
   }
 }
-export async function upsertCouchState(stateID: string, state: object) {
+
+export async function upsertCouchState(stateID: string, state: State) {
   if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
     console.debug("Upserting the State interface structure");
   } else {
@@ -300,14 +305,14 @@ export async function upsertCouchState(stateID: string, state: object) {
 
 
 /** Generic couch DB methods */
+export function applyDocumentPatch(original: CouchStateDocument, updates: Partial<CouchStateDocument>): CouchStateDocument {
+  const observer = observe(original);
+  Object.assign(original, updates);
+  const patch = jsonpatch.generate(observer as Observer<Object>);
+  return applyPatch(original, patch).newDocument;
+}
 
-async function updateCouchDBDocument<T>(
-  dbUrl: string,
-  _id: string,
-  updatedDoc: T
-): Promise<T> {
-
-
+async function updateCouchDBDocument<T>(dbUrl: string, _id: string, updatedDoc: T): Promise<T> {
   if (!_id) {
     throw new Error("Document must have _id ");
   }
@@ -335,7 +340,6 @@ async function updateCouchDBDocument<T>(
   
 }
 
-
 export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
   const changesUrl = `${dbUrl}/_changes?filter=_doc_ids&include_docs=false&descending=false`;
   const headers: HeadersInit = {
@@ -358,7 +362,6 @@ export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): 
   }
 
   const data: ChangesFeed = await response.json();
-
   const change = data.results.find(change => change.id === docId);
   return change?.changes[0]?.rev || null;
 }

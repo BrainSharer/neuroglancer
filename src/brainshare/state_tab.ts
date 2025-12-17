@@ -134,19 +134,6 @@ export class StateTab extends Tab {
         buttonGroupDiv.appendChild(saveButton);
       }
 
-      /** 
-      const loadButton = makeIcon({
-        text: "Load",
-        title: "Load the JSON state stored in the database",
-      });
-      this.registerEventListener(loadButton, "click", () => {
-        if (brainState.value !== null) {
-          this.viewerState.reset();
-          this.viewerState.restoreState(verifyObject(brainState.value.neuroglancer_state));
-        }
-      });
-      buttonGroupDiv.appendChild(loadButton);
-      */
       let key: keyof State;
       for (key in brainState.value) {
         if (!displayKeys.has(key)) continue;
