@@ -5,8 +5,7 @@ import { WatchableValue } from "#src/trackable_value.js";
 import { APIs } from "#src/brainshare/service.js";
 import { AUTHs} from "#src/brainshare/couchdb_store.js";
 
-import { applyPatch, observe, Observer } from "fast-json-patch";
-import jsonpatch from "fast-json-patch";
+import { applyPatch, generate, observe, Observer } from "fast-json-patch";
 
 
 interface ChangeResult {
@@ -29,11 +28,41 @@ export interface CouchUserDocument {
   users: any;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  lab: string;
+  access: string;
+}
+
+
 export interface CouchStateDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
-  _deleted?: boolean;   // If true, marks the document as deleted
   state: State;
+  version: number;
+  updatedAt: string; // ISO date string
+}
+
+export interface State {
+  id: number;
+  user: string;
+  owner: number;
+  animal: string;
+  comments: string;
+  neuroglancer_state: object;
+  readonly: boolean;
+  public: boolean;
+  lab: string;
+}
+
+export interface StatePatch {
+    id: String,
+    type: "patch",
+    baseVersion: number,
+    targetVersion: number,
+    patch: object,
+    createdAt: String,
 }
 
 interface CouchDbChange {
@@ -50,29 +79,6 @@ interface ListenOptions {
   since?: string; // Optional: start listening from a specific sequence
   onChange: (change: CouchDbChange) => void;
   onError?: (error: any) => void;
-}
-
-export interface State {
-  id: number;
-  user: string;
-  owner: number;
-  animal: string;
-  comments: string;
-  neuroglancer_state: object;
-  readonly: boolean;
-  public: boolean;
-  lab: string;
-}
-
-export interface User {
-  id: number;
-  username: string;
-  lab: string;
-  access: string;
-}
-
-export interface UrlParams {
-  "stateID": string | null,
 }
 
 /**
@@ -221,9 +227,7 @@ export async function fetchUserDocument(stateID: string): Promise<CouchUserDocum
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
   if (revision === null) {
     return null;
-  } else {
-    console.debug('found user revision', revision);
-  }
+  } 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
@@ -285,38 +289,48 @@ export async function fetchStateDocument(stateID: string): Promise<CouchStateDoc
     console.error('Error fetching CouchDB state document:', error);
     return null;
   }
+
 }
 
-export async function upsertCouchState(stateID: string, state: State) {
+export async function upsertCouchState(stateID: string, version: number, state: State) {
   if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
     console.debug("Upserting the State interface structure");
   } else {
     console.error("state does NOT match the State interface structure");
+    console.error(state);
     return;
   }
   
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
-  let couchState: CouchStateDocument = {_id: stateID, "state": state };
+  let couchState: CouchStateDocument = {_id: stateID, "state": state, version: version, updatedAt: new Date().toISOString() };
   if (revision !== null) { 
-    couchState = {_id: stateID, _rev: revision, "state": state };
+    console.log('revision', revision)
+    couchState = {_id: stateID, _rev: revision, "state": state, version: version, updatedAt: new Date().toISOString() };
   }
   updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
 }
 
+export async function upsertCouchPatch(stateID: string, version: number, patch: object) {
+  const json_body = {
+    id: `patch:${String(stateID)}:${String(version).padStart(6, "0")}`,
+    type: "patch",
+    baseVersion: version - 1,
+    targetVersion: version,
+    patch,
+    createdAt: new Date().toISOString()
+  };
+  console.log("Upserting the State patch:", json_body);
+}
+
 
 /** Generic couch DB methods */
-export function applyDocumentPatch(original: CouchStateDocument, updates: Partial<CouchStateDocument>): CouchStateDocument {
-  const observer = observe(original);
-  Object.assign(original, updates);
-  const patch = jsonpatch.generate(observer as Observer<Object>);
-  return applyPatch(original, patch).newDocument;
-}
 
 async function updateCouchDBDocument<T>(dbUrl: string, _id: string, updatedDoc: T): Promise<T> {
   if (!_id) {
     throw new Error("Document must have _id ");
   }
   const url = `${dbUrl}/${encodeURIComponent( _id)}`;
+  console.log("Updating CouchDB document at URL:", url);
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -362,6 +376,7 @@ export async function getRevisionFromChangesFeed(dbUrl: string, docId: string): 
   }
 
   const data: ChangesFeed = await response.json();
+  console.log("CouchDB _changes feed data:", data);
   const change = data.results.find(change => change.id === docId);
   return change?.changes[0]?.rev || null;
 }
@@ -441,93 +456,6 @@ export function listenToDocumentChanges(options: ListenOptions) {
   return {
     stop: () => controller.abort(),
   };
-}
-
-/** class for listening to couchdb document changes */
-type CouchDBListenerOptions = {
-  dbUrl: string;
-  docId: string;
-  since?: string; // For resuming changes
-  onChange: (doc: any) => void;
-  onError?: (err: any) => void;
-};
-
-export class CouchDBDocumentListener {
-  private controller: AbortController;
-  private running: boolean = false;
-
-  constructor(private options: CouchDBListenerOptions) {
-    this.controller = new AbortController();
-  }
-
-  public async start() {
-    if (this.running) return;
-
-    this.running = true;
-    const { dbUrl, docId, since, onChange, onError } = this.options;
-
-    const url = new URL(`${dbUrl}/_changes`);
-    url.searchParams.append('feed', 'continuous');
-    url.searchParams.append('include_docs', 'true');
-    url.searchParams.append('filter', '_doc_ids');
-    url.searchParams.append('since', since || 'now');
-    url.searchParams.append('heartbeat', '10000');
-
-    const headers = new Headers();
-    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    headers.append('Authorization', `Basic ${credentials}`);
-    headers.append('Content-Type', 'application/json');
-
-    console.debug("Listening to CouchDB changes url:", url);
-
-    try {
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ doc_ids: [docId] }),
-        signal: this.controller.signal,
-      });
-
-      if (!response.body) throw new Error("No response body from CouchDB");
-
-      const reader = response.body.getReader();
-      let buffer = '';
-
-      while (this.running) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += new TextDecoder().decode(value, { stream: true });
-
-        let newlineIndex;
-        while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
-
-          if (line) {
-            try {
-              const parsed = JSON.parse(line);
-              if (parsed && parsed.doc) {
-                onChange(parsed.doc);
-              }
-            } catch (e) {
-              onError?.(e);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      if (this.running) {
-        onError?.(err);
-      }
-    }
-  }
-
-  public stop() {
-    if (!this.running) return;
-    this.running = false;
-    this.controller.abort();
-  }
 }
 
 
