@@ -85,6 +85,7 @@ export class MultiUsersTab extends Tab {
   private userItems = new Map<string, MultiUsersTabItem>();
   private prevStateGeneration: number | undefined;
   private throttledUpdateStateToCouch: () => void;
+  private couchEditor: Editor;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     stateID: "",
@@ -166,9 +167,6 @@ export class MultiUsersTab extends Tab {
         if (brainState.value !== null) {
           const username = String(userState.value.username);
           const stateID = String(brainState.value.id);
-          const couch = new CouchClient("http://localhost:5984", "neuroglancer");
-          const couchEditor = new Editor(couch);
-          await couchEditor.init();
           this.throttledUpdateStateToCouch = debounce(async () => {
             const cacheState = getCachedJson(this.viewerState);
             const { generation, value } = cacheState; 
@@ -179,7 +177,7 @@ export class MultiUsersTab extends Tab {
               // upsertCouchState(stateID, verifyObject(value));
               //sendPatchToCouchDB(stateID, patch);
 
-              couchEditor.applyLocalEdit((snapshot) => {
+              this.couchEditor.applyLocalEdit((snapshot) => {
                 console.log("Applying local edit to neuroglancer_state draft before =", snapshot);
                 snapshot.state = verifyObject(value);
                 console.log("Applying local edit to neuroglancer_state draft after =", snapshot);
@@ -282,10 +280,10 @@ export class MultiUsersTab extends Tab {
         let users: any = {};
         if (editor === "") {
           users = { [username]: true };
-          await upsertCouchState("doc:main", 1, getCachedJson(this.viewerState).value);
-          // const couch = new CouchClient("http://localhost:5984", "neuroglancer");
-          // const couchEditor = new Editor(couch);
-          // await couchEditor.init();
+          await upsertCouchState(stateID, 1, getCachedJson(this.viewerState).value);
+          const couch = new CouchClient("http://localhost:5984", "neuroglancer", stateID);
+          this.couchEditor = new Editor(couch);
+          await this.couchEditor.init();
 
 
         } else {

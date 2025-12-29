@@ -6,6 +6,7 @@ export class CouchClient {
   constructor(
     private baseUrl: string,
     private dbName: string,
+    private stateID: string
   ) {}
 
   private createHeaders() {
@@ -21,6 +22,7 @@ export class CouchClient {
   }
 
   async get<T>(id: string): Promise<T | null> {
+    if (!id) return null;
     // const stateID = "0"; // Assuming the snapshot document has ID "0"
     const response = await fetch(this.url(encodeURIComponent(id)), {
       method: "GET",
@@ -36,28 +38,6 @@ export class CouchClient {
       throw new Error(`Failed to get document: ${response.statusText}`);
     }
     return response.json() as Promise<T>;
-  }
-
-  async getPatchVersion(id: string): Promise<number> {
-    let version = 1;
-    // const stateID = "0"; // Assuming the snapshot document has ID "0"
-    const response = await fetch(this.url(encodeURIComponent(id)), {
-      method: "GET",
-      headers: this.createHeaders(),
-    });
-
-    if (response.status === 404) {
-      return version;
-    }
-
-    if (!response.ok) {
-      throw new Error(`Failed to get patch document: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    version = data.targetVersion;
-
-    return version;
   }
 
   async put<T>(id: string, body: T): Promise<void> {

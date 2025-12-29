@@ -6,20 +6,17 @@ import { State } from "#src/brainshare/state_utils.js";
 export class Editor {
   private state: State;
   private version: number;
+  private stateID: string;
 
   constructor(private couch: CouchClient) {}
 
   async init() {
-    const snapshot = await this.couch.get<any>("doc:main");
-    if (snapshot !== null) {
+    this.stateID = this.couch["stateID"];
+    const snapshot = await this.couch.get<any>(this.stateID);
     this.state = snapshot.state;
     this.version = snapshot.version;
     console.log("Initialized editor with state:", this.state);
-    } else {
-      this.state = {} as State;
-      this.version = 0;
-      console.log("Initialized editor with empty state");
-    }
+    console.log("Initialized editor with stateID:", this.stateID);
   }
 
   async applyLocalEdit(mutator: (draft: any) => void) {
@@ -27,7 +24,7 @@ export class Editor {
     mutator(nextState);
     const patch = createPatch(this.state, nextState);
     console.log("Generated patch", patch);
-    if (patch.length === 0) return;
+    if ((patch.length === 0) || (this.stateID === undefined)) return;
 
     this.version += 1;
     
@@ -35,7 +32,7 @@ export class Editor {
     console.log("New version after patch", this.version);
 
     this.couch.postPatch({
-         _id: `patch:${String(this.version).padStart(6, "0")}`,
+         _id: `patch:${this.stateID}:${String(this.version).padStart(6, "0")}`,
         type: "patch",
         baseVersion: this.version - 1,
         targetVersion: this.version,
