@@ -4,20 +4,25 @@ import { createPatch } from "#src/brainshare/patching/patch.js";
 import { State } from "#src/brainshare/state_utils.js";
 
 export class Editor {
-  private state: any;
+  private state: State;
   private version: number;
-  private stateID: string;
 
   constructor(private couch: CouchClient) {}
 
   async init() {
-    const snapshot = await this.couch.get<any>();
+    const snapshot = await this.couch.get<any>("doc:main");
+    if (snapshot !== null) {
     this.state = snapshot.state;
     this.version = snapshot.version;
-    this.stateID = snapshot._id;
+    console.log("Initialized editor with state:", this.state);
+    } else {
+      this.state = {} as State;
+      this.version = 0;
+      console.log("Initialized editor with empty state");
+    }
   }
 
-  applyLocalEdit(mutator: (draft: State) => void) {
+  async applyLocalEdit(mutator: (draft: any) => void) {
     const nextState = structuredClone(this.state);
     mutator(nextState);
     const patch = createPatch(this.state, nextState);
@@ -25,18 +30,18 @@ export class Editor {
     if (patch.length === 0) return;
 
     this.version += 1;
-    console.log("New version after patch", this.version);
-    const json_body = {
-      _id: `patch:${String(this.stateID)}:${String(this.version).padStart(6, "0")}`,
-      type: "patch",
-      baseVersion: this.version - 1,
-      targetVersion: this.version,
-      patch,
-      createdAt: new Date().toISOString(),
-    }
-    console.log("Posting patch to CouchDB", json_body);
+    
 
-    this.couch.postPatch({json_body});
+    console.log("New version after patch", this.version);
+
+    this.couch.postPatch({
+         _id: `patch:${String(this.version).padStart(6, "0")}`,
+        type: "patch",
+        baseVersion: this.version - 1,
+        targetVersion: this.version,
+        createdAt: new Date().toISOString(),
+        patch: patch,
+      });
 
     this.state = nextState;
   }

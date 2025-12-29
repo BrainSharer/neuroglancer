@@ -84,7 +84,6 @@ export class MultiUsersTab extends Tab {
 
   private userItems = new Map<string, MultiUsersTabItem>();
   private prevStateGeneration: number | undefined;
-  private version: number = 0;
   private throttledUpdateStateToCouch: () => void;
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
@@ -167,9 +166,9 @@ export class MultiUsersTab extends Tab {
         if (brainState.value !== null) {
           const username = String(userState.value.username);
           const stateID = String(brainState.value.id);
-          const couch = new CouchClient("http://localhost:5984", "neuroglancer", stateID);
-          const editor = new Editor(couch);
-          await editor.init();
+          const couch = new CouchClient("http://localhost:5984", "neuroglancer");
+          const couchEditor = new Editor(couch);
+          await couchEditor.init();
           this.throttledUpdateStateToCouch = debounce(async () => {
             const cacheState = getCachedJson(this.viewerState);
             const { generation, value } = cacheState; 
@@ -180,10 +179,10 @@ export class MultiUsersTab extends Tab {
               // upsertCouchState(stateID, verifyObject(value));
               //sendPatchToCouchDB(stateID, patch);
 
-              editor.applyLocalEdit((draft) => {
-                console.log("Applying local edit to neuroglancer_state draft before =", draft);
-                draft.neuroglancer_state = verifyObject(value);
-                console.log("Applying local edit to neuroglancer_state draft after =", value);
+              couchEditor.applyLocalEdit((snapshot) => {
+                console.log("Applying local edit to neuroglancer_state draft before =", snapshot);
+                snapshot.state = verifyObject(value);
+                console.log("Applying local edit to neuroglancer_state draft after =", snapshot);
               });
 
             }
@@ -279,11 +278,16 @@ export class MultiUsersTab extends Tab {
       headerTextContent = header_editor + " is sharing";
       actionButtonDisplay = "block";
       actionButtonTextContent = editor === "" ? "Share" : "Observe";
-      actionButtonOnclick = () => {
+      actionButtonOnclick = async () => {
         let users: any = {};
         if (editor === "") {
           users = { [username]: true };
-          upsertCouchState(stateID, this.version, getCachedJson(this.viewerState).value);
+          await upsertCouchState("doc:main", 1, getCachedJson(this.viewerState).value);
+          // const couch = new CouchClient("http://localhost:5984", "neuroglancer");
+          // const couchEditor = new Editor(couch);
+          // await couchEditor.init();
+
+
         } else {
           updated_usernames = updated_usernames.filter(user => user !== editor);
           updated_usernames.push(username);
@@ -311,7 +315,7 @@ export class MultiUsersTab extends Tab {
       this.viewerState.reset();
       const couch = new CouchClient(
         "http://localhost:5984",
-        "neuroglancer", stateID
+        "neuroglancer"
       );      
       const viewer = new Viewer(couch, (state) => {
         console.log("Updated state:", state);

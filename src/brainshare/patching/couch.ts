@@ -6,7 +6,6 @@ export class CouchClient {
   constructor(
     private baseUrl: string,
     private dbName: string,
-    private stateID: string
   ) {}
 
   private createHeaders() {
@@ -18,28 +17,62 @@ export class CouchClient {
 }
 
   private url(path: string) {
-    return `${this.baseUrl}/${this.dbName}/${this.stateID}/${path}`;
+    return `${this.baseUrl}/${this.dbName}/${path}`;
   }
 
-  async get<T>(): Promise<T> {
-
-    const response = await fetch(APIs.GET_SET_COUCH_STATE + "/" + parseInt(this.stateID), {
+  async get<T>(id: string): Promise<T | null> {
+    // const stateID = "0"; // Assuming the snapshot document has ID "0"
+    const response = await fetch(this.url(encodeURIComponent(id)), {
       method: "GET",
       headers: this.createHeaders(),
     });
+
+    if (response.status === 404) {
+        // Handle "not found" gracefully
+        return null;
+      }
+
     if (!response.ok) {
       throw new Error(`Failed to get document: ${response.statusText}`);
     }
     return response.json() as Promise<T>;
+  }
 
+  async getPatchVersion(id: string): Promise<number> {
+    let version = 1;
+    // const stateID = "0"; // Assuming the snapshot document has ID "0"
+    const response = await fetch(this.url(encodeURIComponent(id)), {
+      method: "GET",
+      headers: this.createHeaders(),
+    });
 
+    if (response.status === 404) {
+      return version;
+    }
 
+    if (!response.ok) {
+      throw new Error(`Failed to get patch document: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    version = data.targetVersion;
+
+    return version;
   }
 
   async put<T>(id: string, body: T): Promise<void> {
     const res = await fetch(this.url(encodeURIComponent(id)), {
       method: "PUT",
       headers: this.createHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  async post<T>(body: T): Promise<void> {
+    const res = await fetch(this.url(""), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -56,12 +89,19 @@ export class CouchClient {
 
 
   async changes(since: string | number, onChange: (doc: any) => void) {
-    const url = APIs.GET_SET_COUCH_STATE + `/_changes?feed=longpoll&include_docs=true&since=${since}`;
+    const url = `${this.url("_changes")}?feed=longpoll&include_docs=true&since=${since}`
     console.log("CouchDB changes URL:", url);
     const response = await fetch(url, {
       method: "GET",
       headers: this.createHeaders(),
     });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch changes: ${response.status} ${errorText}`);
+  }
+
+
     const data = await response.json();
     console.log("CouchDB changes response data:", data);
     for (const row of data.results) {

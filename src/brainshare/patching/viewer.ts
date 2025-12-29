@@ -13,10 +13,11 @@ export class Viewer {
   ) {}
 
   async init() {
-    const snapshot = await this.couch.get<any>();
+    const snapshot = await this.couch.get<any>("doc:main");
     this.state = snapshot.data;
     this.version = snapshot.version;
     this.onUpdate(this.state);
+    console.log("Initialized viewer with snapshot:", this.state);
 
     await this.catchUp();
     this.listen();

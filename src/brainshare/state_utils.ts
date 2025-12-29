@@ -40,6 +40,7 @@ export interface CouchStateDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
   state: State;
+  type: string;
   version: number;
   updatedAt: string; // ISO date string
 }
@@ -61,9 +62,21 @@ export interface StatePatch {
     type: "patch",
     baseVersion: number,
     targetVersion: number,
-    patch: object,
     createdAt: String,
+    patch: object
 }
+/** 
+{
+  "_id": "patch:000043",
+  "type": "patch",
+  "baseVersion": 42,
+  "targetVersion": 43,
+  "patch": [
+    { "op": "replace", "path": "/nodes/123/name", "value": "New name" }
+  ],
+  "createdAt": "2025-01-01T00:01:00Z"
+}
+*/
 
 interface CouchDbChange {
   seq: string;
@@ -302,10 +315,10 @@ export async function upsertCouchState(stateID: string, version: number, state: 
   }
   
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
-  let couchState: CouchStateDocument = {_id: stateID, "state": state, version: version, updatedAt: new Date().toISOString() };
+  let couchState: CouchStateDocument = {_id: stateID, "type": "snapshot", "version": version, updatedAt: new Date().toISOString(), "state": state  };
   if (revision !== null) { 
     console.log('revision', revision)
-    couchState = {_id: stateID, _rev: revision, "state": state, version: version, updatedAt: new Date().toISOString() };
+    couchState = {_id: stateID, _rev: revision, "type": "snapshot", "version": version, updatedAt: new Date().toISOString(), "state": state };
   }
   updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
 }
