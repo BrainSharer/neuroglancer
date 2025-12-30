@@ -16,7 +16,7 @@ import {
 } from "#src/brainshare/state_utils.js";
 import { verifyObject } from "#src/util/json.js";
 import { APIs } from "#src/brainshare/service.js";
-import { CouchClient } from "#src/brainshare/patching/couch.js";
+import { CouchDB } from "#src/brainshare/patching/couch.js";
 import { Editor } from "#src/brainshare/patching/editor.js";
 import { Viewer } from "#src/brainshare/patching/viewer.js";
 
@@ -85,7 +85,10 @@ export class MultiUsersTab extends Tab {
   private userItems = new Map<string, MultiUsersTabItem>();
   private prevStateGeneration: number | undefined;
   private throttledUpdateStateToCouch: () => void;
-  private couchEditor: Editor;
+  private couchDBClient = new CouchDB();
+  private couchEditor = new Editor(this.couchDBClient);
+  private couchEditorVersion = 1;
+  private couchViewer = new Viewer(this.couchDBClient);
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     stateID: "",
@@ -172,17 +175,13 @@ export class MultiUsersTab extends Tab {
             const { generation, value } = cacheState; 
             if ((generation !== undefined) && (generation !== this.prevStateGeneration) && (brainState.value !== null)) {
               this.prevStateGeneration = cacheState.generation;
-              // const updated_state = verifyObject(brainState.value.neuroglancer_state);
+              const existing_state = verifyObject(brainState.value.neuroglancer_state);
               // const patch = compare(neuroglancer_state, value);
               // upsertCouchState(stateID, verifyObject(value));
               //sendPatchToCouchDB(stateID, patch);
 
-              this.couchEditor.applyLocalEdit((snapshot) => {
-                console.log("Applying local edit to neuroglancer_state draft before =", snapshot);
-                snapshot.state = verifyObject(value);
-                console.log("Applying local edit to neuroglancer_state draft after =", snapshot);
-              });
-
+              await this.couchEditor.applyEdit(stateID, this.couchEditorVersion, existing_state, verifyObject(value));
+              this.couchEditorVersion += 1;
             }
 
           }, 2500);
@@ -280,11 +279,7 @@ export class MultiUsersTab extends Tab {
         let users: any = {};
         if (editor === "") {
           users = { [username]: true };
-          await upsertCouchState(stateID, 1, getCachedJson(this.viewerState).value);
-          const couch = new CouchClient("http://localhost:5984", "neuroglancer", stateID);
-          this.couchEditor = new Editor(couch);
-          await this.couchEditor.init();
-
+          upsertCouchState(stateID, 1, getCachedJson(this.viewerState).value);
 
         } else {
           updated_usernames = updated_usernames.filter(user => user !== editor);
@@ -311,15 +306,17 @@ export class MultiUsersTab extends Tab {
     else if (status === MultiUsersStatus.observing) {
       console.debug('Observing state', stateID);
       this.viewerState.reset();
-      const couch = new CouchClient(
-        "http://localhost:5984",
-        "neuroglancer"
-      );      
-      const viewer = new Viewer(couch, (state) => {
-        console.log("Updated state:", state);
-      });
+      /** Start viewer initialization code */
+      const data = await this.couchViewer.initialize(stateID);
+      console.log("Initial state:", data);
+      this.viewerState.restoreState(verifyObject(data));
 
-      await viewer.init();      
+      this.couchViewer.listen((updated) => {
+        console.log("Live update:", updated);
+        this.viewerState.restoreState(verifyObject(updated));
+      });      
+      /** End viewer initialization code */
+
       /**
       this.stateDocumentListener = listenToDocumentChanges({
         dbUrl: APIs.GET_SET_COUCH_PATCH,

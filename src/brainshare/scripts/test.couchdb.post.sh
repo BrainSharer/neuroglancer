@@ -2,9 +2,17 @@
 #  -u brainaccess:access1 \
 #  -u eddyod:ax11992288 \
 
+{
+  "type": "patch",
+    "baseVersion": {
+	     "$gte": 1
+		    }
+			 }
+
+
 curl \
   -X POST \
+  -u brainaccess:access1 \
   -H "Content-Type: application/json" \
-  -d '{"_id" : "250", "editor": "edward", "otherUsers": []}' \
-http://localhost:5984/users/_changes?feed=continuous&include_docs=true&filter=_doc_ids&since=now
-http://localhost:5984/users/_changes?include_docs=true&filter=filters/by_key&key=
+  -d '{"selector": {"type":"patch", "baseVersion": { "\$gte": 1} } }' \
+http://localhost:5984/neuroglancer/_find

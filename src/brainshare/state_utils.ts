@@ -4,8 +4,7 @@ import { StatusMessage } from "#src/status.js";
 import { WatchableValue } from "#src/trackable_value.js";
 import { APIs } from "#src/brainshare/service.js";
 import { AUTHs} from "#src/brainshare/couchdb_store.js";
-
-import { applyPatch, generate, observe, Observer } from "fast-json-patch";
+import { BaseDoc } from "#src/brainshare/patching/types.js";
 
 
 interface ChangeResult {
@@ -39,10 +38,10 @@ export interface User {
 export interface CouchStateDocument {
   _id: string;          // Unique document ID
   _rev?: string;        // Revision token, optional for new docs
-  state: State;
   type: string;
   version: number;
   updatedAt: string; // ISO date string
+  state: State;
 }
 
 export interface State {
@@ -315,10 +314,10 @@ export async function upsertCouchState(stateID: string, version: number, state: 
   }
   
   const revision = await getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
-  let couchState: CouchStateDocument = {_id: stateID, "type": "snapshot", "version": version, updatedAt: new Date().toISOString(), "state": state  };
+  let couchState: BaseDoc = {_id: stateID, "type": "base", "version": version, "data": state  };
   if (revision !== null) { 
     console.log('revision', revision)
-    couchState = {_id: stateID, _rev: revision, "type": "snapshot", "version": version, updatedAt: new Date().toISOString(), "state": state };
+    couchState = {_id: stateID, _rev: revision, "type": "base", "version": version, "data": state };
   }
   updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
 }

@@ -1,61 +1,79 @@
 // viewer.ts
-import { CouchClient } from "#src/brainshare/patching/couch.js";
-import { applyPatches } from "#src/brainshare/patching/patch.js";
+import { applyPatch } from "fast-json-patch";
+import { CouchDB } from "#src/brainshare/patching/couch.js";
+import { BaseDoc, PatchDoc } from "#src/brainshare/patching/types.js";
 
 export class Viewer {
-  private state: any;
-  private version: number;
-  private seq: string | number = 0;
+  
+  private state: BaseDoc;
+  private since: string | number = "now";
+  private docId: string = "";
 
-  constructor(
-    private couch: CouchClient,
-    private onUpdate: (state: any) => void
-  ) {}
+  constructor(private db: CouchDB) {}
 
-  async init() {
-    const snapshot = await this.couch.get<any>("doc:main");
-    this.state = snapshot.data;
-    this.version = snapshot.version;
-    this.onUpdate(this.state);
-    console.log("Initialized viewer with snapshot:", this.state);
+  async getDocument(id: string): Promise<any> {
+    const base = await this.db.get<BaseDoc>(id);
 
-    await this.catchUp();
-    this.listen();
-  }
+    const patches = await this.db.queryByPrefix("patch:" + id);
+    console.log("Found patches #", patches.length);
 
-  private async catchUp() {
-    const headers = this.couch["createHeaders"]();
-    console.log("Fetching all docs for catch-up with headers:", headers);
-    const res = await fetch(
-      `${this.couch["baseUrl"]}/${this.couch["dbName"]}/_all_docs?include_docs=true`, { headers }
-    );
-    const data = await res.json();
-    console.log("Fetched all docs for catch-up:", data);
+    const sortedPatches = patches
+      .filter((p: PatchDoc) => p.baseVersion >= base.version)
+      .sort((a: PatchDoc, b: PatchDoc) => a.baseVersion - b.baseVersion);
 
-    const patches = data.rows
-      .map((r: any) => r.doc)
-      .filter(
-        (d: any) =>
-          d?.type === "patch" && d.baseVersion >= this.version
-      )
-      .sort((a: any, b: any) => a.targetVersion - b.targetVersion);
+    let doc = structuredClone(base.data);
 
-    for (const p of patches) {
-      this.state = applyPatches(this.state, p.patch);
-      this.version = p.targetVersion;
-      this.onUpdate(this.state);
+    for (const p of sortedPatches) {
+      doc = applyPatch(doc, p.patch, true, false).newDocument;
     }
+
+    return doc;
   }
 
-  private async listen() {
+  async initialize(id: string): Promise<any> {
+    this.docId = id;
+    const base = await this.db.get<BaseDoc>(id);
+    this.state = structuredClone(base.data);
+
+    const patches = await this.db.find({
+      type: "patch",
+      baseVersion: { "$gte": base.version }
+    });
+
+    if (patches === undefined) {
+      console.log("No patches found.");
+      return this.state;
+    }
+
+    patches
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .forEach(p => applyPatch(this.state, p.patch));
+
+    return this.state;
+  }
+
+  async listen(onUpdate: (doc: BaseDoc) => void) {
     while (true) {
-      this.seq = await this.couch.changes(this.seq, (doc) => {
-        if (doc.type === "patch" && doc.baseVersion === this.version) {
-          this.state = applyPatches(this.state, doc.patch);
-          this.version = doc.targetVersion;
-          this.onUpdate(this.state);
+      const result = await this.db.changes(this.since);
+      console.log("Changes result:", result);
+
+      this.since = result.last_seq;
+
+      for (const row of result.results) {
+        console.log("Change row:", row);
+        const doc = row.doc as PatchDoc;
+        console.log("Change doc type:", doc.type);
+        console.log("Change doc doc._id:", doc._id);
+        console.log("Change doc this.docId:", this.docId);
+
+        // need to restrict this more
+        if (doc?.type === "patch") {
+          applyPatch(this.state, doc.patch);
+          this.state.version = doc.baseVersion;
+          onUpdate(this.state);
         }
-      });
+      }
     }
   }
+
 }

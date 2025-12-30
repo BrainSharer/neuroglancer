@@ -1,45 +1,49 @@
 // editor.ts
-import { CouchClient } from "#src/brainshare/patching/couch.js";
-import { createPatch } from "#src/brainshare/patching/patch.js";
-import { State } from "#src/brainshare/state_utils.js";
+import { compare } from "fast-json-patch";
+import { CouchDB } from "#src/brainshare/patching/couch.js";
+import { BaseDoc, PatchDoc } from "#src/brainshare/patching/types.js";
 
 export class Editor {
-  private state: State;
-  private version: number;
-  private stateID: string;
+  constructor(private db: CouchDB) {}
 
-  constructor(private couch: CouchClient) {}
-
-  async init() {
-    this.stateID = this.couch["stateID"];
-    const snapshot = await this.couch.get<any>(this.stateID);
-    this.state = snapshot.state;
-    this.version = snapshot.version;
-    console.log("Initialized editor with state:", this.state);
-    console.log("Initialized editor with stateID:", this.stateID);
+  async loadBase(stateID: string): Promise<BaseDoc> {
+    return this.db.get<BaseDoc>(stateID);
   }
 
-  async applyLocalEdit(mutator: (draft: any) => void) {
-    const nextState = structuredClone(this.state);
-    mutator(nextState);
-    const patch = createPatch(this.state, nextState);
-    console.log("Generated patch", patch);
-    if ((patch.length === 0) || (this.stateID === undefined)) return;
+  async applyEdit(stateID: string, version: number, base: any, updatedData: any) {
+    // const base = await this.loadBase(stateID);
 
-    this.version += 1;
-    
+    const patch = compare(base, updatedData);
 
-    console.log("New version after patch", this.version);
+    if (patch.length === 0) {
+      console.log("No changes.");
+      return;
+    }
 
-    this.couch.postPatch({
-         _id: `patch:${this.stateID}:${String(this.version).padStart(6, "0")}`,
-        type: "patch",
-        baseVersion: this.version - 1,
-        targetVersion: this.version,
-        createdAt: new Date().toISOString(),
-        patch: patch,
-      });
+    const patchId = `patch:${stateID}:${String(version + 1).padStart(8, "0")}`;
+    console.log("Creating patch:", patchId);
 
-    this.state = nextState;
+    const patchDoc: PatchDoc = {
+      _id: patchId,
+      type: "patch",
+      baseVersion: version,
+      patch,
+      timestamp: Date.now(),
+    };
+
+    console.log("Patch doc:", patchDoc);
+
+    // Save patch
+    await this.db.put(patchId, patchDoc);
+
+    // Update base version (not data)
+    /**
+    await this.db.put(base._id, {
+      ...base,
+      version: version + 1,
+    });
+    */
+
+    console.log("Patch saved:", patchId);
   }
 }

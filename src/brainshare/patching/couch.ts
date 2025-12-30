@@ -1,92 +1,80 @@
 // couch.ts
-import { AUTHs} from "#src/brainshare/couchdb_store.js";
+import { AUTHs } from "#src/brainshare/couchdb_store.js";
 import { APIs } from "#src/brainshare/service.js";
 
-export class CouchClient {
-  constructor(
-    private baseUrl: string,
-    private dbName: string,
-    private stateID: string
-  ) {}
 
-  private createHeaders() {
+// couch.ts
+export class CouchDB {
+  private baseUrl = APIs.GET_SET_COUCH_STATE;
+
+  constructor() { }
+
+  private headers() {
+    let headers: any = { "Content-Type": "application/json" };
     const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    return {
-      "Content-Type": "application/json",
-      "Authorization": `Basic ${credentials}`,
-    };
-}
-
-  private url(path: string) {
-    return `${this.baseUrl}/${this.dbName}/${path}`;
+    headers["Authorization"] = `Basic ${credentials}`;
+    return headers;
   }
 
-  async get<T>(id: string): Promise<T | null> {
-    if (!id) return null;
-    // const stateID = "0"; // Assuming the snapshot document has ID "0"
-    const response = await fetch(this.url(encodeURIComponent(id)), {
-      method: "GET",
-      headers: this.createHeaders(),
+  async get<T>(id: string): Promise<T> {
+    const res = await fetch(`${this.baseUrl}/${id}`, {
+      headers: this.headers(),
     });
-
-    if (response.status === 404) {
-        // Handle "not found" gracefully
-        return null;
-      }
-
-    if (!response.ok) {
-      throw new Error(`Failed to get document: ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
-  async put<T>(id: string, body: T): Promise<void> {
-    const res = await fetch(this.url(encodeURIComponent(id)), {
+  async put<T>(id: string, body: T): Promise<T> {
+    const url = `${this.baseUrl}/${id}`;
+    const res = await fetch(url, {
       method: "PUT",
-      headers: this.createHeaders(),
+      headers: this.headers(),
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(await res.text());
+    return res.json();
   }
 
-  async post<T>(body: T): Promise<void> {
-    const res = await fetch(this.url(""), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+  async queryByPrefix(prefix: string): Promise<any[]> {
+    const url = `${this.baseUrl}/_all_docs?include_docs=true&startkey="${prefix}"&endkey="${prefix}\ufff0"`;
+    const res = await fetch(url,
+      { headers: this.headers() }
+    );
+    const json = await res.json();
+
     if (!res.ok) throw new Error(await res.text());
+
+    return json.rows.map((r: any) => r.doc);
   }
 
-  async postPatch<T>(body: T): Promise<void> {
-    const response = await fetch(APIs.GET_SET_COUCH_STATE, {
+  async find(selector: any): Promise<any[]> {
+    console.log("CouchDB find selector:", selector);
+    const url = this.baseUrl + "/_find";
+    const res = await fetch(url, {
       method: "POST",
-      headers: this.createHeaders(),
-      body: JSON.stringify(body),
+      headers: this.headers(),
+      body: JSON.stringify({ selector }),
     });
-    if (!response.ok) throw new Error(await response.text());
+    const json = await res.json();
+    return json.docs;
   }
 
+  async changes(since: string | number, filter?: string) {
+    // const url = new URL(this.baseUrl("_changes"));
+    const url = new URL(this.baseUrl + "/_changes");
+    url.searchParams.set("feed", "longpoll");
+    url.searchParams.set("since", since.toString());
+    url.searchParams.set("include_docs", "true");
+    if (filter) url.searchParams.set("filter", filter);
 
-  async changes(since: string | number, onChange: (doc: any) => void) {
-    const url = `${this.url("_changes")}?feed=longpoll&include_docs=true&since=${since}`
-    console.log("CouchDB changes URL:", url);
-    const response = await fetch(url, {
-      method: "GET",
-      headers: this.createHeaders(),
+    const res = await fetch(url.toString(), {
+      headers: this.headers(),
     });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to fetch changes: ${response.status} ${errorText}`);
+    
+    if (!res.ok) throw new Error(await res.text());
+    
+    return res.json();
   }
+  
 
-
-    const data = await response.json();
-    console.log("CouchDB changes response data:", data);
-    for (const row of data.results) {
-      if (row.doc) onChange(row.doc);
-    }
-    return data.last_seq;
-  }
 }
