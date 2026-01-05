@@ -9,16 +9,10 @@ import { getCachedJson } from "#src/util/trackable.js";
 import { makeIcon } from "#src/widget/icon.js";
 import { Tab } from "#src/widget/tab_view.js";
 import { WatchableValue } from "#src/trackable_value.js";
-import {
-  brainState, userState, upsertCouchUser, fetchUserDocument,
-  listenToDocumentChanges,
-  upsertCouchState,
-} from "#src/brainshare/state_utils.js";
+import { brainState, userState} from "#src/brainshare/state_utils.js";
 import { verifyObject } from "#src/util/json.js";
 import { APIs } from "#src/brainshare/service.js";
 import { CouchDB } from "#src/brainshare/patching/couch.js";
-import { Editor } from "#src/brainshare/patching/editor.js";
-import { Viewer } from "#src/brainshare/patching/viewer.js";
 
 enum MultiUsersStatus {
   disabled = 1,
@@ -40,6 +34,7 @@ class MultiUsersTabItem extends RefCounted {
   numberElement = document.createElement("div");
   textElement = document.createElement("div");
   swapButton: HTMLElement;
+  private couchDBClient = new CouchDB();
 
   constructor(
     private otherUsername: string,
@@ -58,7 +53,6 @@ class MultiUsersTabItem extends RefCounted {
       svg: svg_swap_horizontal,
       title: "swap",
       onClick: () => {
-        // const doc: any = {[editor]: false, [this.otherUsername]: true};
         let users: any = { [editor]: true };
         updated_usernames = updated_usernames.filter(user => user !== editor);
         users[editor] = false;
@@ -66,7 +60,9 @@ class MultiUsersTabItem extends RefCounted {
           users[user] = false;
         });
         users[this.otherUsername] = true;
-        upsertCouchUser(stateID, users);
+        this.couchDBClient.upsertCouchUser(stateID, users);
+        console.log('Swap button clicked this.otherUsername:', this.otherUsername);
+        console.log('Swap button clicked editor:', editor);
       },
     });
     this.swapButton.classList.add("neuroglancer-multi-users-tab-item-icon");
@@ -86,9 +82,6 @@ export class MultiUsersTab extends Tab {
   private prevStateGeneration: number | undefined;
   private throttledUpdateStateToCouch: () => void;
   private couchDBClient = new CouchDB();
-  private couchEditor = new Editor(this.couchDBClient);
-  private couchEditorVersion = 1;
-  private couchViewer = new Viewer(this.couchDBClient);
 
   private multiUsersState = new WatchableValue<MultiUsersState>({
     stateID: "",
@@ -159,7 +152,7 @@ export class MultiUsersTab extends Tab {
    * listens for changes in the user document to keep the multi-user status synchronized.
    * Currently, it checks every 2500ms (2.5 seconds) for changes in the state.
    */
-  private async stateUpdated() {
+  private stateUpdated() {
 
     if (userState.value !== null) {
       if (userState.value.id === 0) {
@@ -173,23 +166,18 @@ export class MultiUsersTab extends Tab {
           this.throttledUpdateStateToCouch = debounce(async () => {
             const cacheState = getCachedJson(this.viewerState);
             const { generation, value } = cacheState; 
-            if ((generation !== undefined) && (generation !== this.prevStateGeneration) && (brainState.value !== null)) {
+            if ((generation !== undefined) && (generation !== this.prevStateGeneration)) {
               this.prevStateGeneration = cacheState.generation;
-              const existing_state = verifyObject(brainState.value.neuroglancer_state);
-              // const patch = compare(neuroglancer_state, value);
-              // upsertCouchState(stateID, verifyObject(value));
-              //sendPatchToCouchDB(stateID, patch);
-
-              await this.couchEditor.applyEdit(stateID, this.couchEditorVersion, existing_state, verifyObject(value));
-              this.couchEditorVersion += 1;
+              // const existing_state = brainState.value.neuroglancer_state;
+              // await this.couchEditor.applyEdit(existing_state, value);
+              this.couchDBClient.upsertCouchState(stateID, verifyObject(value))
             }
-
           }, 2500);
 
           /**  Check user status right away and then setup the listener */
           this.updateMultiUsersStatus();
 
-          this.userDocumentListener = listenToDocumentChanges({
+          this.userDocumentListener = this.couchDBClient.listenToDocumentChanges({
             dbUrl: APIs.GET_SET_COUCH_USER,
             docId: stateID,
             onChange: (change) => {
@@ -275,12 +263,10 @@ export class MultiUsersTab extends Tab {
       headerTextContent = header_editor + " is sharing";
       actionButtonDisplay = "block";
       actionButtonTextContent = editor === "" ? "Share" : "Observe";
-      actionButtonOnclick = async () => {
+      actionButtonOnclick = () => {
         let users: any = {};
         if (editor === "") {
           users = { [username]: true };
-          upsertCouchState(stateID, 1, getCachedJson(this.viewerState).value);
-
         } else {
           updated_usernames = updated_usernames.filter(user => user !== editor);
           updated_usernames.push(username);
@@ -289,7 +275,7 @@ export class MultiUsersTab extends Tab {
             users[user] = false;
           });
         }
-        upsertCouchUser(stateID, users);
+        this.couchDBClient.upsertCouchUser(stateID, users);
       }
     }
     else if (status === MultiUsersStatus.sharing) {
@@ -300,54 +286,55 @@ export class MultiUsersTab extends Tab {
       actionButtonTextContent = "Stop";
       actionButtonOnclick = () => {
         const users: any = {};
-        upsertCouchUser(stateID, users);
+        this.couchDBClient.upsertCouchUser(stateID, users);
       };
     }
     else if (status === MultiUsersStatus.observing) {
       console.debug('Observing state', stateID);
       this.viewerState.reset();
-      /** Start viewer initialization code */
-      const data = await this.couchViewer.initialize(stateID);
-      console.log("Initial state:", data);
-      this.viewerState.restoreState(verifyObject(data));
-
-      this.couchViewer.listen((updated) => {
-        console.log("Live update:", updated);
-        this.viewerState.restoreState(verifyObject(updated));
-      });      
-      /** End viewer initialization code */
-
-      /**
-      this.stateDocumentListener = listenToDocumentChanges({
-        dbUrl: APIs.GET_SET_COUCH_PATCH,
+      const baseDoc = await this.couchDBClient.fetchStateDocument(stateID);
+      if ((baseDoc !== null) && (baseDoc.data !== undefined)) {
+        const state: object = baseDoc.data;
+        if (state !== undefined && typeof state === "object") {
+          console.debug('Restoring viewer state from baseDoc:');
+          this.viewerState.restoreState(verifyObject(state));
+        } else {
+          console.error('Base document data is either null or undefined', state);
+        }
+      } else {
+        console.error('Base document is null or has no data');
+      }
+      /** Start viewer initialization and listener code */
+      this.stateDocumentListener = this.couchDBClient.listenToDocumentChanges({
+        dbUrl: APIs.GET_SET_COUCH_STATE,
         docId: stateID,
         onChange: (change) => {
-          console.log('State patch change detected while observing:', change);
-          const data = change.doc;
-          if ((data !== undefined) && (data.patch !== undefined)) {
-            const patch = data.patch;
-            console.log('Patch document data:', patch);
-            if (typeof patch === 'object' && brainState.value?.neuroglancer_state !== undefined) {
+          console.debug('State change detected while observing:', change);
+          console.debug('State change detected while observing:', change.doc);
+          console.debug('State change detected while observing change.doc.data:', change.doc.data);
+          const baseDoc = change.doc;
+          if ((baseDoc !== undefined) && (baseDoc.data !== undefined)) {
+            const state: object = baseDoc.data;
+            if (state !== undefined && typeof state === "object") {
+              console.debug('State document change detected:');
+              console.debug(state);
               this.viewerState.reset();
 
               try {
-                console.log('Trying to apply patch to viewerState:');
-                const newState = applyPatch(brainState.value.neuroglancer_state, patch).newDocument;
-                this.viewerState.restoreState(verifyObject(newState));
-                brainState.value.neuroglancer_state = verifyObject(newState);
                 this.viewerState.restoreState(verifyObject(state));
               } catch (error) {
                 console.error('Error restoring state from document change:', error);
               }
             } else {
-              console.error('State document change detected but either null or undefined', patch);
+              console.error('State document change detected but either null or undefined', state);
             }
           } else {
             console.error('State document change detected but no data');
           }
         }
       });
-      */
+      /** End viewer initialization code */
+
 
       // Update UI
       headerTextContent = "You are observing " + editor;
@@ -366,7 +353,7 @@ export class MultiUsersTab extends Tab {
         console.debug('updated usernames:', updated_usernames);
         console.debug('users:', users);
 
-        upsertCouchUser(stateID, users);
+        this.couchDBClient.upsertCouchUser(stateID, users);
         console.debug('We need to remove state listener in observing');
         this.stateDocumentListener.stop();
       };
@@ -418,7 +405,7 @@ export class MultiUsersTab extends Tab {
     const username = String(userState.value.username);
     const stateID = String(brainState.value.id);
 
-    fetchUserDocument(stateID).then((result) => {
+    this.couchDBClient.fetchUserDocument(stateID).then((result) => {
       console.debug('fetchuserDocument result:', result);
       if ((result !== null) && (result.users !== undefined) && (Object.keys(result.users).length !== 0)) {
         const data = result.users;

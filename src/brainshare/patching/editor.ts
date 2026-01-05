@@ -2,48 +2,89 @@
 import { compare } from "fast-json-patch";
 import { CouchDB } from "#src/brainshare/patching/couch.js";
 import { BaseDoc, PatchDoc } from "#src/brainshare/patching/types.js";
+import { APIs } from "#src/brainshare/service.js";
 
 export class Editor {
-  constructor(private db: CouchDB) {}
 
-  async loadBase(stateID: string): Promise<BaseDoc> {
-    return this.db.get<BaseDoc>(stateID);
+  private doc: BaseDoc;
+
+  constructor(private db: CouchDB, private docId: string, data: object) {
+    this.doc = {
+      _id: docId,
+      type: "base",
+      version: 0,
+      data: data,
+    };
   }
 
-  async applyEdit(stateID: string, version: number, base: any, updatedData: any) {
-    // const base = await this.loadBase(stateID);
+  async init(): Promise<void> {
+    // await this.db.put<BaseDoc>(this.docId, this.doc);
+    const selector =  { type: "patch", stateID: this.docId};
+    const version = await this.db.findLastPatch(selector);
+    const revision = await this.db.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, this.docId);
+    if (revision !== null) {
+      this.doc._rev = revision;
+      this.doc.version = version;
+    }
 
-    const patch = compare(base, updatedData);
+    await this.db.updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, this.docId, this.doc);
 
-    if (patch.length === 0) {
+  }
+
+  async applyEdit(preEdit: object, postEdit: object) {
+    // base is the JSON value of the neuroglancer state before edit
+    // updatedData is the JSON value of the neuroglancer state after edit
+    let preEditSorted = deepSortObjectKeys(preEdit);
+    let postEditSorted = deepSortObjectKeys(postEdit);
+    const patchValue = compare(preEditSorted, postEditSorted);
+
+    if (patchValue.length === 0) {
       console.log("No changes.");
       return;
     }
 
-    const patchId = `patch:${stateID}:${String(version + 1).padStart(8, "0")}`;
-    console.log("Creating patch:", patchId);
+    const nextVersion = this.doc.version + 1;
+    const patchId = `patch:${this.docId}:${String(nextVersion).padStart(9, "0")}`;
 
     const patchDoc: PatchDoc = {
       _id: patchId,
       type: "patch",
-      baseVersion: version,
-      patch,
+      stateID: this.docId,
+      version: nextVersion,
+      patch: patchValue,
       timestamp: Date.now(),
     };
+    console.log("Computed patchDoc:", patchDoc);
+    // save patch
+    await this.db.put(patchDoc._id, patchDoc);
+    console.log("Saving new patch at:", patchId);
+    this.doc.version = nextVersion;
+    // update base document version
+    //await this.db.upsertCouchState(this.docId, this.doc);
+    await this.db.updateCouchStateVersion(this.docId, this.doc);
 
-    console.log("Patch doc:", patchDoc);
-
-    // Save patch
-    await this.db.put(patchId, patchDoc);
-
-    // Update base version (not data)
-    /**
-    await this.db.put(base._id, {
-      ...base,
-      version: version + 1,
-    });
-    */
-
-    console.log("Patch saved:", patchId);
   }
+}
+
+function deepSortObjectKeys<T>(unordered: T): T {
+  if (!unordered || typeof unordered !== 'object') {
+    return unordered;
+  }
+
+  // Handle arrays by sorting their elements recursively
+  if (Array.isArray(unordered)) {
+    // Optionally sort the array elements if they are comparable
+    return unordered.map(deepSortObjectKeys) as unknown as T;
+  }
+
+  // Handle objects
+  const ordered: Record<string, unknown> = {};
+  Object.keys(unordered)
+    .sort() // Sort keys alphabetically
+    .forEach((key) => {
+      // Recursively sort nested values
+      ordered[key] = deepSortObjectKeys((unordered as Record<string, unknown>)[key]);
+    });
+
+  return ordered as T;
 }

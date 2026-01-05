@@ -5,75 +5,70 @@ import { BaseDoc, PatchDoc } from "#src/brainshare/patching/types.js";
 
 export class Viewer {
   
-  private state: BaseDoc;
+  private baseDoc!: BaseDoc;
   private since: string | number = "now";
   private docId: string = "";
+  private running: boolean = false;
 
   constructor(private db: CouchDB) {}
 
-  async getDocument(id: string): Promise<any> {
-    const base = await this.db.get<BaseDoc>(id);
 
-    const patches = await this.db.queryByPrefix("patch:" + id);
-    console.log("Found patches #", patches.length);
-
-    const sortedPatches = patches
-      .filter((p: PatchDoc) => p.baseVersion >= base.version)
-      .sort((a: PatchDoc, b: PatchDoc) => a.baseVersion - b.baseVersion);
-
-    let doc = structuredClone(base.data);
-
-    for (const p of sortedPatches) {
-      doc = applyPatch(doc, p.patch, true, false).newDocument;
-    }
-
-    return doc;
-  }
-
-  async initialize(id: string): Promise<any> {
+  async initialize(id: string): Promise<BaseDoc> {
     this.docId = id;
-    const base = await this.db.get<BaseDoc>(id);
-    this.state = structuredClone(base.data);
+    this.baseDoc = await this.db.get<BaseDoc>(id);
+    this.running = true;
+    
 
-    const patches = await this.db.find({
+    const patches = await this.db.findLatestPatches({
       type: "patch",
-      baseVersion: { "$gte": base.version }
+      stateID: id,
+      version: this.baseDoc.version
     });
 
     if (patches === undefined) {
       console.log("No patches found.");
-      return this.state;
+    } else {
+      console.log(`Found ${patches.length} patches.`);
     }
 
     patches
       .sort((a, b) => a.timestamp - b.timestamp)
-      .forEach(p => applyPatch(this.state, p.patch));
-
-    return this.state;
+      .forEach((p: PatchDoc) => {
+        console.log("Applying patch:", p.version);
+        applyPatch(this.baseDoc.data, p.patch);
+      });
+    
+    return this.baseDoc;
   }
 
-  async listen(onUpdate: (doc: BaseDoc) => void) {
-    while (true) {
+  async listen(onUpdate: (baseDoc: BaseDoc) => void) {
+    while (this.running) {
       const result = await this.db.changes(this.since);
-      console.log("Changes result:", result);
+
+      console.log("Changes result length:", result.results.length );
 
       this.since = result.last_seq;
 
       for (const row of result.results) {
-        console.log("Change row:", row);
-        const doc = row.doc as PatchDoc;
-        console.log("Change doc type:", doc.type);
-        console.log("Change doc doc._id:", doc._id);
-        console.log("Change doc this.docId:", this.docId);
+        const p = row.doc as PatchDoc;
 
         // need to restrict this more
-        if (doc?.type === "patch") {
-          applyPatch(this.state, doc.patch);
-          this.state.version = doc.baseVersion;
-          onUpdate(this.state);
+        if ((p?.type === "patch") && (p.stateID === this.docId)) {
+          console.log("Applying listen patch:", p.version);
+          try {
+            applyPatch(this.baseDoc.data, p.patch);
+          } catch (error) {
+            console.error("Error applying patch:", error);
+          }
+          this.baseDoc.version = p.version;          
+          onUpdate(this.baseDoc);
         }
       }
     }
+  }
+
+  stop() {
+    this.running = false;
   }
 
 }
