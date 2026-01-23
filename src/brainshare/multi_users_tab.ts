@@ -309,15 +309,11 @@ export class MultiUsersTab extends Tab {
         dbUrl: APIs.GET_SET_COUCH_STATE,
         docId: stateID,
         onChange: (change) => {
-          console.debug('State change detected while observing:', change);
-          console.debug('State change detected while observing:', change.doc);
-          console.debug('State change detected while observing change.doc.data:', change.doc.data);
           const baseDoc = change.doc;
           if ((baseDoc !== undefined) && (baseDoc.data !== undefined)) {
             const state: object = baseDoc.data;
             if (state !== undefined && typeof state === "object") {
               console.debug('State document change detected:');
-              console.debug(state);
               this.viewerState.reset();
 
               try {
