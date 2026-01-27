@@ -151,6 +151,9 @@ export class MultiUsersTab extends Tab {
    * The method ensures that state updates are throttled to avoid excessive updates and
    * listens for changes in the user document to keep the multi-user status synchronized.
    * Currently, it checks every 2500ms (2.5 seconds) for changes in the state.
+   * The update timing needs to be reduced. 2500 is too long for a good user experience.
+   * It used to be 10. 
+   * Test 1 at 1000
    */
   private stateUpdated() {
 
@@ -172,7 +175,7 @@ export class MultiUsersTab extends Tab {
               // await this.couchEditor.applyEdit(existing_state, value);
               this.couchDBClient.upsertCouchState(stateID, verifyObject(value))
             }
-          }, 2500);
+          }, 1000);
 
           /**  Check user status right away and then setup the listener */
           this.updateMultiUsersStatus();
@@ -291,12 +294,12 @@ export class MultiUsersTab extends Tab {
     }
     else if (status === MultiUsersStatus.observing) {
       console.debug('Observing state', stateID);
-      this.viewerState.reset();
       const baseDoc = await this.couchDBClient.fetchStateDocument(stateID);
       if ((baseDoc !== null) && (baseDoc.data !== undefined)) {
         const state: object = baseDoc.data;
         if (state !== undefined && typeof state === "object") {
           console.debug('Restoring viewer state from baseDoc:');
+          this.viewerState.reset();
           this.viewerState.restoreState(verifyObject(state));
         } else {
           console.error('Base document data is either null or undefined', state);
@@ -314,8 +317,7 @@ export class MultiUsersTab extends Tab {
             const state: object = baseDoc.data;
             if (state !== undefined && typeof state === "object") {
               console.debug('State document change detected:');
-              this.viewerState.reset();
-
+              // this.viewerState.reset();
               try {
                 this.viewerState.restoreState(verifyObject(state));
               } catch (error) {

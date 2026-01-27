@@ -261,6 +261,8 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to update document: ${response.status} ${errorText}`);
+    } else {
+      console.debug(`Successfully updated document with _id: ${_id} and data: `, updatedDoc);
     }
 
     return await response.json();
@@ -370,11 +372,11 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
   async upsertCouchUser(stateID: string, users: any) {
     console.debug("method upsertCouchUser with ID: " + stateID + " and users: ", users);
     const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
-    let couchState: CouchUserDocument = { _id: stateID, users };
+    let couchUsers: CouchUserDocument = { _id: stateID, users };
     if (revision !== null) {
-      couchState = { _id: stateID, _rev: revision, users };
+      couchUsers = { _id: stateID, _rev: revision, users };
     }
-    await this.updateCouchDBDocument(APIs.GET_SET_COUCH_USER, stateID, couchState);
+    await this.updateCouchDBDocument(APIs.GET_SET_COUCH_USER, stateID, couchUsers);
   }
 
 
