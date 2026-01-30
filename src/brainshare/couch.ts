@@ -1,14 +1,12 @@
 // couch.ts
 import { AUTHs } from "#src/brainshare/couchdb_store.js";
 import { APIs } from "#src/brainshare/service.js";
-import { BaseDoc, ChangesFeed, CouchUserDocument, ListenOptions, PatchDoc } from "#src/brainshare/patching/types.js";
+import { BaseDoc, ChangesFeed, CouchUserDocument, ListenOptions } from "#src/brainshare/types.js";
 
 
 // couch.ts
 export class CouchDB {
   private baseUrl = APIs.GET_SET_COUCH_STATE;
-  public limit: number = 100;
-  public base: BaseDoc;
 
   constructor() { }
 
@@ -23,7 +21,7 @@ export class CouchDB {
     return headers;
   }
 
-  async get<T>(id: string): Promise<T> {
+  public async get<T>(id: string): Promise<T> {
     const res = await fetch(`${this.baseUrl}/${id}`, {
       headers: this.headers(),
     });
@@ -31,7 +29,7 @@ export class CouchDB {
     return res.json();
   }
 
-  async put<T>(id: string, body: T): Promise<void> {
+  public async put<T>(id: string, body: T): Promise<void> {
     const url = `${this.baseUrl}/${id}`;
     const response = await fetch(url, {
       method: "PUT",
@@ -42,7 +40,7 @@ export class CouchDB {
     // return response.json();
   }
 
-  async post<T>(body: T): Promise<void> {
+  public async post<T>(body: T): Promise<void> {
     const response = await fetch(this.url(""), {
       method: "POST",
       headers: this.headers(),
@@ -51,138 +49,25 @@ export class CouchDB {
     if (!response.ok) throw new Error(await response.text());
   }
 
-  async queryByPrefix(prefix: string): Promise<any[]> {
-    const url = `${this.baseUrl}/_all_docs?include_docs=true&startkey="${prefix}"&endkey="${prefix}\ufff0"`;
-    const response = await fetch(url,
-      { headers: this.headers() }
-    );
-    const json = await response.json();
 
-    if (!response.ok) throw new Error(await response.text());
-
-    return json.rows.map((r: any) => r.doc);
-  }
-
-  async find(selector: any): Promise<any[]> {
-    console.log("CouchDB find selector:", selector);
-    const url = this.baseUrl + "/_find";
-    const response = await fetch(url, {
-      method: "POST",
-      headers: this.headers(),
-      
-    });
-    const json = await response.json();
-    return json.docs;
-  }
-
-async findLatestPatches(selector: any): Promise<PatchDoc[]> {
-  const response = await fetch(`${this.baseUrl}/_find`, {
-    method: "POST",
-    headers: this.headers(),
-    body: JSON.stringify({
-      selector: {
-        ...selector,
-        timestamp: { "$exists": true }
-      },
-      sort: [{ timestamp: "desc" }],
-      limit: this.limit,
-      use_index: "timestamp-index"
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`CouchDB query failed: ${text}`);
-  }
-
-  const data = await response.json();
-  return data.docs;
-}
-
-
-  async findLastPatch(selector: any): Promise<number> {
-    console.log("CouchDB find lastest patch selector:", selector);
-    const url = this.baseUrl + "/_find";
-    const fieldName = "version";
-    const response = await fetch(url, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify({
-        selector: {
-          ...selector,
-          timestamp: { "$exists": true }
-        },
-        sort: [{ timestamp: "desc" }],
-        limit: this.limit,
-        fields: [fieldName],
-        use_index: "timestamp-index"
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`CouchDB error: ${response.statusText}`);
-    }
-
-    let latestVersion = 1;
-    const data = await response.json();
-    if (!data.docs || data.docs.length === 0) {
-      console.log("No patches found, starting from version 1.");
-      return latestVersion; // start from 1 if no documents exist
-    }
-
-    const maxValue = data.docs.reduce((max: number, doc: { [x: string]: any; }) => {
-      const value = Number(doc[fieldName]);
-      return Number.isFinite(value) && value > max ? value : max;
-    }, 0);
-
-    return maxValue + 1;
-  }
-
-  async changes(since: string | number, filter?: string) {
-    const url = new URL(this.baseUrl + "/_changes");
-    url.searchParams.set("feed", "longpoll");
-    url.searchParams.set("since", since.toString());
-    url.searchParams.set("include_docs", "true");
-    url.searchParams.set("limit", this.limit.toString());
-    if (filter) url.searchParams.set("filter", filter);
-
-    const response = await fetch(url.toString(), {
-      headers: this.headers(),
-    });
-
-    if (!response.ok) throw new Error(await response.text());
-
-    return response.json();
-  }
-
-  /** putting static methods into the class */
-  async updateCouchStateVersion(stateID: string, couchState: BaseDoc): Promise<BaseDoc> {
-    const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
-    if (revision !== null) {
-      couchState._rev = revision;
-    }
-    const newDoc: BaseDoc = await this.updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
-    return newDoc;
-  }
-
-  async upsertCouchState(stateID: string, state: object) {
+  public async upsertCouchState(stateID: string, state: object): Promise<string | null> {
     if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
       console.debug("Upserting the State interface structure");
     } else {
       console.error("state is not a neuroglancer json");
       console.error(state);
-      return;
+      return null;
     }
     const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
     let couchState: BaseDoc = { _id: stateID, "type": "base", "version": 0, "data": state };
     if (revision !== null) {
       couchState = { _id: stateID, _rev: revision, "type": "base", "version": 0, "data": state };
     }
-    this.base = couchState;
-    this.updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
+    let new_revision = await this.updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
+    return new_revision._rev || null;
   }
 
-  async getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
+  private async getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
     const changesUrl = `${dbUrl}/_changes?filter=_doc_ids&include_docs=false&descending=false`;
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -204,11 +89,11 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
     }
 
     const data: ChangesFeed = await response.json();
-    const change = data.results.find(change => change.id === docId);
+    const change = data.results.find((change: { id: string; }) => change.id === docId);
     return change?.changes[0]?.rev || null;
   }
 
-  async fetchStateDocument(stateID: string): Promise<BaseDoc | null> {
+  public async fetchStateDocument(stateID: string): Promise<BaseDoc | null> {
     const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
     if (revision === null) {
       console.error("No state found when looking for revision");
@@ -239,7 +124,7 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
 
   /** Generic couch DB methods */
 
-  async updateCouchDBDocument<T>(dbUrl: string, _id: string, updatedDoc: T): Promise<T> {
+  private async updateCouchDBDocument<T>(dbUrl: string, _id: string, updatedDoc: T): Promise<T> {
     if (!_id) {
       throw new Error("Document must have _id ");
     }
@@ -258,17 +143,19 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
       body: JSON.stringify(updatedDoc),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to update document: ${response.status} ${errorText}`);
-    } else {
-      console.debug(`Successfully updated document with _id: ${_id} and data: `, updatedDoc);
+    if (response.status === 409) {
+      console.warn(`Conflict detected when updating document with _id: ${_id}`);
     }
 
-    return await response.json();
+    if (response.ok) {
+      return await response.json();
+    } else {
+      const errorText = await response.text();
+      throw new Error(`Failed to update document: ${errorText}`);
+    }
   }
 
-  listenToDocumentChanges(options: ListenOptions) {
+  public listenToDocumentChanges(options: ListenOptions) {
     const { dbUrl, docId, since = 'now', onChange, onError } = options;
     const url = new URL(`${dbUrl}/_changes`);
     url.searchParams.append('feed', 'continuous');
@@ -344,7 +231,7 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
     };
   }
 
-  async fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
+  public async fetchUserDocument(stateID: string): Promise<CouchUserDocument | null> {
     const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
     if (revision === null) {
       return null;
@@ -369,7 +256,7 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
   }
 
 
-  async upsertCouchUser(stateID: string, users: any) {
+  public async upsertCouchUser(stateID: string, users: any) {
     console.debug("method upsertCouchUser with ID: " + stateID + " and users: ", users);
     const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_USER, stateID);
     let couchUsers: CouchUserDocument = { _id: stateID, users };
@@ -380,5 +267,40 @@ async findLatestPatches(selector: any): Promise<PatchDoc[]> {
   }
 
 
-
 } // end class
+
+
+export function objectsAreEqual(obj1: any, obj2: any): boolean {
+    // Check for strict equality (handles primitives, null, undefined)
+    if (obj1 === obj2) return true;
+
+    // Check if both are objects and not null
+    if (typeof obj1 !== 'object' || obj1 === null || typeof obj2 !== 'object' || obj2 === null) {
+        return false;
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj1) && Array.isArray(obj2)) {
+        if (obj1.length !== obj2.length) return false;
+        for (let i = 0; i < obj1.length; i++) {
+            if (!objectsAreEqual(obj1[i], obj2[i])) return false;
+        }
+        return true;
+    } else if (Array.isArray(obj1) || Array.isArray(obj2)) {
+        return false; // One is an array, the other isn't
+    }
+
+    // Handle regular objects
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+
+    if (keys1.length !== keys2.length) return false;
+
+    for (const key of keys1) {
+        if (!keys2.includes(key) || !objectsAreEqual(obj1[key], obj2[key])) {
+            return false;
+        }
+    }
+
+    return true;
+}

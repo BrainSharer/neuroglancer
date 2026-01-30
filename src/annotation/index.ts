@@ -1610,10 +1610,7 @@ export class AnnotationSource
     /* BRAINSHARE ENDS */
 
     reference.changed.dispatch();
-    /* BRAINSHARE STARTS */
-    // This was screwing up the resetting of the annotation source
     this.changed.dispatch(); 
-    /* BRAINSHARE ENDS */
     this.childUpdated.dispatch(annotation);
   }
 

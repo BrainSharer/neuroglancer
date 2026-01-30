@@ -2268,7 +2268,7 @@ export class PlaceVolumeTool extends PlaceCollectionAnnotationTool {
         );
         const reference = annotationLayer.source.add(
           annotation,
-          //commit= 
+          //commit= false,
           false,
         );
         const disposer = () => reference.dispose();
@@ -2577,6 +2577,7 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           parentRef,
           index,
         );
+
         this.layer.selectAnnotation(annotationLayer, reference.id, true);
         childTool.trigger(mouseState, reference);
 

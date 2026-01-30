@@ -1,6 +1,3 @@
-// types.ts
-import { Operation } from "fast-json-patch";
-
 interface ChangeResult {
     seq: string;
     id: string;
@@ -43,16 +40,6 @@ export interface BaseDoc {
     type: "base";
     version: number;
     data: any;
-}
-
-export interface PatchDoc {
-    _id: string;
-    _rev?: string;
-    type: "patch";
-    stateID: string;
-    version: number;
-    patch: Operation[];
-    timestamp: number;
 }
 
 export interface State {
