@@ -50,37 +50,63 @@ export class CouchDB {
   }
 
 
-  public async upsertCouchState(stateID: string, state: object): Promise<string | null> {
+  public async upsertCouchStateXXX(stateID: string, state: object): Promise<void> {
     if (typeof state === 'object' && state !== null && 'position' in state && 'selectedLayer' in state) {
       console.debug("Upserting the State interface structure");
     } else {
       console.error("state is not a neuroglancer json");
       console.error(state);
-      return null;
     }
     const revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
     let couchState: BaseDoc = { _id: stateID, "type": "base", "version": 0, "data": state };
     if (revision !== null) {
       couchState = { _id: stateID, _rev: revision, "type": "base", "version": 0, "data": state };
     }
-    let new_revision = await this.updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
-    return new_revision._rev || null;
+    this.updateCouchDBDocument(APIs.GET_SET_COUCH_STATE, stateID, couchState);
+  }
+
+  public async upsertCouchState(stateID: string, state: object): Promise<void> {
+    let attempt = 0;
+    const retries = 5;
+    const delayMs = 10;
+    const url = `${this.baseUrl}/${encodeURIComponent(stateID)}`;
+
+    while (attempt <= retries) {
+      attempt++
+      let revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
+      let updatedDoc: BaseDoc = { _id: stateID, "type": "base", "version": 0, "data": state };
+      if (revision !== null) {
+        updatedDoc = { _id: stateID, _rev: revision, "type": "base", "version": 0, "data": state };
+      } else {
+        return;
+      }
+
+      const putRes = await fetch(url, {
+        method: "PUT",
+        headers: this.headers(),
+        body: JSON.stringify(updatedDoc),
+      })
+
+      if (putRes.ok) {
+        return;
+      }
+
+      // 4. Handle conflict
+      if (putRes.status === 409 && attempt <= retries) {
+        await sleep(delayMs * attempt) // simple backoff
+        continue
+      }
+
+    }
+    console.warn("Exceeded maximum retry attempts to upsert CouchDB state.");
   }
 
   private async getRevisionFromChangesFeed(dbUrl: string, docId: string): Promise<string | null> {
     const changesUrl = `${dbUrl}/_changes?filter=_doc_ids&include_docs=false&descending=false`;
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    headers["Authorization"] = `Basic ${credentials}`;
-
-    console.debug("Fetching changes from CouchDB:", changesUrl);
 
     const response = await fetch(changesUrl, {
       method: 'POST',
-      headers,
+      headers: this.headers(),
       body: JSON.stringify({ doc_ids: [docId] }),
     });
 
@@ -101,17 +127,11 @@ export class CouchDB {
     } else {
       console.debug('found state revision', revision);
     }
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    headers["Authorization"] = `Basic ${credentials}`;
 
     try {
       const response = await fetch(APIs.GET_SET_COUCH_STATE + "/" + parseInt(stateID), {
         method: "GET",
-        headers,
+        headers: this.headers(),
       });
       const data: BaseDoc = await response.json();
       return data;
@@ -124,35 +144,36 @@ export class CouchDB {
 
   /** Generic couch DB methods */
 
-  private async updateCouchDBDocument<T>(dbUrl: string, _id: string, updatedDoc: T): Promise<T> {
+  private async updateCouchDBDocument<T>(dbUrl: string, _id: string, updatedDoc: T): Promise<void> {
     if (!_id) {
       throw new Error("Document must have _id ");
     }
     const url = `${dbUrl}/${encodeURIComponent(_id)}`;
 
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    headers["Authorization"] = `Basic ${credentials}`;
-
     const response = await fetch(url, {
       method: "PUT",
-      headers,
+      headers: this.headers(),
       body: JSON.stringify(updatedDoc),
     });
 
-    if (response.status === 409) {
-      console.warn(`Conflict detected when updating document with _id: ${_id}`);
+    if (response.ok) {
+      console.debug(`Successfully updated document with _id: ${_id}`);
+      return;
     }
 
-    if (response.ok) {
-      return await response.json();
-    } else {
-      const errorText = await response.text();
-      throw new Error(`Failed to update document: ${errorText}`);
+    if (!response.ok) {
+      // Check for the specific 409 status code
+      if (response.status === 409) {
+        console.warn('Conflict error (409):');
+        // Handle the conflict (e.g., inform the user the resource already exists)
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Failed to update document: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
     }
+
+
   }
 
   public listenToDocumentChanges(options: ListenOptions) {
@@ -168,17 +189,10 @@ export class CouchDB {
     const signal = controller.signal;
     const body = JSON.stringify({ doc_ids: [docId] });
 
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    headers["Authorization"] = `Basic ${credentials}`;
-
 
     const fetchOptions: RequestInit = {
       method: docId ? 'POST' : 'GET',
-      headers,
+      headers: this.headers(),
       body,
       signal,
     };
@@ -236,15 +250,10 @@ export class CouchDB {
     if (revision === null) {
       return null;
     }
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
 
-    const credentials = btoa(`${AUTHs.USER}:${AUTHs.PASSWORD}`);
-    headers["Authorization"] = `Basic ${credentials}`;
     const response = await fetch(APIs.GET_SET_COUCH_USER + "/" + parseInt(stateID), {
       method: "GET",
-      headers,
+      headers: this.headers(),
     });
 
     if (!response.ok) {
@@ -304,3 +313,8 @@ export function objectsAreEqual(obj1: any, obj2: any): boolean {
 
     return true;
 }
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+

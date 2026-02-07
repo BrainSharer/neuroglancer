@@ -40,13 +40,39 @@ def mypy(session):
         "--no-default-groups",
         "--group",
         "mypy",
+        "--group",
+        "dev",
         "--extra",
         "webdriver",
+        "--extra",
+        "osteoid",
         "--group",
         "test",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )
     session.run("mypy", ".", *session.posargs)
+
+
+@nox.session
+def ty(session):
+    session.run_install(
+        "uv",
+        "sync",
+        "--no-install-workspace",
+        "--no-default-groups",
+        "--group",
+        "ty",
+        "--group",
+        "dev",
+        "--extra",
+        "webdriver",
+        "--group",
+        "--extra",
+        "osteoid",
+        "test",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
+    session.run("ty", "check", *session.posargs)
 
 
 @nox.session
@@ -57,6 +83,8 @@ def docs(session: nox.Session):
         "--no-default-groups",
         "--group",
         "docs",
+        "--extra",
+        "osteoid",
         "--no-install-workspace",
         env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
     )

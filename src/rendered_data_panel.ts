@@ -39,6 +39,7 @@ import {
   /* BRAINSHARE ENDS */
 } from "#src/render_coordinate_transform.js";
 import { StatusMessage } from "#src/status.js";
+import type { TrackableValue } from "#src/trackable_value.js";
 import { AutomaticallyFocusedElement } from "#src/util/automatic_focus.js";
 import type { Borrowed } from "#src/util/disposable.js";
 import type {
@@ -87,6 +88,7 @@ const tempVec3 = vec3.create();
 
 export interface RenderedDataViewerState extends ViewerState {
   inputEventMap: EventActionMap;
+  pickRadius: TrackableValue<number>;
 }
 
 export class FramePickingData {
@@ -103,18 +105,28 @@ export class PickRequest {
   glWindowY = 0;
   frameNumber: number;
   sync: WebGLSync | null;
+  pickRadius: number = -1;
 }
 
 const pickRequestInterval = 30;
 
-export const pickRadius = 5;
-export const pickDiameter = 1 + pickRadius * 2;
+export function getPickDiameter(pickRadius: number): number {
+  return 1 + pickRadius * 2;
+}
+
+let _cachedPickRadius = -1;
+let _cachedPickOffsetSequence: Uint32Array | undefined;
 
 /**
  * Sequence of offsets into C order (pickDiamater, pickDiamater) array in order of increasing
  * distance from center.
  */
-export const pickOffsetSequence = (() => {
+export function getPickOffsetSequence(pickRadius: number) {
+  if (pickRadius === _cachedPickRadius) {
+    return _cachedPickOffsetSequence!;
+  }
+  _cachedPickRadius = pickRadius;
+  const pickDiameter = 1 + pickRadius * 2;
   const maxDist2 = pickRadius ** 2;
   const getDist2 = (x: number, y: number) =>
     (x - pickRadius) ** 2 + (y - pickRadius) ** 2;
@@ -135,9 +147,8 @@ export const pickOffsetSequence = (() => {
     const y2 = (b - x2) / pickDiameter;
     return getDist2(x1, y1) - getDist2(x2, y2);
   });
-
-  return offsets;
-})();
+  return (_cachedPickOffsetSequence = offsets);
+}
 
 /**
  * Sets array elements to 0 that would be outside the viewport.
@@ -158,7 +169,9 @@ export function clearOutOfBoundsPickData(
   glWindowY: number,
   viewportWidth: number,
   viewportHeight: number,
+  pickRadius: number,
 ) {
+  const pickDiameter = 1 + pickRadius * 2;
   const startX = glWindowX - pickRadius;
   const startY = glWindowY - pickRadius;
   if (
@@ -207,14 +220,16 @@ export abstract class RenderedDataPanel extends RenderedPanel {
 
   pickingData = [new FramePickingData(), new FramePickingData()];
   pickRequests = [new PickRequest(), new PickRequest()];
-  pickBufferContents: Float32Array = new Float32Array(
-    2 * 4 * pickDiameter * pickDiameter,
-  );
+  pickBufferContents: Float32Array | undefined;
 
   /**
    * Reads pick data for the current mouse position into the currently-bound pixel pack buffer.
    */
-  abstract issuePickRequest(glWindowX: number, glWindowY: number): void;
+  abstract issuePickRequest(
+    glWindowX: number,
+    glWindowY: number,
+    pickRadius: number,
+  ): void;
 
   /**
    * Timer id for checking if outstanding pick requests have completed.
@@ -237,7 +252,10 @@ export abstract class RenderedDataPanel extends RenderedPanel {
   private issuePickRequestInternal(pickRequest: PickRequest) {
     const { gl } = this;
     let { buffer } = pickRequest;
-    if (buffer === null) {
+    const pickRadius = this.viewer.pickRadius.value;
+    const pickDiameter = getPickDiameter(pickRadius);
+    if (buffer === null || pickRequest.pickRadius !== pickRadius) {
+      pickRequest.pickRadius = pickRadius;
       buffer = pickRequest.buffer = gl.createBuffer();
       gl.bindBuffer(WebGL2RenderingContext.PIXEL_PACK_BUFFER, buffer);
       gl.bufferData(
@@ -256,7 +274,7 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       renderViewport.height -
       (this.mouseY -
         renderViewport.visibleTopFraction * renderViewport.logicalHeight);
-    this.issuePickRequest(glWindowX, glWindowY);
+    this.issuePickRequest(glWindowX, glWindowY, pickRadius);
     pickRequest.sync = gl.fenceSync(
       WebGL2RenderingContext.SYNC_GPU_COMMANDS_COMPLETE,
       0,
@@ -284,11 +302,23 @@ export abstract class RenderedDataPanel extends RenderedPanel {
     glWindowY: number,
     data: Float32Array,
     pickingData: FramePickingData,
+    pickRadius: number,
   ): void;
 
   private completePickInternal(pickRequest: PickRequest) {
     const { gl } = this;
-    const { pickBufferContents } = this;
+    let { pickBufferContents } = this;
+    const { pickRadius } = pickRequest;
+    const pickDiameter = getPickDiameter(pickRadius);
+    const pickBufferContentsLength = 2 * 4 * pickDiameter * pickDiameter;
+    if (
+      pickBufferContents === undefined ||
+      pickBufferContents.length != pickBufferContentsLength
+    ) {
+      pickBufferContents = this.pickBufferContents = new Float32Array(
+        2 * 4 * pickDiameter * pickDiameter,
+      );
+    }
     gl.bindBuffer(WebGL2RenderingContext.PIXEL_PACK_BUFFER, pickRequest.buffer);
     gl.getBufferSubData(
       WebGL2RenderingContext.PIXEL_PACK_BUFFER,
@@ -296,15 +326,28 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       pickBufferContents,
     );
     gl.bindBuffer(WebGL2RenderingContext.PIXEL_PACK_BUFFER, null);
-    const { pickingData } = this;
     const { frameNumber } = pickRequest;
+    const { pickingData: pickingDataArray } = this;
+    const pickingData =
+      pickingDataArray[0].frameNumber === frameNumber
+        ? pickingDataArray[0]
+        : pickingDataArray[1];
+    clearOutOfBoundsPickData(
+      pickBufferContents,
+      0,
+      4,
+      pickRequest.glWindowX,
+      pickRequest.glWindowY,
+      pickingData.viewportWidth,
+      pickingData.viewportHeight,
+      pickRadius,
+    );
     this.completePickRequest(
       pickRequest.glWindowX,
       pickRequest.glWindowY,
       pickBufferContents,
-      pickingData[0].frameNumber === frameNumber
-        ? pickingData[0]
-        : pickingData[1],
+      pickingData,
+      pickRequest.pickRadius,
     );
   }
 
@@ -1632,8 +1675,12 @@ export abstract class RenderedDataPanel extends RenderedPanel {
   handleMouseMove(clientX: number, clientY: number) {
     const { element } = this;
     const bounds = element.getBoundingClientRect();
-    const mouseX = clientX - (bounds.left + element.clientLeft);
-    const mouseY = clientY - (bounds.top + element.clientTop);
+    const mouseX =
+      ((clientX - bounds.left) / bounds.width) * element.offsetWidth -
+      element.clientLeft;
+    const mouseY =
+      ((clientY - bounds.top) / bounds.height) * element.offsetHeight +
+      element.clientTop;
     const { mouseState } = this.viewer;
     mouseState.pageX = clientX + window.scrollX;
     mouseState.pageY = clientY + window.scrollY;

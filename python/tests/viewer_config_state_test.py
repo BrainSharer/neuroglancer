@@ -1,5 +1,5 @@
 # @license
-# Copyright 2016 Google Inc.
+# Copyright 2025 Google Inc.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,10 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import binascii
-import os
+from neuroglancer import viewer_config_state
 
 
-def make_random_token() -> str:
-    """Return a 20-byte (40 character) random hex string."""
-    return binascii.hexlify(os.urandom(20)).decode()
+def test_config_state_pick_radius():
+    c = viewer_config_state.ConfigState()
+    assert c.pick_radius == 5
+    assert c.pickRadius == 5
+
+    c.pick_radius = 10
+    assert c.pick_radius == 10
+    assert c.pickRadius == 10
+    assert c.to_json()["pickRadius"] == 10
+
+    c2 = viewer_config_state.ConfigState(pickRadius=20)
+    assert c2.pick_radius == 20
+    assert c2.pickRadius == 20
