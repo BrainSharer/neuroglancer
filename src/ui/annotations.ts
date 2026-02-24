@@ -1507,18 +1507,18 @@ export class AnnotationLayerView extends Tab {
           inputContainer.innerHTML = `
           <h4>Set the standard deviation for smoothing in x,y,z</h4>
             <label for="stdDevX">Std Dev X:</label>
-            <input type="number" id="stdDevX" name="stdDevX" value="1" min="0.2" max="10.0" step="0.1"><br>
+            <input type="number" id="stdDevX" name="stdDevX" value="0" min="0.0" max="10.0" step="0.1"><br>
             <label for="stdDevY">Std Dev Y:</label>
-            <input type="number" id="stdDevY" name="stdDevY" value="1" min="0.2" max="10.0" step="0.1"><br>
+            <input type="number" id="stdDevY" name="stdDevY" value="0" min="0.0" max="10.0" step="0.1"><br>
             <label for="stdDevZ">Std Dev Z:</label>
-            <input type="number" id="stdDevZ" name="stdDevZ" value="1" min="0.2" max="10.0"  step="0.1"><br><br>
+            <input type="number" id="stdDevZ" name="stdDevZ" value="0" min="0.2" max="10.0"  step="0.1"><br><br>
             <fieldset>
               <legend>Do you want interpolation in the Z plane?</legend>
 
-              <input type="radio" id="interpolateYes" name="interpolate" value="1" checked>
+              <input type="radio" id="interpolateYes" name="interpolate" value="1">
               <label for="interpolateYes">Yes</label><br>
 
-              <input type="radio" id="interpolateNo" name="interpolate" value="0">
+              <input type="radio" id="interpolateNo" name="interpolate" value="0" checked>
               <label for="interpolateNo">No</label>
             </fieldset><br>
           `;
@@ -1575,50 +1575,11 @@ export class AnnotationLayerView extends Tab {
                     15000,
                   );
                 })
-
             } finally {
               ref.dispose();
             }
-
-
           });
 
-        /**
-          try {
-            StatusMessage.showTemporaryMessage("Creating 3D mesh ...", 15000);
-
-            return fetchOk(
-              `${APIs.API_ENDPOINT + "/annotations/segmentation/"}${annotation.sessionID}`,
-              {
-                method: "GET",
-                credentials: "include",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${access}`
-                },
-              }).then(
-                response => response.json()
-              ).then(json => {
-                const manager = this.layer.manager;
-                const segmentationLayer = makeLayer(manager, json.name, { type: 'segmentation', 'source': json.url });
-                manager.add(segmentationLayer);
-                StatusMessage.showTemporaryMessage(
-                  "The 3D mesh has been created.",
-                  5000,
-                );
-              }).catch(err => {
-                console.error(err);
-                StatusMessage.showTemporaryMessage(
-                  "There is an error in creating the mesh.\
-                Please see console for details.",
-                  15000,
-                );
-              })
-
-          } finally {
-            ref.dispose();
-          }
-          */
         },
       });
       segmentationButton.classList.add("neuroglancer-annotation-list-entry-delete");

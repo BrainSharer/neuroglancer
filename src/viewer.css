@@ -44,3 +44,23 @@ dialog {
   max-width: 500px; /* Maximum width for larger screens */
   position: relative; /* For positioning close button */
 }
+
+dialog h4 {
+  margin-top: 0;
+  color: #333; /* Darker text color for headings */
+  text-align: center;
+  text-decoration: underline;
+}
+
+dialog table {
+  width: 100%;
+  margin-bottom: 4px;
+  background-color: aqua;
+}
+
+dialog table th, dialog table td {
+  border-bottom: 1px solid black;
+  border-right: 1px solid black;
+  padding: 2px;
+  text-align: left;
+}

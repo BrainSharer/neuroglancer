@@ -983,14 +983,26 @@ export class Viewer extends RefCounted implements ViewerState {
 
     /* BRAINSHARE STARTS */
     {
-      const button = makeIcon({ svg: svg_apple, title: "Show Mac Help" });
+      const button = makeIcon({ svg: svg_apple, title: "Show polygon/volume keyboard shortcuts" });
       this.registerEventListener(button, "click", () => {
-        /**
         const dialog = document.createElement("dialog");
         dialog.innerHTML = `
-          <h4>Shortcuts for neuroglancer on a Mac</h4>
-          <p>1 This is some content inside the dialog.</p>
-          <p>2 This is some content inside the dialog.</p>
+          <h4>Shortcuts for the polygon/volume tool</h4>
+          <table>
+            <tr><th>Action</th><th>Mac</th><th>PC</th></tr>
+            <tr><td>Toggle axis lines</td> <td>a</td> <td>a</td></tr>
+            <tr><td>Decrease depth range</td><td>option + equal</td><td>alt equal</td></tr>
+            <tr><td>Increase depth range</td><td>option + minus</td><td>alt minus</td></tr>
+            <tr><td>Rotate clockwise</td><td>shift + r</td><td>shift + r</td></tr>
+            <tr><td>Rotate counter clockwise</td><td>shift +e</td><td>shift + e</td></tr>
+            <tr><td>Creating annotations in polygon</td> <td>control + single one-finger click</td><td>control + single left-click</td></tr>
+            <tr> <td>Move single vertex</td> <td>option + one-finger click and drag</td> <td>alt + left-click and drag</td> </tr>
+            <tr> <td>Move entire polygon</td> <td>Option + Shift + one-finger-click</td> <td>Alt + Shift + left-click</td> </tr>
+            <tr> <td>Add vertex</td> <td>shift + one-finger double-click</td> <td>shift + double-left click</td> </tr>
+            <tr> <td>Delete vertex</td> <td>shift + two-finger click</td> <td>shift + right-click</td> </tr>
+            <tr><td>Reset view</td> <td>c</td> <td>c</td> </tr>
+          </table>
+          <p><a href="https://docs.google.com/presentation/d/1SVUvvpDimBpBTdJEv7wIK9ZuzBiETwUJbht0eb7UwCI/" target="_blank">View detailed documentation</a></p>
           <button id="closeDialog">Close</button>
         `;        
         document.body.appendChild(dialog);
@@ -999,8 +1011,7 @@ export class Viewer extends RefCounted implements ViewerState {
         closeButton.addEventListener('click', () => {
           dialog.close(); // Close the dialog
         });      
-        */
-       window.open('https://brainsharer.org/docs/mac_help/', '_blank');
+       // window.open('https://brainsharer.org/docs/mac_help/', '_blank');
       });
      
       topRow.appendChild(button);
