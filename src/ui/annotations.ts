@@ -2560,10 +2560,12 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           return;
         }
 
+        console.log("new z point:", point[2]);
         const curZCood = getZCoordinate(polygon.source);
         const newZCoord = getZCoordinate(point);
         if (curZCood === undefined || newZCoord === undefined) return;
         if (curZCood !== newZCoord) {
+          console.log("Current polygon Z:", curZCood, "New point Z:", newZCoord);
           StatusMessage.showTemporaryMessage(
             "All vertices of polygon must be in the same plane.",
             5000,

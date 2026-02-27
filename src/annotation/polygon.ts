@@ -19,10 +19,10 @@ import {
 import type { 
   AnnotationLayerState 
 } from '#src/annotation/annotation_layer_state.js';
-//TODO import { isSectionValid } from '#src/annotation/volume.js';
+import { isSectionValid } from '#src/annotation/volume.js';
 
 import type { DisplayPose, NavigationState } from '#src/navigation_state.js';
-//TODO import { StatusMessage } from '#src/status.js';
+import { StatusMessage } from '#src/status.js';
 import { TrackableValue } from '#src/trackable_value.js';
 import type { UserLayerWithAnnotations } from '#src/ui/annotations.js';
 import { arraysEqual } from '#src/util/array.js';
@@ -286,7 +286,7 @@ function cloneAnnotation(
   const cloneSource = getTransformedPoint(pose, ann.source, normalVector, depth);
   if (cloneSource === undefined) return undefined;
   if (ann.parentAnnotationId) {
-    /*TODO
+    
     const zCoordinate = getZCoordinate(cloneSource);
     if (zCoordinate !== undefined && !isSectionValid(
       annotationLayer.source, 
@@ -298,7 +298,6 @@ function cloneAnnotation(
       );
       return undefined;
     }
-      */
   }
 
   let volumeRef : AnnotationReference|undefined = undefined;
@@ -570,6 +569,7 @@ export function getCentroidPolygon(
  */
 export function getZCoordinate(point: Float32Array): number | undefined {
   if (point.length < 3) return undefined;
+  // console.log("point in getZCoordinate", point[2], 'floored value', Math.floor(point[2]));
   return Math.floor(point[2]);
 }
 
