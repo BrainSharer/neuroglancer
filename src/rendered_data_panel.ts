@@ -580,6 +580,10 @@ export abstract class RenderedDataPanel extends RenderedPanel {
       this.viewer.selectionDetailsState.select();
     });
 
+    registerActionListener(element, "unpin-selected-position", () => {
+      this.viewer.selectionDetailsState.unpin();
+    });
+
     registerActionListener(element, "snap", () => {
       this.navigationState.pose.snap();
     });

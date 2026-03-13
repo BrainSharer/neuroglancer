@@ -61,6 +61,7 @@ export function getDefaultSelectBindings() {
   if (defaultSelectBindings === undefined) {
     defaultSelectBindings = EventActionMap.fromObject({
       "control+mousedown2": "select-position",
+      "shift+control+mousedown2": "unpin-selected-position",
     });
   }
   return defaultSelectBindings;
