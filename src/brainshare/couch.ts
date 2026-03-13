@@ -77,9 +77,7 @@ export class CouchDB {
       let updatedDoc: BaseDoc = { _id: stateID, "type": "base", "version": 0, "data": state };
       if (revision !== null) {
         updatedDoc = { _id: stateID, _rev: revision, "type": "base", "version": 0, "data": state };
-      } else {
-        return;
-      }
+      } 
 
       const putRes = await fetch(url, {
         method: "PUT",

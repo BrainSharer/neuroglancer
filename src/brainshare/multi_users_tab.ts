@@ -157,7 +157,6 @@ export class MultiUsersTab extends Tab {
    */
   private stateUpdated() {
 
-
     if (userState.value !== null) {
       if (userState.value.id === 0) {
         if (this.userDocumentListener !== undefined) {
@@ -176,7 +175,6 @@ export class MultiUsersTab extends Tab {
               console.debug("Updated couchDB state for stateID:", stateID);
               brainState.value.neuroglancer_state = verifyObject(value);
             } 
-
           }, 10);
 
           /**  Check user status right away and then setup the listener */
