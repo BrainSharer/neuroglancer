@@ -219,6 +219,11 @@ div.neuroglancer-annotation-details-description {
   align-self: start;
 }
 
+.neuroglancer-selected-annotation-details-area {
+  grid-column: area;
+  align-self: start;
+}
+
 .neuroglancer-selected-annotation-details-position-dim {
   color: #ff6;
   margin-left: 1ch;

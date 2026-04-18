@@ -149,6 +149,7 @@ import { StatusMessage } from '#src/status.js';
 import {
   getZCoordinate,
   isPointUniqueInPolygon,
+  polygonArea,
 } from '#src/annotation/polygon.js';
 import { getPolygonsByVolumeId, isSectionValid } from '#src/annotation/volume.js';
 
@@ -2565,12 +2566,10 @@ export class PlacePolygonTool extends MultiStepAnnotationTool {
           return;
         }
 
-        console.log("new z point:", point[2]);
         const curZCood = getZCoordinate(polygon.source);
         const newZCoord = getZCoordinate(point);
         if (curZCood === undefined || newZCoord === undefined) return;
         if (curZCood !== newZCoord) {
-          console.log("Current polygon Z:", curZCood, "New point Z:", newZCoord);
           StatusMessage.showTemporaryMessage(
             "All vertices of polygon must be in the same plane.",
             5000,
@@ -3210,6 +3209,7 @@ export function UserLayerWithAnnotationsMixin<
                     [move] 0fr 
                     [delete] 0fr
                     [show] 0fr
+                    [area] 0fr
                   `;
                   parent.appendChild(positionGrid);
 
@@ -3319,6 +3319,27 @@ export function UserLayerWithAnnotationsMixin<
                       "neuroglancer-selected-annotation-details-delete",
                     );
                     div.appendChild(deleteButton);
+                    // area start
+                    const areaElement = document.createElement("div");
+                    div.appendChild(areaElement);
+                    if (annRef.value!.type === AnnotationType.POLYGON) {
+                      const dataSource = this.dataSources[0];
+                      if (dataSource === undefined) return;
+                      const transform = dataSource.spec.transform;
+                      if (transform === undefined) return;
+                      let inputCoordinateSpace = transform.inputSpace;
+                      if (inputCoordinateSpace === undefined) {
+                        inputCoordinateSpace = transform.outputSpace;
+                      }
+
+                      const area = polygonArea(annotationLayer, annRef.value!, inputCoordinateSpace.scales);
+                      // console.log(inputCoordinateSpace.scales)
+                      areaElement.textContent = `${area.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+                      // areaElement.textContent = `${area}`;
+                      areaElement.style.gridColumn = "area";
+                      areaElement.classList.add("neuroglancer-selected-annotation-details-area");
+                    }
+                    // area end
                   }
                 }
 

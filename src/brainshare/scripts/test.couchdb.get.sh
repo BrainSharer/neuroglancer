@@ -8,4 +8,4 @@
 
 curl -X GET \
   -u brainaccess:access1 \
-http://localhost:5984/neuroglancer/1074/_all_docs?include_docs=true
+http://raspberry.eddyod.com/neuroglancer/1115

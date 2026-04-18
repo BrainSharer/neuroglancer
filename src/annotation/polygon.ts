@@ -4,20 +4,22 @@
 
 import { quat, vec3 } from 'gl-matrix';
 import type {
-  AnnotationReference, 
-  Line, 
-  Polygon} from '#src/annotation/index.js';
-import { 
+  AnnotationReference,
+  Line,
+  Polygon
+} from '#src/annotation/index.js';
+import {
   AnnotationType
 } from '#src/annotation/index.js';
 import type {
-  AnnotationRenderContext} from '#src/annotation/type_handler.js';
-import { 
-  AnnotationRenderHelper, 
+  AnnotationRenderContext
+} from '#src/annotation/type_handler.js';
+import {
+  AnnotationRenderHelper,
   registerAnnotationTypeRenderHandler
 } from '#src/annotation/type_handler.js';
-import type { 
-  AnnotationLayerState 
+import type {
+  AnnotationLayerState
 } from '#src/annotation/annotation_layer_state.js';
 import { isSectionValid } from '#src/annotation/volume.js';
 
@@ -41,7 +43,7 @@ export function verifyNonNegativeFloat(obj: any) {
   }
   return result;
 }
- 
+
 /**
  * Indicates the default value of polygon scale percentage. Default value is 1%
  */
@@ -87,7 +89,7 @@ class RenderHelper extends AnnotationRenderHelper {
     context;
   }
 }
- 
+
 registerAnnotationTypeRenderHandler<Polygon>(AnnotationType.POLYGON, {
   sliceViewRenderHelper: RenderHelper,
   perspectiveViewRenderHelper: RenderHelper,
@@ -116,9 +118,9 @@ export function findCrossProduct(
   vec1: Float32Array, vec2: Float32Array
 ): Array<number> {
   const vec3 = new Array<number>(vec1.length);
-  vec3[0] = vec1[1]*vec2[2] - vec1[2]*vec2[1];
-  vec3[1] = vec1[2]*vec2[0] - vec1[0]*vec2[2];
-  vec3[2] = vec1[0]*vec2[1] - vec1[1]*vec2[0];
+  vec3[0] = vec1[1] * vec2[2] - vec1[2] * vec2[1];
+  vec3[1] = vec1[2] * vec2[0] - vec1[0] * vec2[2];
+  vec3[2] = vec1[0] * vec2[1] - vec1[1] * vec2[0];
 
   return vec3;
 }
@@ -133,7 +135,7 @@ export function findDotProduct(vec1: number[], vec2: vec3): number {
   let prod = 0;
   const rank = vec1.length;
   for (let i = 0; i < rank; i++) {
-    prod += vec1[i]*vec2[i];
+    prod += vec1[i] * vec2[i];
   }
 
   return prod;
@@ -148,7 +150,7 @@ export function findDotProduct(vec1: number[], vec2: vec3): number {
  */
 function findNormalVectorToPolygon(
   childRefs: AnnotationReference[], orientation: quat
-) : number[] {
+): number[] {
   let crossProductVec = new Array<number>(3);
   if (childRefs.length < 2) { // atleast two lines to find normal
     return crossProductVec;
@@ -172,7 +174,7 @@ function findNormalVectorToPolygon(
   translation[2] = 1.0;
   const temp = vec3.transformQuat(vec3.create(), translation, orientation);
 
-  if(findDotProduct(crossProductVec, temp) < 0) {
+  if (findDotProduct(crossProductVec, temp) < 0) {
     crossProductVec[0] = -crossProductVec[0];
     crossProductVec[1] = -crossProductVec[1];
     crossProductVec[2] = -crossProductVec[2];
@@ -180,7 +182,7 @@ function findNormalVectorToPolygon(
 
   let mag = 0;
   for (let i = 0; i < rank; i++) {
-    mag += crossProductVec[i]*crossProductVec[i];
+    mag += crossProductVec[i] * crossProductVec[i];
   }
   mag = Math.sqrt(mag);
 
@@ -206,24 +208,24 @@ function findNormalVectorToPolygon(
  * @returns void
  */
 export function cloneAnnotationSequence(
-  layer: UserLayerWithAnnotations, 
-  navigationState: NavigationState, 
-  annotationLayer: AnnotationLayerState, 
-  annotationId: string, 
-  startOffset: number, 
-  polygonCnt: number, 
+  layer: UserLayerWithAnnotations,
+  navigationState: NavigationState,
+  annotationLayer: AnnotationLayerState,
+  annotationId: string,
+  startOffset: number,
+  polygonCnt: number,
   stepSize: number
 ): void {
   const reference = annotationLayer.source.getNonDummyAnnotationReference(
     annotationId
   );
-  if(
-    reference.value === null || 
+  if (
+    reference.value === null ||
     reference.value!.type !== AnnotationType.POLYGON
   ) return;
-  const childAnnotationRefs : AnnotationReference[] = [];
+  const childAnnotationRefs: AnnotationReference[] = [];
   const ann = <Polygon>reference.value;
-  const {pose} = navigationState;
+  const { pose } = navigationState;
 
   ann.childAnnotationIds.forEach((childAnnotationId) => {
     childAnnotationRefs.push(
@@ -231,21 +233,21 @@ export function cloneAnnotationSequence(
     );
   });
   const normalVector = findNormalVectorToPolygon(
-    childAnnotationRefs, 
+    childAnnotationRefs,
     pose.orientation.orientation
   );
-  let lastCloneId : string | undefined;  
+  let lastCloneId: string | undefined;
   for (
-    let depth = startOffset, cnt = 0; 
-    cnt < polygonCnt; 
+    let depth = startOffset, cnt = 0;
+    cnt < polygonCnt;
     depth += stepSize, cnt++
   ) {
     const cloneId = cloneAnnotation(
-      pose, 
-      annotationLayer, 
-      reference, 
-      childAnnotationRefs, 
-      depth, 
+      pose,
+      annotationLayer,
+      reference,
+      childAnnotationRefs,
+      depth,
       normalVector
     );
     if (cloneId !== undefined) lastCloneId = cloneId;
@@ -275,22 +277,22 @@ export function cloneAnnotationSequence(
  * @returns returns the annotation id of the cloned polygon
  */
 function cloneAnnotation(
-  pose: DisplayPose, 
-  annotationLayer: AnnotationLayerState, 
-  reference: AnnotationReference, 
-  childAnnotationRefs: AnnotationReference[], 
-  depth: number, 
+  pose: DisplayPose,
+  annotationLayer: AnnotationLayerState,
+  reference: AnnotationReference,
+  childAnnotationRefs: AnnotationReference[],
+  depth: number,
   normalVector: number[]
 ): string | undefined {
   const ann = <Polygon>reference.value;
   const cloneSource = getTransformedPoint(pose, ann.source, normalVector, depth);
   if (cloneSource === undefined) return undefined;
   if (ann.parentAnnotationId) {
-    
+
     const zCoordinate = getZCoordinate(cloneSource);
     if (zCoordinate !== undefined && !isSectionValid(
-      annotationLayer.source, 
-      ann.parentAnnotationId, 
+      annotationLayer.source,
+      ann.parentAnnotationId,
       zCoordinate
     )) {
       StatusMessage.showTemporaryMessage(
@@ -300,9 +302,9 @@ function cloneAnnotation(
     }
   }
 
-  let volumeRef : AnnotationReference|undefined = undefined;
+  let volumeRef: AnnotationReference | undefined = undefined;
   if (ann.parentAnnotationId) {
-    volumeRef = annotationLayer.source.getReference(ann.parentAnnotationId); 
+    volumeRef = annotationLayer.source.getReference(ann.parentAnnotationId);
   }
 
   const cloneAnnRef = annotationLayer.source.add(<Polygon>{
@@ -367,22 +369,22 @@ function cloneAnnotation(
  * @returns The transformed point with depth along the normal vector.
  */
 function getTransformedPoint(
-  pose: DisplayPose, 
-  source: Float32Array, 
+  pose: DisplayPose,
+  source: Float32Array,
   normalVec: number[],
-  depth: number, 
+  depth: number,
   round: boolean = false
 ): Float32Array | undefined {
   if (!pose.valid) {
     return undefined;
   }
-  const {position} = pose;
-  const {displayDimensionIndices, displayRank} = pose.displayDimensions.value;
-  const {bounds: {lowerBounds, upperBounds}} = position.coordinateSpace.value;
+  const { position } = pose;
+  const { displayDimensionIndices, displayRank } = pose.displayDimensions.value;
+  const { bounds: { lowerBounds, upperBounds } } = position.coordinateSpace.value;
   const transformedPoint = new Float32Array(displayRank);
   for (let i = 0; i < displayRank; ++i) {
     const dim = displayDimensionIndices[i];
-    const adjustment = depth*normalVec[i];
+    const adjustment = depth * normalVec[i];
     let newValue = source[dim] + adjustment;
     if (adjustment > 0) {
       const bound = upperBounds[dim];
@@ -412,10 +414,10 @@ function getTransformedPoint(
 //@ts-ignore
 export function scalePolygon(
   annotationLayer: AnnotationLayerState,
-  reference: AnnotationReference, 
+  reference: AnnotationReference,
   scale: number
 ) {
-  const childAnnotationRefs : AnnotationReference[] = [];
+  const childAnnotationRefs: AnnotationReference[] = [];
   const ann = <Polygon>reference.value;
 
   ann.childAnnotationIds.forEach((childAnnotationId) => {
@@ -430,8 +432,8 @@ export function scalePolygon(
     const vecA = new Float32Array(centroid.length);
     const vecB = new Float32Array(centroid.length);
     for (let i = 0; i < centroid.length; i++) {
-      vecA[i] = scale*(line.pointA[i] - centroid[i]);
-      vecB[i] = scale*(line.pointB[i] - centroid[i]);
+      vecA[i] = scale * (line.pointA[i] - centroid[i]);
+      vecB[i] = scale * (line.pointB[i] - centroid[i]);
     }
     const newPointA = new Float32Array(centroid.length);
     const newPointB = new Float32Array(centroid.length);
@@ -439,18 +441,18 @@ export function scalePolygon(
       newPointA[i] = vecA[i] + centroid[i];
       newPointB[i] = vecB[i] + centroid[i];
     }
-    const newLine = <Line>{...line, pointA: newPointA, pointB: newPointB};
+    const newLine = <Line>{ ...line, pointA: newPointA, pointB: newPointB };
     annotationLayer.source.update(childAnnotationRef, newLine);
   });
   const vec = new Float32Array(centroid.length);
   for (let i = 0; i < centroid.length; i++) {
-    vec[i] = scale*(ann.source[i] - centroid[i]);
+    vec[i] = scale * (ann.source[i] - centroid[i]);
   }
   const newSource = new Float32Array(centroid.length);
   for (let i = 0; i < centroid.length; i++) {
     newSource[i] = vec[i] + centroid[i];
   }
-  const newAnn = <Polygon>{...ann, source: newSource};
+  const newAnn = <Polygon>{ ...ann, source: newSource };
   annotationLayer.source.update(reference, newAnn);
 }
 
@@ -465,15 +467,15 @@ export function scalePolygon(
  * @returns void
  */
 export function rotatePolygon(
-  navigationState: NavigationState, 
-  annotationLayer: AnnotationLayerState, 
-  reference: AnnotationReference, 
+  navigationState: NavigationState,
+  annotationLayer: AnnotationLayerState,
+  reference: AnnotationReference,
   angle: number
 ) {
-  if(reference.value?.type !== AnnotationType.POLYGON) return;
-  const childAnnotationRefs : AnnotationReference[] = [];
+  if (reference.value?.type !== AnnotationType.POLYGON) return;
+  const childAnnotationRefs: AnnotationReference[] = [];
   const ann = <Polygon>reference.value;
-  const {pose} = navigationState;
+  const { pose } = navigationState;
 
   ann.childAnnotationIds.forEach((childAnnotationId) => {
     childAnnotationRefs.push(annotationLayer.source.getReference(
@@ -481,7 +483,7 @@ export function rotatePolygon(
     ));
   });
   const normalVector = findNormalVectorToPolygon(
-    childAnnotationRefs, 
+    childAnnotationRefs,
     pose.orientation.orientation
   );
   const rotateQuat = quat.create();
@@ -504,7 +506,7 @@ export function rotatePolygon(
       newPointA[i] = newVecA[i] + centroid[i];
       newPointB[i] = newVecB[i] + centroid[i];
     }
-    const newLine = <Line>{...line, pointA: newPointA, pointB: newPointB};
+    const newLine = <Line>{ ...line, pointA: newPointA, pointB: newPointB };
     annotationLayer.source.update(childAnnotationRef, newLine);
   });
   const vec = new Array<number>(centroid.length);
@@ -516,7 +518,7 @@ export function rotatePolygon(
   for (let i = 0; i < centroid.length; i++) {
     newSource[i] = newVec[i] + centroid[i];
   }
-  const newAnn = <Polygon>{...ann, source: newSource};
+  const newAnn = <Polygon>{ ...ann, source: newSource };
   annotationLayer.source.update(reference, newAnn);
 }
 
@@ -528,7 +530,7 @@ export function rotatePolygon(
  * @returns rotated point in float array.
  */
 function getTransformedPointOnRotation(
-  rotateQuat: quat, 
+  rotateQuat: quat,
   point: number[]
 ): Float32Array {
   const rank = point.length;
@@ -542,7 +544,7 @@ function getTransformedPointOnRotation(
 }
 
 /**
- * Takez a list of child refs (child lines of polygon) and finds its centroid.
+ * Takes a list of child refs (child lines of polygon) and finds its centroid.
  * @param childAnnotationRefs List of child annotation ids of a polygon.
  * @returns centroid in a float array format.
  */
@@ -552,7 +554,7 @@ export function getCentroidPolygon(
   const rank = 3;
   const centroid = new Float32Array(rank);
   childAnnotationRefs.forEach((childAnnotationRef) => {
-    const line = <Line> childAnnotationRef.value;
+    const line = <Line>childAnnotationRef.value;
     for (let i = 0; i < rank; i++) {
       centroid[i] += line.pointA[i];
     }
@@ -580,7 +582,7 @@ export function getZCoordinate(point: Float32Array): number | undefined {
  * @returns true if both points have same z-coordinate otherwise false.
  */
 export function checkIfSameZCoordinate(
-  point1: Float32Array, 
+  point1: Float32Array,
   point2: Float32Array
 ): boolean {
   const z1 = getZCoordinate(point1);
@@ -597,7 +599,7 @@ export function checkIfSameZCoordinate(
  * @returns void
  */
 export function copyZCoordinate(
-  point1: Float32Array | undefined, 
+  point1: Float32Array | undefined,
   point2: Float32Array | undefined
 ): void {
   if (point1 === undefined || point2 === undefined) return;
@@ -614,7 +616,7 @@ export function copyZCoordinate(
  * @returns A list of annotation ids that are neighbours.
  */
 export function getNeighbouringAnnIds(
-  childAnns: string[], 
+  childAnns: string[],
   id: string
 ): string[] | undefined {
   const curIdx = childAnns.findIndex((value) => value === id);
@@ -636,26 +638,26 @@ export function getNeighbouringAnnIds(
  * @returns Returns True if the point is unique otherwise it returns False.
  */
 export function isPointUniqueInPolygon(
-  annotationLayer: AnnotationLayerState, 
-  ann: Polygon, 
+  annotationLayer: AnnotationLayerState,
+  ann: Polygon,
   point: Float32Array
 ): boolean {
-  for(let i = 0; i < ann.childAnnotationIds.length; i++) {
+  for (let i = 0; i < ann.childAnnotationIds.length; i++) {
     const childAnnRef = annotationLayer.source.getReference(
       ann.childAnnotationIds[i]
     );
     if (childAnnRef.value) {
       const lineAnn = <Line>(childAnnRef.value);
       if (
-        i === ann.childAnnotationIds.length - 1 && 
+        i === ann.childAnnotationIds.length - 1 &&
         arraysEqual(lineAnn.pointA, point)) {
         return false;
-      } 
+      }
       else if (
-        i !== ann.childAnnotationIds.length - 1  && (
-        arraysEqual(lineAnn.pointA, point) || 
-        arraysEqual(lineAnn.pointB, point)
-      )) {
+        i !== ann.childAnnotationIds.length - 1 && (
+          arraysEqual(lineAnn.pointA, point) ||
+          arraysEqual(lineAnn.pointB, point)
+        )) {
         return false;
       }
     }
@@ -663,3 +665,46 @@ export function isPointUniqueInPolygon(
   }
   return true;
 }
+
+
+/**
+ * Compute polygon area using the Shoelace formula (2D)
+ * Assumes polygon is planar (e.g., sagittal slice: use X-Y or Y-Z etc.)
+ */
+export function polygonArea2D(points: [number, number][]): number {
+  let area = 0;
+  const n = points.length;
+
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[(i + 1) % n];
+    area += (x1 * y2 - x2 * y1);
+  }
+
+  return Math.abs(area) / 2;
+}
+
+
+export function polygonArea(annotationLayer: AnnotationLayerState, polygon: Polygon, scales: Float64Array): number {
+  const n = polygon.childAnnotationIds.length;
+
+  let area = 0;
+  for (let i = 0; i < n; i++) {
+    const childAnnId = polygon.childAnnotationIds[i];
+    const childAnnRef = annotationLayer.source.getReference(childAnnId);
+    const scale_x = scales[0] * 1000000;
+    const scale_y = scales[1] * 1000000;
+      
+    if (childAnnRef.value) {
+      const lineAnn = <Line>(childAnnRef.value);
+      const [x1, y1, z1] = lineAnn.pointA;
+      const [x2, y2, z2] = lineAnn.pointB;
+      // console.log(i, x1,y1, x2,y2)
+      area += (Math.floor(x1)*scale_x * Math.floor(y2)*scale_y - Math.floor(x2)*scale_x * Math.floor(y1)*scale_y);
+    }
+    childAnnRef.dispose();
+  }
+
+  return Math.abs(area) / 2;
+}
+

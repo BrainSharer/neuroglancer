@@ -40,18 +40,18 @@ EOF
 SERVICE_TOBOR=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
-  API_ENDPOINT: "https://tobor.eddyod.com/brainsharer",
-  GOOGLE_LOGIN: "https://tobor.eddyod.com/brainsharer/accounts/google/login/?next=",
-  LOCAL_LOGIN: "https://tobor.eddyod.com/brainsharer/admin/login/?next=",
-  LOGOUT: "https://tobor.eddyod.com/brainsharer/local/logout/",
-  ADMIN_PORTAL: "https://tobor.eddyod.com/brainsharer/admin/",
-  REFRESH_TOKEN: "https://tobor.eddyod.com/brainsharer/api-token-refresh/",
-  GET_SET_STATE: "https://tobor.eddyod.com/brainsharer/neuroglancer/",
-  GET_SET_ANNOTATION: "https://tobor.eddyod.com/brainsharer/annotations/api/",
-  SEARCH_ANNOTATION: "https://tobor.eddyod.com/brainsharer/annotations/search/",
-  GET_ANNOTATION_LABELS: "https://tobor.eddyod.com/brainsharer/annotations/labels/",
-  GET_SET_COUCH_STATE: "http://localhost:5984/neuroglancer",
-  GET_SET_COUCH_USER: "http://localhost:5984/users",
+  API_ENDPOINT: "http://tobor.eddyod.com/brainsharer",
+  GOOGLE_LOGIN: "http://tobor.eddyod.com/brainsharer/accounts/google/login/?next=",
+  LOCAL_LOGIN: "http://tobor.eddyod.com/brainsharer/admin/login/?next=",
+  LOGOUT: "http://tobor.eddyod.com/brainsharer/local/logout/",
+  ADMIN_PORTAL: "http://tobor.eddyod.com/brainsharer/admin/",
+  REFRESH_TOKEN: "http://tobor.eddyod.com/brainsharer/api-token-refresh/",
+  GET_SET_STATE: "http://tobor.eddyod.com/brainsharer/neuroglancer/",
+  GET_SET_ANNOTATION: "http://tobor.eddyod.com/brainsharer/annotations/api/",
+  SEARCH_ANNOTATION: "http://tobor.eddyod.com/brainsharer/annotations/search/",
+  GET_ANNOTATION_LABELS: "http://tobor.eddyod.com/brainsharer/annotations/labels/",
+  GET_SET_COUCH_STATE: "http://raspberry.eddyod.com/neuroglancer",
+  GET_SET_COUCH_USER: "http://raspberry.eddyod.com/users",
 };
 EOF
 )
@@ -84,8 +84,8 @@ export const APIs = {
   GET_SET_ANNOTATION: "http://localhost:8000/annotations/api/",
   SEARCH_ANNOTATION: "http://localhost:8000/annotations/search/",
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
-  GET_SET_COUCH_STATE: "http://localhost:5984/neuroglancer",
-  GET_SET_COUCH_USER: "http://localhost:5984/users",
+  GET_SET_COUCH_STATE: "http://raspberry.eddyod.com/neuroglancer",
+  GET_SET_COUCH_USER: "http://raspberry.eddyod.com/users",
 };
 EOF
 )

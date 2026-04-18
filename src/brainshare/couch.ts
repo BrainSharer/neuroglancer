@@ -70,14 +70,14 @@ export class CouchDB {
     const retries = 5;
     const delayMs = 10;
     const url = `${this.baseUrl}/${encodeURIComponent(stateID)}`;
+    let revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
+    let updatedDoc: BaseDoc = { _id: stateID, "type": "base", "version": 0, "data": state };
+    if (revision !== null) {
+      updatedDoc = { _id: stateID, _rev: revision, "type": "base", "version": 0, "data": state };
+    } 
 
     while (attempt <= retries) {
       attempt++
-      let revision = await this.getRevisionFromChangesFeed(APIs.GET_SET_COUCH_STATE, stateID);
-      let updatedDoc: BaseDoc = { _id: stateID, "type": "base", "version": 0, "data": state };
-      if (revision !== null) {
-        updatedDoc = { _id: stateID, _rev: revision, "type": "base", "version": 0, "data": state };
-      } 
 
       const putRes = await fetch(url, {
         method: "PUT",
@@ -86,6 +86,7 @@ export class CouchDB {
       })
 
       if (putRes.ok) {
+        console.debug(`Successfully upserted document with _id: ${stateID} on attempt ${attempt}`);
         return;
       }
 
@@ -94,6 +95,16 @@ export class CouchDB {
         await sleep(delayMs * attempt) // simple backoff
         continue
       }
+
+      // 5. Handle 400 error
+      if (putRes.status === 400) {
+        const errorText = await putRes.text();
+        console.error(`Very bad Request (400): ${errorText}`);
+        console.error(updatedDoc);
+        return;
+      }
+
+
 
     }
     console.warn("Exceeded maximum retry attempts to upsert CouchDB state.");

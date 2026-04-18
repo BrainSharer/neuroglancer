@@ -172,10 +172,9 @@ export class MultiUsersTab extends Tab {
             if ((generation !== undefined) && (generation !== this.prevStateGeneration) && (objectsAreEqual(value, brainState.value.neuroglancer_state) === false)) {
               this.prevStateGeneration = cacheState.generation;
               this.couchDBClient.upsertCouchState(stateID, verifyObject(value));
-              console.debug("Updated couchDB state for stateID:", stateID);
               brainState.value.neuroglancer_state = verifyObject(value);
             } 
-          }, 10);
+          }, 400);
 
           /**  Check user status right away and then setup the listener */
           this.updateMultiUsersStatus();
