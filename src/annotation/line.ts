@@ -437,4 +437,27 @@ export function getEndPointBasedOnPartIndex(
   }
   return undefined;
 }
+
+// using the chunk to layer transform
+// 1441
+export function computeLineLength(pointA: Float32Array<ArrayBufferLike>, pointB: Float32Array<ArrayBufferLike>, scales: Float64Array<ArrayBufferLike>): number | undefined {
+
+  const scale_x = scales[0] * 1000000;
+  const scale_y = scales[1] * 1000000;
+    
+  let [x1, y1, z1] = pointA;
+  let [x2, y2, z2] = pointB;
+  x1 *= scale_x;
+  y1 *= scale_y;
+  x2 *= scale_x;
+  y2 *= scale_y;
+
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dz = z2 - z1;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+
 /* BRAINSHARE ENDS */

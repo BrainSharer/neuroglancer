@@ -145,6 +145,7 @@ import { Tab } from "#src/widget/tab_view.js";
 import type { VirtualListSource } from "#src/widget/virtual_list.js";
 import { VirtualList } from "#src/widget/virtual_list.js";
 /* BRAINSHARE STARTS */
+import { computeLineLength } from "#src/annotation/line.js";
 import { StatusMessage } from '#src/status.js';
 import {
   getZCoordinate,
@@ -1052,7 +1053,7 @@ export class AnnotationLayerView extends Tab {
 
     const helpIcon = makeIcon({
       title:
-        "The left icons allow you to select the type of the anotation. Color and other display settings are available in the 'Rendering' tab.",
+        "The left icons allow you to select the type of the annotation. Color and other display settings are available in the 'Rendering' tab.",
       svg: svg_help,
       clickable: false,
     });
@@ -1586,6 +1587,35 @@ export class AnnotationLayerView extends Tab {
       segmentationButton.classList.add("neuroglancer-annotation-list-entry-delete");
       element.appendChild(segmentationButton);
     };
+
+    if (annotation.type == AnnotationType.LINE) {
+
+      this.layer.dataSources[0];
+
+      const dataSource = this.layer.dataSources[0];
+      const transform = dataSource.spec.transform;
+      if (transform === undefined) return;
+      let inputCoordinateSpace = transform.inputSpace;
+      if (inputCoordinateSpace === undefined) {
+        inputCoordinateSpace = transform.outputSpace;
+      }
+      console.log("Input coordinate space scales: ", inputCoordinateSpace.scales);
+
+
+      console.log("Adding line length element for annotation ", annotation.id);
+      let lineLengthElement: HTMLElement;
+      lineLengthElement = document.createElement("div");
+      lineLengthElement.classList.add("neuroglancer-annotation-list-entry-length");
+      console.log("PointA: ", annotation.pointA);
+      console.log("PointB: ", annotation.pointB);
+      const lineLength: number | undefined = computeLineLength(annotation.pointA, annotation.pointB, inputCoordinateSpace.scales);
+      lineLengthElement.textContent = `${lineLength?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      element.appendChild(lineLengthElement);
+      }
+      // line length end
+    
+
+
     
     /* BRAINSHARE ENDS */
 
@@ -3333,9 +3363,7 @@ export function UserLayerWithAnnotationsMixin<
                       }
 
                       const area = polygonArea(annotationLayer, annRef.value!, inputCoordinateSpace.scales);
-                      // console.log(inputCoordinateSpace.scales)
                       areaElement.textContent = `${area.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-                      // areaElement.textContent = `${area}`;
                       areaElement.style.gridColumn = "area";
                       areaElement.classList.add("neuroglancer-selected-annotation-details-area");
                     }
@@ -3911,3 +3939,4 @@ type UserLayerWithAnnotationsClass = ReturnType<
 
 export type UserLayerWithAnnotations =
   InstanceType<UserLayerWithAnnotationsClass>;
+

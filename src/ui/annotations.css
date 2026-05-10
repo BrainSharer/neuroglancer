@@ -75,6 +75,12 @@
   white-space: nowrap;
 }
 
+.neuroglancer-annotation-list-entry-length {
+  grid-column: symbol;
+  margin-left: 1ch;
+  align-self: start;
+}
+
 .neuroglancer-annotation-list-entry-delete {
   grid-column: delete;
   margin-left: 1ch;
@@ -156,16 +162,11 @@ div.neuroglancer-annotation-details-description {
   font: 10pt sans-serif;
 }
 
-.neuroglancer-annotation-details-position {
-}
-
 .neuroglancer-annotation-toolbox {
   display: flex;
   align-items: stretch;
 }
 
-.neuroglancer-annotation-segment-list {
-}
 
 .neuroglancer-annotation-segment-item {
   color: black;
