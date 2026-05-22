@@ -156,7 +156,8 @@ import {
   brainState, 
   getState, 
   getUrlParams, 
-  getUser 
+  getUser, 
+  userState
 } from "#src/brainshare/state_utils.js";
 import { makeMinimalViewer } from "./ui/minimal_viewer";
 /* BRAINSHARE ENDS */
@@ -716,20 +717,38 @@ export class Viewer extends RefCounted implements ViewerState {
     if (urlParams.stateID) {
       const success = getState(urlParams.stateID);
       if (success) {
-        success.then(() => {; 
+        success.then(() => {
+          ;
           if (brainState.value !== null) {
             this.state.reset();
-            this.state.restoreState(verifyObject(
-              brainState.value.neuroglancer_state
-            ));
-            StatusMessage.showTemporaryMessage(
-              "Brain state loaded from database."
-            );
-
-            const href = new URL(location.href);
-            // href.searchParams.set("loaded", "1");
-            window.history.pushState({}, '', href.toString());
+            if (userState.value?.lab === brainState.value.lab) {
+            console.debug("user labs equal ", userState.value?.lab);
+            } else {
+              console.debug("user labs not equal ", userState.value?.lab, " ", brainState.value.lab);
+            }
+            if (brainState.value.public === true) {
+              console.debug("brain state is public");
+            } else {
+              console.debug("brain state is not public");
+            }
+            if (userState.value?.admin === "true") {
+              console.debug("user is admin");
+            } else {
+              console.debug("user is not admin");
+            }
+            if ((userState.value?.lab === brainState.value.lab) || (brainState.value.public === true) || (userState.value?.admin === "true")) {
+              this.state.restoreState(verifyObject(
+                brainState.value.neuroglancer_state
+              ));
+              StatusMessage.showTemporaryMessage("Brain state loaded from database.");
+              const href = new URL(location.href);
+              // href.searchParams.set("loaded", "1");
+              window.history.pushState({}, '', href.toString());
+            } else {
+              StatusMessage.showTemporaryMessage("You do not have permission to view this brain state.", 50000);
+            }
           }
+
         });
       }
     }

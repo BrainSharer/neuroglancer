@@ -3,8 +3,7 @@ import { fetchOk } from "#src/util/http_request.js";
 import { StatusMessage } from "#src/status.js";
 import { WatchableValue } from "#src/trackable_value.js";
 import { APIs } from "#src/brainshare/service.js";
-import { State, User } from "#src/brainshare/patching/types.js";
-
+import { State, User } from "#src/brainshare/types.js";
 
 /**
  * This function gets the two parameters from the URL
@@ -29,13 +28,15 @@ export function getUrlParams(): any {
 export function getUser() {
   const id = getCookie("id") ?? 0;
   const username = getCookie("username") ?? "";
+  const admin = getCookie("admin") ?? "false";
   const lab = getCookie("lab") ?? "";
   const access = getCookie("access") ?? "";
 
-  let userjson = { "id": 0, "username": "", "lab": "", "access": "" };
+  let userjson = { "id": 0, "admin": "false", "username": "", "lab": "", "access": "" };
   if ((id !== 0) && (username !== "")) {
     userjson = {
       "id": +id,
+      "admin": admin.toLowerCase(),
       "username": username,
       "lab": lab,
       "access": access

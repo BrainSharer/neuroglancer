@@ -56,6 +56,7 @@ export interface State {
 
 export interface User {
     id: number;
+    admin: string;
     username: string;
     lab: string;
     access: string;

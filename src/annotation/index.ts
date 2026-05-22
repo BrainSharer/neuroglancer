@@ -1542,7 +1542,7 @@ export class AnnotationSource
 
      /* BRAINSHARE STARTS */
     // Set parent Id
-    if (parentRef && isTypeCollection(parentRef.value!)) {
+    if (parentRef && isTypeCollection(parentRef.value!) && parentRef.value !== null) {
       annotation.parentAnnotationId = parentRef.id;
     }
   /* BRAINSHARE ENDS */
