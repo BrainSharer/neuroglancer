@@ -16,6 +16,7 @@ export const APIs = {
   GET_ANNOTATION_LABELS: "https://brainsharer.org/brainsharer/annotations/labels/",
   GET_SET_COUCH_STATE: "https://nosql.dk.ucsd.edu/neuroglancer",
   GET_SET_COUCH_USER: "https://nosql.dk.ucsd.edu/users",
+  GET_SET_NOTES: "https://brainsharer.org/brainsharer/notes",
 };
 EOF
 )
@@ -34,6 +35,7 @@ export const APIs = {
   GET_ANNOTATION_LABELS: "https://mothra.eddyod.com/brainsharer/annotations/labels/",
   GET_SET_COUCH_STATE: "https://nosql.eddyod.com/neuroglancer",
   GET_SET_COUCH_USER: "https://nosql.eddyod.com/users",
+  GET_SET_NOTES: "http://mothra.eddyod.com/brainsharer/notes",
 };
 EOF
 )
@@ -52,24 +54,10 @@ export const APIs = {
   GET_ANNOTATION_LABELS: "http://tobor.eddyod.com/brainsharer/annotations/labels/",
   GET_SET_COUCH_STATE: "http://raspberry.eddyod.com/neuroglancer",
   GET_SET_COUCH_USER: "http://raspberry.eddyod.com/users",
+  GET_SET_NOTES: "http://tobor.eddyod.com/brainsharer/notes",
 };
 EOF
 )
-SERVICE_DEMO=$(cat <<'EOF'
-export const APIs = {
-  IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
-  API_ENDPOINT: "https://demo.brainsharer.org/brainsharer",
-  GOOGLE_LOGIN: "https://demo.brainsharer.org/brainsharer/accounts/google/login/?next=",
-  LOCAL_LOGIN: "https://demo.brainsharer.org/brainsharer/admin/login/?next=",
-  LOGOUT: "https://demo.brainsharer.org/local/logout",
-  ADMIN_PORTAL: "https://demo.brainsharer.org/brainsharer/admin/",
-  REFRESH_TOKEN: "https://demo.brainsharer.org/brainsharer/api-token-refresh/",
-  GET_SET_STATE: "https://demo.brainsharer.org/brainsharer/neuroglancer/",
-  GET_SET_ANNOTATION: "https://demo.brainsharer.org/brainsharer/annotations/",
-  SEARCH_ANNOTATION: "https://demo.brainsharer.org/brainsharer/annotations/search/",
-  GET_ANNOTATION_LABELS: "https://demo.brainsharer.org/brainsharer/annotations/labels/",
-};
-EOF
 )
 SERVICE_LOCAL=$(cat <<'EOF'
 export const APIs = {
@@ -86,6 +74,7 @@ export const APIs = {
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
   GET_SET_COUCH_STATE: "http://raspberry.eddyod.com/neuroglancer",
   GET_SET_COUCH_USER: "http://raspberry.eddyod.com/users",
+  GET_SET_NOTES: "http://localhost:8000/notes",
 };
 EOF
 )
@@ -95,7 +84,7 @@ if [ "$1" == "" ] || [ $# -gt 1 ]; then
 	exit 0
 fi
 
-if ! [[ "$1" =~ ^(demo|production|mothra|tobor|local)$ ]]; then
+if ! [[ "$1" =~ ^(production|mothra|tobor|local)$ ]]; then
     echo "Enter either 'production' or 'demo' or 'tobor' as an argument."
 	exit 0
 fi

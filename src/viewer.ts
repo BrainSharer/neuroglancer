@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
+// CSS is processed by the bundler; TypeScript does not have declarations for
+// this side-effect-only import.
+// @ts-expect-error Bundler-provided CSS module.
 import "#src/viewer.css";
 import "#src/ui/layer_data_sources_tab.js";
+// @ts-expect-error Bundler-provided CSS module.
 import "#src/noselect.css";
 /* BRAINSHARE STARTS */
 import svg_apple from "./brainshare/AppleMac.svg?raw";
@@ -159,7 +163,6 @@ import {
   getUser, 
   userState
 } from "#src/brainshare/state_utils.js";
-import { makeMinimalViewer } from "./ui/minimal_viewer";
 /* BRAINSHARE ENDS */
 declare let NEUROGLANCER_OVERRIDE_DEFAULT_VIEWER_OPTIONS: any;
 

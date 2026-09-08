@@ -12,4 +12,5 @@ export const APIs = {
   GET_ANNOTATION_LABELS: "http://localhost:8000/annotations/labels/",
   GET_SET_COUCH_STATE: "http://raspberry.eddyod.com/neuroglancer",
   GET_SET_COUCH_USER: "http://raspberry.eddyod.com/users",
+  GET_SET_NOTES: "http://localhost:8000/notes",
 };

@@ -61,3 +61,12 @@ export interface User {
     lab: string;
     access: string;
 }
+
+export interface NeuroglancerLog {
+    id?: number;
+    created?: string;
+    note: string;
+    username?: string;
+    owner?: number;
+    state: number;
+}
