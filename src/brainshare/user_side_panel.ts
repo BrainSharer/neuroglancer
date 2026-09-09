@@ -98,7 +98,7 @@ class NeuroglancerLogsTab extends Tab {
     formActions.style.cssText = "display:flex; gap:6px; align-items:center;";
 
     this.createButton.type = "submit";
-    this.createButton.textContent = "Create row";
+    this.createButton.textContent = "Add note";
     formActions.append(this.createButton);
     form.append(noteLabel, formActions);
     form.addEventListener("submit", (event) => {
@@ -111,7 +111,8 @@ class NeuroglancerLogsTab extends Tab {
     this.tableContainer.style.cssText = `
       flex: 1 1 auto;
       min-height: 0;
-      overflow: auto;
+      height: 250px;
+      overflow-y: auto;
     `;
 
     this.element.append(heading, form, this.statusElement, this.tableContainer);
@@ -239,13 +240,13 @@ class NeuroglancerLogsTab extends Tab {
 
     if (this.rows.length === 0) {
       const empty = document.createElement("div");
-      empty.textContent = "No rows found.";
+      empty.textContent = "No notes found.";
       empty.style.cssText = "padding:12px 4px; opacity:.7;";
       this.tableContainer.appendChild(empty);
       return;
     }
 
-    const columns = ["created", "note", "username"] as Array<keyof RestRow>;
+    const columns = ["id", "created", "note", "username"] as Array<keyof RestRow>;
 
     const table = document.createElement("table");
     table.style.cssText = "width:100%; border-collapse:collapse; font-size:12px;";

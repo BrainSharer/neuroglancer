@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SERVICE_PATH="./src/brainshare/service.ts"
+
 SERVICE_PRODUCTION=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
@@ -20,6 +21,7 @@ export const APIs = {
 };
 EOF
 )
+
 SERVICE_MOTHRA=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
@@ -39,6 +41,7 @@ export const APIs = {
 };
 EOF
 )
+
 SERVICE_TOBOR=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
@@ -58,7 +61,7 @@ export const APIs = {
 };
 EOF
 )
-)
+
 SERVICE_LOCAL=$(cat <<'EOF'
 export const APIs = {
   IMAGESERVER_API_ENDPOINT: "https://imageserv.dk.ucsd.edu/brainsharer",
@@ -80,7 +83,7 @@ EOF
 )
 
 if [ "$1" == "" ] || [ $# -gt 1 ]; then
-    echo "Enter either 'production' or 'demo' or 'tobor' or 'local' or 'mothra' as an argument."
+    echo "Enter either 'production' or 'tobor' or 'local' or 'mothra' as an argument."
 	exit 0
 fi
 
@@ -93,11 +96,6 @@ rm -vf dist/min/*
 rm -vf *.tar.gz
 GIT=$(git tag --sort=version:refname | tail -n1)
 
-if [ "$1" == "demo" ]; then
-    BUILD_INFO="{'tag':'DEMO Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"
-    PACKAGE="neuroglancer.demo.tar.gz"
-    echo "$SERVICE_DEMO" > "$SERVICE_PATH"
-fi
 
 if [ "$1" == "production" ]; then
     BUILD_INFO="{'tag':'Production Version $GIT', 'url':'https://github.com/BrainSharer/neuroglancer/commit/$(git rev-parse HEAD)', 'timestamp':'$(date)'}"

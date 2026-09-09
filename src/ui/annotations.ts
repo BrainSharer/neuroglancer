@@ -164,7 +164,6 @@ import type {
 import {
   AutocompleteTextInput
 } from "#src/widget/multiline_autocomplete.js";
-//import { CancellationToken } from "#src/brainshare/cancellation.js";
 import { fetchOk } from "#src/util/http_request.js";
 import { brainState, userState } from "#src/brainshare/state_utils.js";
 import { APIs } from "#src/brainshare/service.js";
@@ -558,6 +557,7 @@ export function uploadAnnotation(
     annotation: annJson,
     animal: brainState.value.animal,
     annotator: userState.value.id,
+    updated_by: userState.value.id,
     label: labels[0],
   }
   StatusMessage.showTemporaryMessage("Uploading annotation...", 5000);
