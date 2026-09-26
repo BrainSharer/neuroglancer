@@ -157,7 +157,6 @@ class NeuroglancerLogsTab extends Tab {
 
       const payload = await response.json();
       const neuroglancer_log = payload['results'] as NeuroglancerLog[];
-      console.log(neuroglancer_log);
       if (Array.isArray(neuroglancer_log)) {
         this.rows = neuroglancer_log.filter((row: unknown): row is RestRow =>
           row !== null && typeof row === "object" && !Array.isArray(row));
@@ -266,7 +265,6 @@ class NeuroglancerLogsTab extends Tab {
     for (const row of this.rows) {
       const tr = document.createElement("tr");
       for (const column of columns) {
-        console.log(`Rendering column ${String(column)} for row`, row);
         const td = document.createElement("td");
         const value = row[column];
         td.textContent =
